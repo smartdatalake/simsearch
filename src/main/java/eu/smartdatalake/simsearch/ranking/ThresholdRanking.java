@@ -1,91 +1,99 @@
 package eu.smartdatalake.simsearch.ranking;
 
-import java.io.PrintStream;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.TreeMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimaps;
-
-import eu.smartdatalake.simsearch.ISimilarity;
-import eu.smartdatalake.simsearch.Result;
-import eu.smartdatalake.simsearch.numerical.INormal;
+import eu.smartdatalake.simsearch.IValueFinder;
+import eu.smartdatalake.simsearch.Constants;
+import eu.smartdatalake.simsearch.DatasetIdentifier;
+import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.PartialResult;
+import eu.smartdatalake.simsearch.csv.numerical.INormal;
+import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**
  * Implementation of the threshold-based rank aggregation algorithm.
  */
-public class ThresholdRanking implements RankAggregator {
-
-	//FIXME: Check which types of similarity measures should apply
-	public final static int SIMILARITY_JACCARD = 0;   // used for categorical top-k
-	public final static int SIMILARITY_SPATIAL = 1;   //TODO: spatial similarity not yet implemented
-	public final static int SIMILARITY_NUMERICAL = 2;  // used for numerical top-k
+public class ThresholdRanking implements IRankAggregator {
 	
-	PrintStream logStream = null;
+	Logger log = null;
 	
 	AggregateResult aggResult;
 	String val;
 	double score;
 	int numTasks;
 	int topk;       // Number of ranked aggregated results to collect
-	double threshold;
+	double[] threshold;
+	long dbProbes;
+	long randomAccesses;
  
-	String COLUMN_DELIMITER = ";";    //Default delimiter for values in the output file
-	PrintStream outStream;
-	
-	// List of ranked aggregated results at current iteration
-	HashMap<String, AggregateResult> curResults;
+	// Array of collections with ranked aggregated results at current iteration; one collection per weight combination
+	AggregateResultCollection[] curResults;
 
-	// Priority queue of ranked results based on DESCENDING scores
-	ListMultimap<Double, String> rankedList; 
+	// Array of priority queues of ranked results based on DESCENDING scores; one queue per weight combination
+	AggregateScoreQueue[] scoreQueues; 
 	
-	// List of queues that collect results from each running task
-	List<ConcurrentLinkedQueue<Result>> queues;
-	List<Thread> tasks;
+	// Collection of queues that collect results from each running task
+	Map<String, ConcurrentLinkedQueue<PartialResult>> queues;
+	Map<String, Thread> tasks;
+	
+	// Collection of all data/index datasetIdentifiers involved in the search
+	Map<String, DatasetIdentifier> datasetIdentifiers;
 	
 	// Weights
-	List<Double> weights;
+	Map<String, Double[]> weights;
+	int weightCombinations;
 	
 	// Normalization functions
-	List<INormal> normalizations;
+	Map<String, INormal> normalizations;
 	
-	//Dictionaries built for the various datasets as needed in random access similarity calculations
-	List<HashMap<?,?>> datasets;
+	// Look-up tables built for the various datasets as needed in random access similarity calculations
+	// Using the dataset hash key as a reference to the collected values for each attribute
+	Map<String, HashMap<?, ?>> datasets;
 	
-	// List of atomic booleans to control execution of the various threads
-	List<AtomicBoolean> runControl = new ArrayList<AtomicBoolean>();
+	// Collection of value finder instantiations for random access to DBMS sources
+	Map<String, IValueFinder> dbValueFinders;
+	
+	// Collection of atomic booleans to control execution of the various threads
+	Map<String, AtomicBoolean> runControl = new HashMap<String, AtomicBoolean>();
 
-	// List of similarity functions to be used in random access calculations
-	List<ISimilarity> similarities;
+	// Collection of similarity functions to be used in random access calculations
+	Map<String, ISimilarity> similarities;
+	
+	// List with the identifiers of the checked objects (the same one for all combinations of weights)
+	CheckedItems checkedItems;
+	
+	// Collection of the ranked results to be given as output per weight combination
+	RankedResultCollection[] results;
+	
 	
 	/**
 	 * Constructor
+	 * @param datasetIdentifiers List of the attributes involved in similarity search queries.
 	 * @param datasets   List of the various data collections involved in the similarity search queries.
 	 * @param similarities   List of the similarity measures applied in each search query.
 	 * @param weights  List of the weights to be applied in similarity scores returned by each search query.
 	 * @param normalizations  List of normalization functions to be applied in data values during random access.
 	 * @param tasks  The list of running threads; each one executes a query and it is associated with its respective queue that collects its results.
 	 * @param queues  The list of the queues collecting results from each search query.
+	 * @param dbValueFinders
 	 * @param runControl  The list of boolean values indicating the status of each thread.
 	 * @param topk  The count of ranked aggregated results to collect, i.e., those with the top-k (highest) aggregated similarity scores.
-	 * @param outStream  Handle to the output file.
-	 * @param outColumnDelimiter   Delimiter character of results written to the output file.
-	 * @param outHeader  Header (column names) in the output file.
-	 * @param logStream  Handle to the log file for notifications and execution statistics.
+	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
-	public ThresholdRanking(List<HashMap<?,?>> datasets, List<ISimilarity> similarities, List<Double> weights, List<INormal> normalizations, List<Thread> tasks, List<ConcurrentLinkedQueue<Result>> queues, List<AtomicBoolean> runControl, int topk, PrintStream outStream, String outColumnDelimiter, boolean outHeader, PrintStream logStream) {
+	public ThresholdRanking(Map<String, DatasetIdentifier> datasetIdentifiers, Map<String, HashMap<?, ?>> datasets, Map<String, ISimilarity> similarities, Map<String, Double[]> weights, Map<String, INormal> normalizations, Map<String, Thread> tasks, Map<String, ConcurrentLinkedQueue<PartialResult>> queues, Map<String, IValueFinder> dbValueFinders, Map<String, AtomicBoolean> runControl, int topk, Logger log) {
 		
-		this.logStream = logStream;
+		this.log = log;
+		this.datasetIdentifiers = datasetIdentifiers;
 		this.datasets = datasets;
+		this.dbValueFinders = dbValueFinders;
 		this.similarities = similarities;
 		this.tasks = tasks;
 		this.queues = queues;
@@ -93,92 +101,130 @@ public class ThresholdRanking implements RankAggregator {
 		this.normalizations = normalizations;
 		this.runControl = runControl;
 		this.topk = topk;
-			
-		this.outStream = outStream;
 		
-		//Write header to the output file
-		if (outHeader) {
-			this.outStream.print("top" + COLUMN_DELIMITER + "id" + COLUMN_DELIMITER);
-			//FIXME: Is it possible to replace placeholders with original attribute names?
-			for (int j = 0; j < tasks.size(); j++) {   
-				this.outStream.print("attrVal" + (j+1) + COLUMN_DELIMITER);
-				this.outStream.print("attrScore" + (j+1) + COLUMN_DELIMITER);
-			}
-			this.outStream.print("totalScore" + "\n");
+		// Counter of database queries to retrieve values required  for random access operations
+		dbProbes = 0;
+		// Counter of random access requests to the lookups
+		randomAccesses = 0;
+		
+		// Number of combinations of weights to apply
+		weightCombinations = weights.entrySet().iterator().next().getValue().length;
+		
+		// Instantiate array of priority queues to hold ranked results on DESCENDING scores; one queue per combination of weights
+		scoreQueues = new AggregateScoreQueue[weightCombinations];
+		
+		// Array of thresholds to consider at each iteration
+		threshold = new double[weightCombinations];
+		
+		// Array of aggregated results collected at the current iteration for each combination of weights
+		curResults = new AggregateResultCollection[weightCombinations];
+		
+		// Instantiate a list with the checked objects in order to avoid duplicate checks 
+		// Duplicates could have been emitted if the same item had been returned again by another priority queue
+		checkedItems = new CheckedItems();
+
+		// Array of collection of results; one collection (list) per combination of weights
+		results = new RankedResultCollection[weightCombinations];
+		
+		// Initialize all array structures
+		for (int w = 0; w < weightCombinations; w++) {
+			scoreQueues[w] = new AggregateScoreQueue(topk+1);
+			results[w] = new RankedResultCollection();
 		}
-			
-		// Instantiate priority queue to hold ranked results on DESCENDING scores
-		rankedList = Multimaps.newListMultimap(new TreeMap<>(Collections.reverseOrder()), ArrayList::new);
 	}
 
+	/**
+	 * Provides the next partial result from a queue. Results already examined due to random access are skipped.
+	 * @param taskKey  The hashKey of the task to be checked for its next result.
+	 * @return  A partial result from this queue to be used in rank aggregation.
+	 */
+	private PartialResult fetchPartialResult(String taskKey) {
+		
+		if (!queues.get(taskKey).isEmpty()) {
+			PartialResult res = queues.get(taskKey).peek(); // Result NOT removed from queue!
+			while (res != null) {
+				if (checkedItems.contains(res.getId().toString())) { 	// Result has already been examined before, so...  
+					queues.get(taskKey).poll();    				// ...remove it from this queue
+					res = queues.get(taskKey).peek(); 			// ... and get next result from that queue
+				}
+				else
+					return res;
+			}
+		}
+		return null;
+	}
 
 	/**
-	 * Inserts or updates the ranked aggregated results based on a result from
-	 * the i-queue
-	 * 
-	 * @param i
-	 *            The queue that provides the new result
-	 * @return True, if the ranked aggregated list has been updated; otherwise,
-	 *         False.
+	 * Inserts or updates the ranked aggregated results based on a result from the i-th queue
+	 * @param taskKey   The hashKey of the task to be checked for its next result.
+	 * @param i   The queue that provides the new result.
+	 * @param w   The identifier of the weight combination to be applied on the scores.
+	 * @return  True, if the ranked aggregated list has been updated; otherwise, False.
 	 */
-	private boolean updateRankedList(int i) {
+	private boolean updateRankedList(String taskKey, int i, int w) {
 
-		if (!queues.get(i).isEmpty()) {
-			Result res = queues.get(i).peek(); // Do NOT remove this result from
-												// queue
-//			System.out.println("QUEUE: " + i);
-			if (res != null) {
-				// A common element must be used per result
-				val = res.getId();
-				//CAUTION! Weighted score used in aggregation
-				score = this.weights.get(i) * res.getScore();   
-				threshold += score;
-				aggResult = curResults.get(val);
-				// INSERT new aggregate result to the ranked list if not already exists
-				if (aggResult != null) { // UPDATE: Aggregate result already
+		PartialResult res = fetchPartialResult(taskKey); // Result NOT removed from queue!
+		if (res != null) {
+			// A common identifier must be used per result
+			val = res.getId().toString();
+			//CAUTION! Weighted score used in aggregation
+			score = this.weights.get(taskKey)[w] * res.getScore();   
+			threshold[w] += score;
+			aggResult = curResults[w].get(val);
+			// Handle new aggregate result to the ranked list
+			if (aggResult != null) { 	// UPDATE: Aggregate result already
 										// exists in the ranked list
-					// Update its lower bound
-					aggResult.setLowerBound(aggResult.getLowerBound() + score); 
-					// Mark that this result has also been retrieved from this queue
-					aggResult.setAppearance(i); 
-					// If all results have been received, the upper bound
-					// coincides with the lower bound
-					if (aggResult.checkAppearance()) {
-						aggResult.setUpperBound(aggResult.getLowerBound());
-					}			
-					curResults.put(val, aggResult);			
-				} else { // INSERT new aggregate result to the ranked list...
-					aggResult = new AggregateResult(val, numTasks, score, score);
-					// Mark that this result has also been retrieved from this queue
-					aggResult.setAppearance(i); 
-					curResults.put(val, aggResult);
-				}
-				return true;
+				// Update its lower bound
+				aggResult.setLowerBound(aggResult.getLowerBound() + score); 
+				// Mark that this result has also been retrieved from this queue
+				aggResult.setAppearance(i); 
+				// If all results have been received, the upper bound
+				// coincides with the lower bound
+				if (aggResult.checkAppearance()) {
+					aggResult.setUpperBound(aggResult.getLowerBound());
+				}			
+				curResults[w].put(val, aggResult);
+			} else { 	// INSERT new aggregate result to the ranked list...
+				aggResult = new AggregateResult(val, numTasks, score, score);
+				// Mark that this result has also been retrieved from this queue
+				aggResult.setAppearance(i); 
+				curResults[w].put(val, aggResult);
 			}
+			return true;
 		}
 
 		return false;
 	}
-	
-	// 
+
+
 	/**
 	 * Calculates the total aggregated score of a query result by randomly accessing its attribute values.
 	 * @param res  The query result.
+	 * @param w   The identifier of the weight combination to be applied on the scores.
 	 * @return  The aggregated score after estimating the missing scores in unseen attributes.
 	 */
-	private double updateScoreRandomAccess(AggregateResult res) {
+	private double updateScoreRandomAccess(AggregateResult res, int w) {
 		
 		double score = res.getLowerBound();
 		BitSet appearances = res.getAppearance();
-		for (int i = 0; i < numTasks; i++) {
-			//CAUTION! Weighted scores used in aggregation
-			if (appearances.get(i) == false) {
-				Object val = this.datasets.get(i).get(res.getId());   // Access attribute value
-				if (val != null) {   // If not null, then update score accordingly
-					if (this.normalizations.get(i) != null)   // Apply normalization, if specified
-						score += this.weights.get(i) * this.similarities.get(i).calc(this.normalizations.get(i).normalize(val));
+		for (String task : tasks.keySet()) {	
+			// Need to perform random access for unprobed attributes
+			if (appearances.get(this.similarities.get(task).getTaskId()) == false) {
+				Object val = this.datasets.get(task).get(res.getId());   // Access attribute value
+				randomAccesses++;
+				if ((val == null) && (this.datasetIdentifiers.get(task).getDataSource().getJdbcConnPool() != null)) {
+					// Retrieval from the DBMS also updates the in-memory data look-up
+					val = dbValueFinders.get(this.datasetIdentifiers.get(task).getHashKey()).find(this.datasets.get(task), res.getId());
+					dbProbes++;
+				}
+				//CAUTION! Weighted scores used in aggregation
+				if (val != null) {   // If value is not null, then update score accordingly
+					if (this.normalizations.get(task) != null)   // Apply normalization, if specified
+						score += this.weights.get(task)[w] * this.similarities.get(task).calc(this.normalizations.get(task).normalize(val));
 					else
-						score += this.weights.get(i) * this.similarities.get(i).calc(val);
+						score += this.weights.get(task)[w] * this.similarities.get(task).calc(val);
+					// Mark this candidate as probed in this attribute
+					res.setAppearance(this.similarities.get(task).getTaskId());
 				}
 			}
 		}
@@ -190,140 +236,184 @@ public class ThresholdRanking implements RankAggregator {
 	 * Implements the processing logic of the threshold-based algorithm.
 	 */
 	@Override
-	public boolean proc() {
-	
+	public RankedResult[][] proc() {
+			
 		boolean running = true;
 		int n = 0;
 		
 		try {
-			numTasks = tasks.size();			
+			numTasks = tasks.size();	
 			BitSet probed = new BitSet(numTasks);
-			int k = 0;    // Number of ranked aggregated results so far
+			// Number of ranked aggregated results so far
+			int[] k = new int[weightCombinations];    // Each k is monitoring progress for each combination of weights
+			Arrays.fill(k, 0);
+			
+			int i;
+			boolean allScalesSet = false;
+			long startTime = System.currentTimeMillis();
 			
 			while (running) {
+
+				// Wait until all scale factors for similarity scores have been set in all partial results from each task
+				// Otherwise, scale factors may have been set arbitrarily due to the random access calculations per attribute.
+				while (allScalesSet == false) {
+					allScalesSet = true;
+					TimeUnit.NANOSECONDS.sleep(100);
+					for (String task : tasks.keySet()) {
+						// In case that the task is completed and no scale has been set, this means that all results are exact and no scale is needed
+						allScalesSet = allScalesSet && (!runControl.get(task).get() || this.similarities.get(task).isScaleSet());
+					}
+				}
+
 				n++;
 				running = false;
-				threshold = 0.0;  // To be updated with results from this iteration
-				curResults = new HashMap<String, AggregateResult>();
-				probed.clear(); // New result to be fetched from each queue
+			
+				// To be updated with results from this iteration
+				for (int w = 0; w < weightCombinations; w++) {
+					threshold[w] = 0.0;     // Reset thresholds for all combinations
+					curResults[w] = new AggregateResultCollection();
+				}
+				probed.clear(); // New results to be fetched from each queue
 	
-				// Wait until all queues have been updated with their n-th
-				// result
+				// Wait until all examined queues have been updated with their n-th result
+				i = -1;
 				while (probed.cardinality() < numTasks) {
 					// Wait a while and then try again to fetch results
 					// from the remaining queues
 					TimeUnit.NANOSECONDS.sleep(1); 
-					for (int i = 0; i < numTasks; i++) {
+					for (String task : tasks.keySet()) {
+						i = this.similarities.get(task).getTaskId();
 						if (probed.get(i) == false)
-							probed.set(i, updateRankedList(i));
+							for (int w = 0; w < weightCombinations; w++) 
+								probed.set(i, updateRankedList(task, i, w));
 					}
+					if (System.currentTimeMillis() - startTime > Constants.RANKING_MAX_TIME)
+						break;
 				}
 				
-				// Since all queues have been updated with their next result,
-				// do RANDOM ACCESS and compute the scores of the seen n-th results
-				for (AggregateResult res: curResults.values()) {
-					res.setLowerBound(updateScoreRandomAccess(res));
-					//Refresh ranked aggregate results from current iteration
-					//FIXME: Must check if this key already exists in the ranked results?
-					rankedList.put(res.getLowerBound(), res.getId());
+				// Since all examined queues have been updated with their next result,...
+				// ...do RANDOM ACCESS and compute the scores of the seen n-th results
+				for (int w = 0; w < weightCombinations; w++) {
+					for (AggregateResult res: curResults[w].values()) {
+						res.setLowerBound(updateScoreRandomAccess(res, w));
+						// Remember that a result with this key has been examined
+						checkedItems.add(res.getId().toString());
+						//Refresh scores of ranked aggregate results from current iteration
+						scoreQueues[w].put(res.getLowerBound(), res.getId().toString());
+					}
 				}
 					
 //				if (n % 100 == 0)
-//					System.out.print("Iteration #" + n + "... " + "\r"); //+ " #KEYS: " + rankedList.keySet().size() + " #ITEMS:" + rankedList.size() 
+//					System.out.print("Iteration #" + n + "... " + scoreQueues[0].size() + "\r"); //+ " #KEYS: " + rankedList.keySet().size() + " #ITEMS:" + rankedList.size() 
 				
-				// Remove excessive elements from the ranked list, once it contains more than top-k items
-				if (rankedList.size() > topk) {
-					int c = 0;
-					double curScore;
-					ArrayList<Double> listKeys = new ArrayList<Double>(rankedList.keySet());
-					// Iterate from the highest score currently in the ranked list
-					ListIterator<Double> iterKey = listKeys.listIterator(0);   
-					while (iterKey.hasNext()) {
-						curScore = iterKey.next();
-						if (c < topk)
-							c += rankedList.get(curScore).size();
-						else   //Remove excessive elements
-							rankedList.removeAll(curScore);
-					}
-				}
+				// Examine current results for each combination of weights
+				boolean stop = true;
+				for (int w = 0; w < weightCombinations; w++) {
 					
-				// Once at least top-k candidate aggregated results have been collected,
-				// check whether the next result can be issued
-				Iterator<Double> iter = rankedList.keys().iterator(); 
-//				System.out.println(rankedList.size() + " results collected. Max score: " + iter.next() + " Current threshold: " + threshold);
-			
-				// Report results
-				if (rankedList.size() > k) {
+					// If candidate aggregated results have been collected,
+					// check whether the next result can be issued
+					if (scoreQueues[w].size() > 0) {
+						Iterator<Double> iter = scoreQueues[w].keys().iterator(); 
 
-					//Compare current threshold with the highest score at the head of the priority queue
-					score = iter.next();  
-					if ( score >= threshold) {
-						// Report the items listed with this score
-						List<String> values = rankedList.get(score);
-						for (String val: values) {
-							k++;
-							// Report the rank and the identifier of the resulting item...
-							this.outStream.print(k + COLUMN_DELIMITER + val + COLUMN_DELIMITER);
-							// ... also its original values at the searched attributes
-							for (int j = 0; j < numTasks; j++) {
-								// attribute value
-								this.outStream.print(this.datasets.get(j).get(val).toString() + COLUMN_DELIMITER);    
-								// its individual similarity score
-								if (this.normalizations.get(j) != null)   // Apply normalization, if specified
-									this.outStream.print(this.similarities.get(j).calc(this.normalizations.get(j).normalize(this.datasets.get(j).get(val))) + COLUMN_DELIMITER);
-								else
-									this.outStream.print(this.similarities.get(j).calc(this.datasets.get(j).get(val)) + COLUMN_DELIMITER);  
-							}
-							//... and its aggregated score
-							this.outStream.print(score + "\n");
+						//Compare current threshold with the highest score at the head of the priority queue
+						score = iter.next();  
+						if (score >= threshold[w]) {
+							// One more result can be issued for this combination of weights
+							issueRankedResult(k[w], w);
+							k[w] = results[w].size();
+							// Remove this result from the respective priority queue of aggregate scores
+							scoreQueues[w].removeAll(score);
 						}
-						// Remove this result from the ranked aggregation list
-						rankedList.removeAll(score);
 					}
-/*					
-					else {
-						System.out.println(rankedList.size() + " results collected... " + threshold);
-//						break;
-					}	
-*/
+			
+					// Stop if results have been acquired for each combination of weights
+					// OR if no further EXACT-scored results may be determined from the ranked list
+					stop = stop && (( n > topk * Constants.INFLATION_FACTOR) || (k[w] >= topk));  
 				}
-	
+
 				// Determine whether to continue polling results from queues
-				for (int i = 0; i < numTasks; i++) {
-					// Remove already processed result from this queue
-					queues.get(i).poll(); 
-//					running = running || (tasks.get(i).isAlive()) || !queues.get(i).isEmpty();
-					running = running || !queues.get(i).isEmpty();
-					// FIXME: Once a queue is exhausted, no more aggregated
-					// results can be produced
-					// TODO: Should the process be revised to continue
-					// searching with the remaining queues?
-					if (queues.get(i).isEmpty()) {
-						this.logStream.println("Task " + i + " terminated!");
-						running = false; // Quit the ranked aggregation process
-						break;
-					}
-				}
-				
-				//Once top-k ranked results are returned, stop all running tasks gracefully
-				if (k >= topk) {
-					for (int i = 0; i < numTasks; i++) {
-						runControl.get(i).set(false);   //Stop each task
+				// Once top-k ranked results are returned, stop all running tasks gracefully
+				// If the process times out, then stop any further examination
+				if (stop || (System.currentTimeMillis() - startTime > Constants.RANKING_MAX_TIME)) {
+					for (String task : tasks.keySet()) {
+						runControl.get(task).set(false);   //Stop each task
 					}
 					running = false; 		// Quit the ranked aggregation process
+				} else {  // Otherwise, if at least one task is still running, then continue searching
+					numTasks = 0;					
+					for (String task : tasks.keySet()) {
+						queues.get(task).poll();    // Remove already processed result from this queue
+						// Once a queue is exhausted, it is no longer considered and search continues with the remaining queues
+						if (tasks.get(task).isAlive() || !queues.get(task).isEmpty()) {						
+							running = true;	
+							numTasks++;
+						}
+					}
 				}
-	
 			}
-		} catch (Exception e) { // InterruptedException
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		finally {
-			this.outStream.close();
-		}
 		
-		this.logStream.println("In total " + n + " results have been examined from each queue.");
+		System.out.print(n + ",");  // Count iterations for experimental results
+		this.log.writeln("In total " + n + " results have been examined from each queue.");		
+		this.log.writeln("Random accesses to lookup values: " + randomAccesses + ". Extra values retrieved from DBMS: " + dbProbes);
 		
-		return running;
+		// Prepare array of final results
+		RankedResult[][] allResults = new RankedResult[weightCombinations][topk];
+		for (int w = 0; w < weightCombinations; w++) {
+			allResults[w] = results[w].toArray();
+		}	
+		
+		return allResults;
 	}
 
+	/**
+	 * Inserts the i-th ranked result to the output list. Rank is based on the overall score; ties in scores are resolved arbitrarily.
+	 * @param i  The rank to the assigned to the output result.
+	 * @param w   The identifier of the weight combination to be applied on the scores.
+	 */
+	private void issueRankedResult(int i, int w) {
+		// Report the items listed with this score
+		List<String> items = scoreQueues[w].get(score);
+		for (String it: items) {
+			
+			i++;
+			// Stop once topk results have been issued, even though there might be ties having the same score as the topk result
+			if (i > topk)
+				break;
+			
+			// Create a new resulting item and report its rank and its original identifier...
+			RankedResult res = new RankedResult(tasks.size());
+			res.setId(it);
+			res.setRank(i);
+			
+			// ... also its original values at the searched attributes and the calculated similarity scores
+			int j = 0;
+			for (String task : tasks.keySet()) {
+				Attribute attr = new Attribute();
+				attr.setName(this.datasetIdentifiers.get(task).getColumnName());
+				if (this.datasets.get(task).get(it) == null) {   	 // By default, assign zero similarity for NULL values in this attribute							
+					attr.setValue("");   // Use blank string instead of NULL
+					attr.setScore(0.0);
+				}
+				else {	  // Not NULL attribute value   
+					attr.setValue(this.datasets.get(task).get(it).toString());
+					// Estimate its individual similarity score
+					if (this.normalizations.get(task) != null)   // Apply normalization, if specified
+						attr.setScore(this.similarities.get(task).calc(this.normalizations.get(task).normalize(this.datasets.get(task).get(it))));
+					else
+						attr.setScore(this.similarities.get(task).calc(this.datasets.get(task).get(it)));
+				}
+				res.attributes[j] = attr;
+				j++;
+			}
+			//... and its overall aggregated score
+			res.setScore(score);
+//			log.writeln("RESULT: " + it + " " + score);		
+			
+			// Issue result to the output queue
+			results[w].add(res);
+		}
+	}
 }

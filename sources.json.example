@@ -1,0 +1,70 @@
+{
+	"sources":[    
+				{
+					"name":"localPostGISdatabase",
+					"type": "jdbc",
+					"driver": "org.postgresql.Driver",
+					"url": "jdbc:postgresql://localhost:5432/myDatabase",
+					"username":"postgresName",
+					"password":"postgresPassword",
+					"encoding":"UTF-8"
+				},
+				{
+					"name":"localPath1",
+					"type":"csv",
+					"directory":"./test/"
+				}
+			],
+	"search":[ {
+					"operation":"spatial_knn",
+					"data_source":"localPath1",
+					"dataset":"dataset1.csv",
+					"header":"true",
+					"search_column":"WKT"
+				},
+				{
+					"operation":"numerical_topk",
+					"data_source":"localPath1",
+					"header":"true",
+					"dataset":"dataset1.csv",
+					"search_column":"pos_sentiment"
+				},
+				{
+					"operation":"numerical_topk",
+					"data_source":"localPath1",
+					"dataset":"dataset1.csv",
+					"header":"true",
+					"search_column":"neg_sentiment"
+				},
+				{
+					"operation":"numerical_topk",
+					"data_source":"localPath1",
+					"dataset":"dataset2.csv",
+					"search_column":"employees"
+				},
+				{
+					"operation":"categorical_topk",
+					"data_source":"localPath1",
+					"dataset":"dataset3.csv",
+					"search_column":"persons"
+				},
+				{
+					"operation":"numerical_topk",
+					"data_source":"localPath1",
+					"dataset":"dataset4.csv",
+					"search_column":"revenue"
+				},
+				{
+					"operation":"spatial_knn",
+					"data_source":"localPostGISdatabase",
+					"dataset":"companies",
+					"search_column":"location"
+				}, 
+				{
+					"operation":"categorical_topk",
+					"data_source":"localPostGISdatabase",
+					"dataset":"companies",
+					"search_column":"keywords"
+				}
+			]
+}

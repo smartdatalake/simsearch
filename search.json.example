@@ -1,0 +1,25 @@
+{
+	"k":"20",
+	"queries":[    
+				{
+					"search_column":"keywords",
+					"search_value":["Computer+science", "Electronics", "Software", "E-commerce"],
+					"weights":["0.2","0.6","1.0"]
+				},
+				{
+					"search_column":"revenue",
+					"search_value":"100000",
+					"weights":["0.3","0.5","0.7"]
+				},
+				{
+					"search_column":"employees",
+					"search_value":"5",
+					"weights":["0.2","0.5","0.8"]
+				},
+				{
+					"search_column":"location",
+					"search_value":"POINT (10.404658 43.708845)",
+					"weights":["0.4","0.7","0.9"]
+				}
+			]
+}

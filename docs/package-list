@@ -1,4 +1,8 @@
 eu.smartdatalake.simsearch
-eu.smartdatalake.simsearch.categorical
-eu.smartdatalake.simsearch.numerical
+eu.smartdatalake.simsearch.csv
+eu.smartdatalake.simsearch.csv.categorical
+eu.smartdatalake.simsearch.csv.numerical
+eu.smartdatalake.simsearch.csv.spatial
+eu.smartdatalake.simsearch.jdbc
+eu.smartdatalake.simsearch.measure
 eu.smartdatalake.simsearch.ranking

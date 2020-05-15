@@ -20,6 +20,6 @@ public interface ISimSearch<K, V> {
 	 * Progressively collects the results of a similarity search query.
 	 * @param results  A collection with the query results.
 	 */
-//	public void compute(ConcurrentLinkedQueue<Result> results);
+//	public void compute(ConcurrentLinkedQueue<PartialResult> results);
 	
 }

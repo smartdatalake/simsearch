@@ -43,6 +43,36 @@
 		<artifactId>guava</artifactId>
 		<version>28.1-jre</version>
 	</dependency>
+	<dependency>
+		<groupId>org.locationtech.jts</groupId>
+		<artifactId>jts-core</artifactId>
+		<version>1.16.1</version>
+	</dependency>
+	<dependency>
+		<groupId>net.postgis</groupId>
+		<artifactId>postgis-jdbc</artifactId>
+		<version>2.5.0</version>
+	</dependency>
+	<dependency>
+		<groupId>com.fasterxml.jackson.core</groupId>
+		<artifactId>jackson-databind</artifactId>
+		<version>2.10.3</version>
+	</dependency>
+	<dependency>
+		<groupId>org.apache.commons</groupId>
+		<artifactId>commons-dbcp2</artifactId>
+		<version>2.7.0</version>
+	</dependency>
+	<dependency>
+		<groupId>org.apache.commons</groupId>
+		<artifactId>commons-csv</artifactId>
+		<version>1.8</version>
+	</dependency>
+	<dependency>
+		<groupId>org.apache.commons</groupId>
+		<artifactId>commons-math3</artifactId>
+		<version>3.6.1</version>
+	</dependency>
   </dependencies>
   
   <build>
@@ -59,7 +89,7 @@
 					<!-- MainClass in mainfest make a executable jar -->
 					<archive>
 						<manifest>
-							<mainClass>eu.smartdatalake.simsearch.Coordinator</mainClass>
+							<mainClass>eu.smartdatalake.simsearch.Runner</mainClass>
 						</manifest>
 					</archive>
 

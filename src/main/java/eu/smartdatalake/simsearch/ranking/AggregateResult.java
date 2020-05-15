@@ -2,13 +2,12 @@ package eu.smartdatalake.simsearch.ranking;
 
 import java.util.BitSet;
 
-import eu.smartdatalake.simsearch.Result;
+import eu.smartdatalake.simsearch.PartialResult;
 
 /**
- * Auxiliary class that collects results along with upper and lower bounds on
- * their aggregated scores.
+ * Auxiliary class that collects results along with upper and lower bounds on their aggregated scores.
  */
-public class AggregateResult extends Result {
+public class AggregateResult extends PartialResult {
 	private BitSet appearances; // Bitmap indicating the queues where this value
 								// has been seen so far
 	private double lb; // Lower bound
@@ -17,7 +16,7 @@ public class AggregateResult extends Result {
 	
 	/**
 	 * Constructor
-	 * @param id  Result identifier (the key of the object).
+	 * @param id  PartialResult identifier (the key of the object).
 	 * @param size   Bitmap size: the number of results to be aggregated.
 	 * @param lb  Lower bound of similarity scores.
 	 * @param ub  Upper bound of similarity scores.
