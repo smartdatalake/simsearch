@@ -37,13 +37,13 @@ $ java -jar target/simsearch-0.0.1-SNAPSHOT-jar-with-dependencies.jar
 
 Next, choose a number corresponding to a functionality you want to apply:
 
-(1): MOUNT SOURCES -> Specifies the queryable attributes and (if necessary) builts suitable indices on their values. The user must also specify the path to a JSON file (as in `sources.json.example` file) containing the specification of data sources and attributes. This operation must be applied before any queries are submitted.
+(1): MOUNT SOURCES -> Specifies the queryable attributes and (if necessary) builts suitable indices on their values. The user must also specify the path to a JSON file (as in `sources.json.example` file or [`/data/gdelt/sources.json`[(https://github.com/smartdatalake/data/gdelt/sources.json)) containing the specification of data sources and attributes. This operation must be applied before any queries are submitted.
 
 (2: DELETE SOURCES -> Disables attributes from querying; attributes may be enabled again using functionality (1).
 
 (3): LIST SOURCES -> Returns a list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one.
 
-(4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file conataining the query specification (as in `search.json.example` file).
+(4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file conataining the query specification (as in `search.json.example` file or [`/data/gdelt/search.json`](https://github.com/smartdatalake/data/gdelt/search.json)). Once evaluation is complete, results will be available in JSON format (as in [`/data/gdelt/search_results.json`](https://github.com/smartdatalake/data/gdelt/search_results.json)).
 
 ## License
 
