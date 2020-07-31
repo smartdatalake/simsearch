@@ -34,6 +34,8 @@ public class SpatialDistance<V> implements IDistance<V> {
 	@Override
 	public double calc(V v) {
 		// No need to check again for NULL values; already handled by DecayedSimilarity class
+//		System.out.println("Spatial value:" + v.toString() + " Unscaled distance:" +  111.0 * baseLocation.distance((Geometry) v));
+
 //		if (v != null)
 			return baseLocation.distance((Geometry) v);
 	}

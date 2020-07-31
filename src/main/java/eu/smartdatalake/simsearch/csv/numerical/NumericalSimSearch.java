@@ -59,7 +59,7 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 		i = 0;
 	
 		// Instantiate the numerical similarity function
-		this.numSimilarity = simMeasure;	
+		this.numSimilarity = simMeasure;
 	}
 
 
@@ -157,11 +157,13 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 			simRight = calcSimRight(searchKey);
 
 			// If exact key is found, assign a similarity score of 1.0
-			for (V v: results) {
-				simScore = 1.0;
-				partialResults.add(new PartialResult(v, searchKey, simScore));
-//				System.out.println("key:"+ searchKey + " val:" + v);
-				i++;
+			if (results != null) {
+				for (V v: results) {
+					simScore = 1.0;
+					partialResults.add(new PartialResult(v, searchKey, simScore));
+	//				System.out.println("key:"+ searchKey + " val:" + v);
+					i++;
+				}
 			}
 		}
 
@@ -169,7 +171,7 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 		if ((simLeft == 0.0) && (simRight == 0.0)) {
 //			System.out.println("FINISHED searching. Results collected from " + i + " keys. Final LEFT score:"
 //					+ simLeft + " RIGHT score:" + simRight);
-			return 0;
+			return -1;   // CAUTION: Special value to indicate that tree traversal is exhausted
 		}
 		
 		// As long as keys are not exhausted and we are above the threshold
@@ -180,7 +182,7 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 				results = index.search(leftKey);
 				for (V v: results) {
 					partialResults.add(new PartialResult(v, leftKey, simScore));
-//					System.out.println("key:"+ leftKey + " val:" + v);
+//					System.out.println("LEFT key:"+ leftKey + " val:" + v);
 					i++;
 				}
 				simLeft = calcSimLeft(searchKey);
@@ -189,7 +191,7 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 				results = index.search(rightKey);
 				for (V v: results) {
 					partialResults.add(new PartialResult(v, rightKey, simScore));
-//					System.out.println("key:"+ rightKey + " val:" + v);
+//					System.out.println("RIGHT key:"+ rightKey + " val:" + v);
 					i++;
 				}
 				simRight = calcSimRight(searchKey);
@@ -242,9 +244,14 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 	public long compute(int k) {
 		
 		int n = 0;
+		int m = 0;
 		try {
 			while (partialResults.size() < k) {
-				n += fetchNextBatch();
+				m = fetchNextBatch();
+				if (m >= 0)
+					n += m;
+				else         // Tree is exhausted
+					break;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

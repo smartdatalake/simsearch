@@ -80,7 +80,10 @@ public class JdbcConnectionPool {
         return connPool;
     }
  
-    // Notify about the status of this connection pool
+    /**
+     * Notify about the status of this connection pool
+     * @return A string with statistics about connectivity to the JDBC source.
+     */
     public String checkPoolStatus() {
     	
         return ("Connections: max: " + getConnectionPool().getMaxTotal() + "; active: " + getConnectionPool().getNumActive() + "; idle: " + getConnectionPool().getNumIdle());
@@ -108,10 +111,10 @@ public class JdbcConnectionPool {
 			//Determine connection type to the specified DBMS
 			switch(dbSystem) {
 				case "POSTGRESQL":
-					jdbcConnector = new PostgisDbConnector(conn, dbSystem);
+					jdbcConnector = new JdbcConnector(conn, dbSystem);
 					break;
-				case "MYSQL":    // TODO: Placeholder for another DBMS 
-//					jdbcConnector = new MySqlDbConnector(dbHost, dbPort, dbName, dbUserName, dbPassword);
+				case "AVATICA":    // Connection to Proteus 
+					jdbcConnector = new JdbcConnector(conn, dbSystem);
 					break;
 				case "ORACLE":   // TODO: Placeholder for another DBMS
 //					jdbcConnector = new OracleDbConnector(dbHost, dbPort, dbName, dbUserName, dbPassword, dbEncoding);

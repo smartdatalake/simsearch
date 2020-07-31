@@ -38,6 +38,8 @@ public class CategoricalDistance<V> implements IDistance<V> {
 		Set<String> intersection = new HashSet<String>(baseTokens);
 		intersection.retainAll(curSet.tokens);
 
+//		System.out.println("Categorical value:" + v.toString() + " Unscaled distance:" +  (1.0 - (((double) intersection.size()) / ((double) union.size()))));
+
 		// Jaccard distance value
 		return (1.0 - (((double) intersection.size()) / ((double) union.size())));
 	}
@@ -57,7 +59,9 @@ public class CategoricalDistance<V> implements IDistance<V> {
 
 		Set<String> intersection = new HashSet<String>(set1.tokens);
 		intersection.retainAll(set2.tokens);
-		
+
+//		System.out.println("Categorical value 1:" + v1.toString() + "Categorical value 2:" + v2.toString() + " Unscaled distance:" +  (1.0 - (((double) intersection.size()) / ((double) union.size()))));
+	
 		// Jaccard distance value
 		return (1.0 - (((double) intersection.size()) / ((double) union.size())));
 	}

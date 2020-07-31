@@ -2,10 +2,10 @@ package eu.smartdatalake.simsearch;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
-
-import org.json.simple.JSONObject;
+import java.util.Arrays;
 
 import eu.smartdatalake.simsearch.ranking.RankedResult;
+import eu.smartdatalake.simsearch.request.SearchOutput;
 
 /**
  * Auxiliary class that can be used to write search results to a file in CSV format.
@@ -13,29 +13,41 @@ import eu.smartdatalake.simsearch.ranking.RankedResult;
 public class OutputWriter {
 
 	PrintStream outStream = null;
-	String outColumnDelimiter = Constants.OUTPUT_COLUMN_SEPARATOR;   // Default delimiter for values in the output CSV file
+	String outColumnDelimiter = Constants.OUTPUT_COLUMN_SEPARATOR;	// Default delimiter for values in the output CSV file
 	boolean outHeader = true;
-	
-	public OutputWriter(JSONObject config) {
+	String outQuote = null;						
+
+	/**
+	 * Constructor
+	 * @param out   Output specifications for search results.
+	 */
+	public OutputWriter(SearchOutput out) {
 		
-		// Output format
-		if (config.get("output_format") != null) {
-			String outFormat = String.valueOf(config.get("output_format"));
-			if (outFormat.toLowerCase().equals("csv")) {
-				if (config.get("column_delimiter") != null) {
-					outColumnDelimiter = String.valueOf(config.get("column_delimiter"));
-					if (outColumnDelimiter == null || outColumnDelimiter.equals(""))
-						outColumnDelimiter = " ";
-				}
-				if (config.get("header") != null)
-					outHeader = Boolean.parseBoolean(String.valueOf(config.get("header")));
-				
-				// output file
-				String outputFile = String.valueOf(config.get("output_file"));
-				try {
-					outStream = new PrintStream(outputFile);    // An output stream is only created in case of CSV format
-				} catch (FileNotFoundException e) {
-					e.printStackTrace();
+		if (out!= null) {    // Output specifications may be missing in case of JSON (default)
+			if (out.format != null) {
+				String outFormat = out.format;
+				if (outFormat.toLowerCase().equals("csv")) {
+					if (out.delimiter != null) {
+						outColumnDelimiter = out.delimiter;
+						if (outColumnDelimiter == null || outColumnDelimiter.equals(""))
+							outColumnDelimiter = " ";
+					}
+					if (out.header != null)
+						outHeader = out.header;
+					
+					if (out.quote != null) {
+						outQuote = out.quote;
+						if (outQuote == null || outQuote.equals(""))
+							outQuote = Constants.OUTPUT_QUOTE;   // Default quote for string values in the output CSV file
+					}
+					
+					// output file
+					String outputFile = out.file;
+					try {
+						outStream = new PrintStream(outputFile);    // An output stream is only created in case of CSV format
+					} catch (FileNotFoundException e) {
+						e.printStackTrace();
+					}
 				}
 			}
 		}
@@ -60,17 +72,24 @@ public class OutputWriter {
 	
 	/**
 	 * Writes the search results into the CSV file.
+	 * @param weights  The weights applied to the specified batch of results. These weights will become the first column in the output CSV file.
 	 * @param results  Output results as received from the rank aggregation process (for a given combination of weights).
 	 */
-	public void writeResults(RankedResult[] results) {
+	public void writeResults(Double[] weights, RankedResult[] results) {
 		
-		if (results.length > 0)
-			outStream.println(results[0].getColumnNames(outColumnDelimiter));
-		for (RankedResult res: results) {
-			outStream.println(res.toString(outColumnDelimiter));
+		// Print header only once, for the results corresponding to the first combination of weights
+		if (outHeader) {
+			outStream.println("weights" + outColumnDelimiter + results[0].getColumnNames(outColumnDelimiter));
+			outHeader = false;    
 		}
-		// TODO: Avoid mixing of results in case of multiple combinations of weights; A new file should be created for each combination
-		outStream.println("**************************************************");
+		
+		// To distinguish results in case of multiple combinations of weights, the first column denotes the applied weights
+		for (RankedResult res: results) {
+			if (outQuote != null)
+				outStream.println((Arrays.toString(weights).contains(outColumnDelimiter) ? outQuote + Arrays.toString(weights) + outQuote : Arrays.toString(weights)) + outColumnDelimiter + res.toString(outColumnDelimiter, outQuote));
+			else
+				outStream.println(Arrays.toString(weights) + outColumnDelimiter + res.toString(outColumnDelimiter));
+		}
 	}
 	
 }

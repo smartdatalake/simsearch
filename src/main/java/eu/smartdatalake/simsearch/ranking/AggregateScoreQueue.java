@@ -38,13 +38,13 @@ public class AggregateScoreQueue {
 		// Remove excessive elements from the priority queue of scores, once its capacity is exceeded 
 		int c = scoreQueue.keySet().size();
 
-			ArrayList<Double> listKeys = new ArrayList<Double>(scoreQueue.keySet());
-			// Iterate from the lowest score currently held in the ranked list
-			ListIterator<Double> iterKey = listKeys.listIterator(c);   
-			while ((c > this.capacity) && iterKey.hasPrevious()) {
-				scoreQueue.removeAll(iterKey.previous());    // Remove excessive elements having the lowest score
-				c--;
-			}			
+		ArrayList<Double> listKeys = new ArrayList<Double>(scoreQueue.keySet());
+		// Iterate from the lowest score currently held in the ranked list
+		ListIterator<Double> iterKey = listKeys.listIterator(c);   
+		while ((c > this.capacity) && iterKey.hasPrevious()) {
+			scoreQueue.removeAll(iterKey.previous());    // Remove excessive elements having the lowest score
+			c--;
+		}			
 
 		
 		return true;

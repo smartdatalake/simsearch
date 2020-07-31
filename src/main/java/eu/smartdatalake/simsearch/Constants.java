@@ -17,6 +17,7 @@ public class Constants {
 	public static final String OUTPUT_FORMAT = "JSON";
 	
 	public final static String OUTPUT_COLUMN_SEPARATOR = ";";   // Only in case of CSV output files
+	public final static String OUTPUT_QUOTE = "\"";   			// Only in case of CSV output files
 	
 	//FIXME: Specific types of distance measures apply for each search query facet
 	public final static int CATEGORICAL_TOPK = 0;   // categorical top-k similarity search

@@ -9,18 +9,18 @@
 	"search":[   
 				{
 					"operation":"spatial_knn",
-					"data_source":"localPath1",
+					"source":"localPath1",
 					"dataset":"sample.csv",
 					"header":"true",
-					"column_delimiter":",",
+					"separator":",",
 					"key_column":"article_id",
 					"search_column":["longitude","latitude"]
 				}, 
 				{
 					"operation":"categorical_topk",
-					"data_source":"localPath1",
+					"source":"localPath1",
 					"dataset":"sample.csv",
-					"column_delimiter":",",
+					"separator":",",
 					"token_delimiter":";",
 					"header":"true",
 					"key_column":"article_id",
@@ -28,9 +28,9 @@
 				},
 				{
 					"operation":"numerical_topk",
-					"data_source":"localPath1",
+					"source":"localPath1",
 					"dataset":"sample.csv",
-					"column_delimiter":",",
+					"separator":",",
 					"header":"true",
 					"key_column":"article_id",
 					"search_column":"timestamp"

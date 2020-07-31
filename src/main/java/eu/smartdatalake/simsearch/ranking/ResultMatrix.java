@@ -61,7 +61,7 @@ public class ResultMatrix {
 		Map<String, String> colIdentifiers = new HashMap<String, String>();
 		for (int r = 0; r < results[0].attributes.length; r++) {			
 			for (Map.Entry<String, DatasetIdentifier> entry : this.datasetIdentifiers.entrySet()) {
-				if (entry.getValue().getColumnName().equals(results[0].attributes[r].getName())) {
+				if (entry.getValue().getValueAttribute().equals(results[0].attributes[r].getName())) {
 					colIdentifiers.put(results[0].attributes[r].getName(), entry.getValue().getHashKey());
 					break;
 				}
@@ -91,7 +91,7 @@ public class ResultMatrix {
 							score += this.weights.get(hashKey) * this.similarities.get(hashKey).calc(valLeft, valRight);
 					}				
 				}
-				pair.setScore(score);
+				pair.setScore(score / this.weights.size());   // Aggregate score over all running tasks (one per queried attribute)
 				matrix[i*results.length + j] = pair;			
 			}
 		}		

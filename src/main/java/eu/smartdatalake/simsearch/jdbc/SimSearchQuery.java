@@ -1,6 +1,7 @@
 package eu.smartdatalake.simsearch.jdbc;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,12 +45,14 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	public int collectionSize;
 	ConcurrentLinkedQueue<PartialResult> resultsQueue;
 
-	String sql = null;								// Compose the SQL SELECT command for top-k search
+	String sql = null;			// SQL SELECT command to be composed for top-k search
 	String viewClause ="";
 	String distanceClause = "";
 	String fromClause = "";
+	String whereClause = "";
 	String orderClause = "";
 	String keyColumnName = null;
+	String udfClause = "";
 	
 	// Compose the SQL SELECT command for value retrieval 
 	public String sqlValueRetrievalTemplate = null;	
@@ -102,6 +105,7 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
     	  // FIXME: DBMSs may have different specifications for the various types of queries; currently using the PostgreSQL dialect
     	  switch(operation) {
 	        case Constants.NUMERICAL_TOPK:
+	        	udfClause = "abs(x: double): double := if (x < 0) then -x else x ";   // Specific UDF for use with Avatica JDBC (RAW + Proteus)
 	        	distanceClause = valColumnName + ", abs(" + valColumnName + " - " + searchValue + ") AS distance";
 	        	fromClause = tableName;
 	        	orderClause = "distance";
@@ -130,7 +134,11 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	        	throw new IllegalArgumentException(Constants.INCORRECT_DBMS);
     	  }
     	  
-    	  // Template of SQL query to retrieve the value for a particular object
+    	  // Condition for excluding NULL values
+    	  // FIXME: This is required for Avatica JDBC (Proteus)
+    	  whereClause = valColumnName + " IS NOT NULL";
+    	  
+    	  // Template of SQL query to retrieve the value for a particular object ($id is a placeholder for its identifier)
     	  sqlValueRetrievalTemplate = "SELECT " + valColumnName + " FROM " + tableName + " WHERE " + this.keyColumnName + " = '$id'";
   	  
 		} catch (Exception e) {
@@ -147,9 +155,10 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
     	 int numMatches = 0;
     	 Object val = null;
     	 WKTReader wktReader = new WKTReader();
-    	 ResultSet rs;
+    	 ResultSet rs = null;
     	 long duration = System.nanoTime();
       
+//    	 System.out.println(sql);
 		 try {
 			 //Execute SQL query in the DBMS and fetch all results 
 			 rs = databaseConnector.executeQuery(sql.replace("$k$",""+k));
@@ -181,7 +190,14 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 		    	  this.datasets.get(this.hashKey).put((K)rs.getObject(1), (V)val);
 		    	  
 		    	  // SCORING STEP: Result should get a score according to exponential decay function
-		    	  partialResults.add(new PartialResult(rs.getString(1), val, simMeasure.scoring(rs.getDouble(3))));	
+		    	  if (this.dbType.equals("AVATICA")) {
+		    		  // FIXME: Parsing double from strings is required by Avatica JDBC (Proteus)
+			    	  partialResults.add(new PartialResult(rs.getString(1), val, simMeasure.scoring(Double.parseDouble(rs.getString(3)))));
+		    	  }
+		    	  else {
+		    		  // FIXME: Parsing double from strings as required by PostgreSQL
+		    		  partialResults.add(new PartialResult(rs.getString(1), val, simMeasure.scoring(rs.getDouble(3))));	
+		    	  }
 		    	  
 		          numMatches++;  
 		      }
@@ -190,8 +206,15 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 //				this.log.writeln("An error occurred while retrieving data from the database.");
 				e.printStackTrace();
 		  }
+		 finally {
+			try {
+				rs.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		 }
 		 duration = System.nanoTime() - duration;
-		 this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (JDBC) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
+		 this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
 		 
 		 return numMatches;                      //Report how many records have been retrieved from the database    
      }
@@ -240,11 +263,11 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	        case "POSTGRESQL":
 	        	sql = viewClause + "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " ORDER BY " + orderClause + " LIMIT $k$";
 	          	break;
-	        case "MYSQL":    // Placeholder for another DBMS
-	        	sql = "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " ORDER BY " + orderClause + " LIMIT $k$";
+	        case "AVATICA":    // Connection to Proteus 
+	        	sql = udfClause + "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " WHERE " + whereClause + " ORDER BY " + orderClause + " LIMIT $k$";
 	        	break;
 	        case "ORACLE":   // Placeholder for another DBMS
-	        	sql = "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " ORDER BY " + orderClause + " FETCH FIRST $k$ ROWS ONLY";
+	        	sql = "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " WHERE " + whereClause + " ORDER BY " + orderClause + " FETCH FIRST $k$ ROWS ONLY";
 	        	break;
 	        default:
 	        	this.log.writeln(Constants.INCORRECT_DBMS);

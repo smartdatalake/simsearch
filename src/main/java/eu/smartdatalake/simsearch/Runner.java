@@ -43,7 +43,7 @@ public class Runner {
 */	
 		Scanner in = new Scanner(System.in); 
 		do {
-			System.out.print("**********Choose a number corresponding to a functionality:**********\n1: MOUNT SOURCES; 2: DELETE SOURCES; 3: LIST SOURCES; 4: SEARCH. Your choice: ");		
+			System.out.print("**********Choose a number corresponding to a functionality:**********\n1: MOUNT SOURCES; 2: DELETE SOURCES; 3: CATALOG; 4: SEARCH. Your choice: ");		
 			int choice = in.nextInt();
 
 			switch (choice) {
@@ -65,12 +65,18 @@ public class Runner {
 					System.out.println("Dataset removal terminated abnormally. Make sure that the JSON file provides suitable specifications.");
 				}
 				break;
-			case 3:  // LIST DATA SOURCES 
+			case 3:  // CATALOG DATA SOURCES 
 				try {
-					// List of data sources specified
+					// List of data sources specified					
 					ObjectWriter ow3 = new ObjectMapper().writer().withDefaultPrettyPrinter();
 					String json3 = ow3.writeValueAsString(myCoordinator.listDataSources());
 					System.out.println(json3);
+/*					
+					AttributeInfo[] response = myCoordinator.listDataSources(getConfigFile());
+					ObjectWriter ow3 = new ObjectMapper().writer().withDefaultPrettyPrinter();
+					String json3 = ow3.writeValueAsString(response);
+					System.out.println(json3);
+*/					
 				} catch (Exception e) {
 					e.printStackTrace();
 					System.out.println("Listing of available data sources terminated abnormally.");
@@ -91,7 +97,7 @@ public class Runner {
 				} catch (Exception e) {
 					e.printStackTrace();
 					System.out.println("Query evaluation terminated abnormally. Make sure that the JSON file provides suitable search specifications.");
-					System.exit(1);
+//					System.exit(1);
 				}
 				break;
 			default:   // EXIT (on any other choice)

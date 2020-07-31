@@ -6,3 +6,6 @@ eu.smartdatalake.simsearch.csv.spatial
 eu.smartdatalake.simsearch.jdbc
 eu.smartdatalake.simsearch.measure
 eu.smartdatalake.simsearch.ranking
+eu.smartdatalake.simsearch.ranking.randomaccess
+eu.smartdatalake.simsearch.request
+eu.smartdatalake.simsearch.restapi

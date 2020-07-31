@@ -263,7 +263,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 					// Once at least topk candidate aggregated results have been collected,
 					// check whether the next result can be returned
 					
-					if (curResults[w].size() > 1) {
+					if (curResults[w].size() >= 1) {
 						// Iterators are used to point to the head of priority queues
 						// Identify the greatest lower bound and ...
 						Iterator<Double> iterLowerBound = mapLowerBounds[w].keys().iterator(); 
@@ -276,13 +276,13 @@ public class NoRandomAccessRanking implements IRankAggregator {
 						// FIXME: Implements the progressive issuing of results; check if this condition is always safe
 						// Issue next result once the greatest lower bound exceeds the upper bounds of all other candidates
 						if (lb >= ub) {
-							k[w]++;
 							// Get the object identifier listed at the head of this priority queue
 							String item = mapLowerBounds[w].values().iterator().next();
 							ub = curResults[w].get(item).getUpperBound();
 							
 							// One more result can be issued for this combination of weights
-							issueRankedResult(k[w], w, item, lb);
+							issueRankedResult(k[w], w, item, lb, true);   // Exact ranking
+							k[w] = results[w].size();
 //							log.writeln("RESULT: " + item + " " + lb + " " + ub);
 							
 							// Remove this result from the rank aggregation list and the priority queues
@@ -317,15 +317,15 @@ public class NoRandomAccessRanking implements IRankAggregator {
 					}
 				}
 			}
-/*			
-			// Report extra results by descending lower bound
+			
+			// Report any extra results by descending lower bound
 			reportExtraResultsLB();
-*/			
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		
-		System.out.print(n + ",");  // Count iterations for experimental results
+//		System.out.print(n + ",");  // Count iterations for experimental results
 		this.log.writeln("In total " + n + " results have been examined from each queue.");
 		
 		// Array of final results		
@@ -343,22 +343,18 @@ public class NoRandomAccessRanking implements IRankAggregator {
 	private void reportExtraResultsLB() {
 		
 		Double lb;
-		log.writeln("-----------Extra-results-by-LOWER-bound-------------------");
+//		log.writeln("-----------Extra-results-by-LOWER-bound-------------------");
 		// Examine current candidates for each combination of weights
 		for (int w = 0; w < weightCombinations; w++) {
-			int i = results[w].size();
+			boolean keepReporting = true;
 			Iterator<Double> iterLowerBound = mapLowerBounds[w].keySet().iterator();
 			// Probe by descending lower bounds
-			while (iterLowerBound.hasNext()) {
+			while (iterLowerBound.hasNext() && keepReporting) {
 				lb = iterLowerBound.next(); 
 				for (String item: mapLowerBounds[w].get(lb)) {
-					if (i < topk) {
-						log.writeln(item + " LB: " + curResults[w].get(item).getLowerBound() + " UB: "+ curResults[w].get(item).getUpperBound());  //+ " THR: " + threshold[w]
-						i++;
-						issueRankedResult(i, w, item, lb);
-					}
-					else
-						return;
+					keepReporting = issueRankedResult(results[w].size(), w, item, lb, false);   // Such rankings should NOT be considered as exact
+					if (!keepReporting)
+						break;
 				}
 			}
 		}	
@@ -366,12 +362,20 @@ public class NoRandomAccessRanking implements IRankAggregator {
 	
 	/**
 	 * Inserts the i-th ranked result to the output list. Rank is based on the overall score; ties in scores are resolved arbitrarily.
+	 * @param i  The rank to the assigned to the output result.
 	 * @param w  The identifier of the weight combination to be applied on the scores.
 	 * @param item   The original identifier of this item in the dataset
 	 * @param rank	 The rank of this result in the output list.
 	 * @param score  The overall (weighted) score of this result.
+	 * @param exact  Boolean indicating whether the ranking of this result is exact or not.
+	 * @return  True, if extra result(s) have been issued; otherwise, False.
 	 */
-	private void issueRankedResult(int i, int w, String item, double score) {
+	private boolean issueRankedResult(int i, int w, String item, double score, boolean exact) {
+		
+		i++;   // Showing rank as 1,2,3,... instead of 0,1,2,...
+		// Stop once topk results have been issued, even though there might be ties having the same score as the topk result
+		if (i > topk)
+			return false;
 		
 		// Create a new resulting item and report its rank and its original identifier
 		// Include values and scores for individual attribute; this is also needed for the similarity matrix
@@ -383,7 +387,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 		int j = 0;
 		for (String task : tasks.keySet()) {
 			Attribute attr = new Attribute();
-			attr.setName(this.datasetIdentifiers.get(task).getColumnName());
+			attr.setName(this.datasetIdentifiers.get(task).getValueAttribute());
 			if (this.datasets.get(task).get(item) == null) {   	 // By default, assign zero similarity for NULL values in this attribute							
 				attr.setValue("");   // Use blank string instead of NULL
 				attr.setScore(0.0);
@@ -400,10 +404,16 @@ public class NoRandomAccessRanking implements IRankAggregator {
 			j++;
 		}
 		// Its aggregated score is the lower bound
-		res.setScore(score);
+		res.setScore(score / tasks.size());   // Aggregate score over all running tasks (one per queried attribute)
+		
+		// Indicate whether this ranking should be considered exact or not
+		res.setExact(exact);
 		
 		// Issue result to the output queue
-		results[w].add(res);
+		results[w].add(res);		
+//		log.writeln(i + " RESULT: " + res.getId() + " " + res.getScore());
+		
+		return true;
 	}	
 	
 }

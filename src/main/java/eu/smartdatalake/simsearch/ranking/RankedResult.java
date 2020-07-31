@@ -8,6 +8,7 @@ public class RankedResult {
 	private String id;
 	private double score;
 	private int rank;
+	private boolean exact;  // Indicates whether the ranking assigned to this result is exact or not (i.e., based on approximate bounds)
 	
 	Attribute[] attributes;
 	
@@ -15,6 +16,7 @@ public class RankedResult {
 	 * Constructor
 	 */
 	public RankedResult(int size) {
+		setExact(true);   	// By default, consider that the ranking for this result is exact
 		attributes = new Attribute[size];
 	}
 
@@ -48,6 +50,15 @@ public class RankedResult {
 		this.rank = rank;
 	}
 	
+
+	public boolean isExact() {
+		return exact;
+	}
+
+	public void setExact(boolean exact) {
+		this.exact = exact;
+	}
+	
 	/**
 	 * Flatten all attribute values and return a unified string with a user-specified delimiter between values.
 	 * @param delimiter  The delimiter character to separate values.
@@ -61,6 +72,31 @@ public class RankedResult {
 
 		for (Attribute col : this.attributes) {
 			builder.append(col.getValue() + delimiter);
+			builder.append(col.getScore() + delimiter);
+		}
+
+		builder.append(this.score);
+	    
+		return builder.toString();
+	}
+	
+	/**
+	 * Flatten all attribute values and return a unified string with a user-specified delimiter between values.
+	 * @param delimiter  The delimiter character to separate values.
+	 * @param quote  The quote character to be used for string values in case they contain the delimiter character.
+	 * @return  A CSV string for reporting the contents of this search result.
+	 */
+	public String toString(String delimiter, String quote) {
+		
+		StringBuilder builder = new StringBuilder();
+		builder.append(this.rank + delimiter);
+		builder.append(this.id + delimiter);
+
+		for (Attribute col : this.attributes) {
+			if (col.getValue().contains(delimiter))
+				builder.append(quote + col.getValue() + quote + delimiter);
+			else
+				builder.append(col.getValue() + delimiter);
 			builder.append(col.getScore() + delimiter);
 		}
 

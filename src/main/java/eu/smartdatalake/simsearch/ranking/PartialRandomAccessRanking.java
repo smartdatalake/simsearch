@@ -1,12 +1,17 @@
 package eu.smartdatalake.simsearch.ranking;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.DatasetIdentifier;
@@ -69,6 +74,9 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	// Retains the lowest scores obtained per priority queue
 	Map<String, Double> lowestScores;
 	
+	// Retains the standard deviations of the scores obtained per priority queue
+	Map<String, Double> stDev;
+	
 	// List with the identifiers of the checked objects (the same one for all combinations of weights)
 	CheckedItems checkedItems;
 	
@@ -100,9 +108,13 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		
 		// Counter of random access requests to the lookups
 		randomAccesses = 0;
-				
+	
 		// Number of combinations of weights to apply
 		weightCombinations = weights.entrySet().iterator().next().getValue().length;
+			
+		// In case now eights have been specified, they will be automatically determined from the partial results per queue
+		if (weightCombinations < 1)
+			weightCombinations = 1;
 		
 		// Array of thresholds to consider at each iteration
 		threshold = new double[weightCombinations];
@@ -127,6 +139,9 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		
 		// Keeps the lowest scores observed per priority queue
 		lowestScores = new HashMap<String, Double>();
+		
+		// Keeps the standard deviations of the scores obtained per priority queue
+		stDev = new HashMap<String, Double>();
 		
 		// Initialize all array structures
 		for (int w = 0; w < weightCombinations; w++) {
@@ -199,7 +214,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 			return true;
 		}
 
-		return false;
+		return false;   // No further updates
 	}
 
 
@@ -251,6 +266,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		
 		try {
 			numTasks = tasks.size();
+			BitSet probed = new BitSet(numTasks);
 			
 			// LOOK-UP PHASE
 			// Wait until all similarity search queries are concluded ...
@@ -275,15 +291,32 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 			}
 			
 			// Populate look-ups with the contents of the priority queues
+			StandardDeviation sd = new StandardDeviation();
 			for (String task : tasks.keySet()) {
 		        Iterator<PartialResult> qIter = queues.get(task).iterator(); 
+		        List<Double> scores = new ArrayList<Double>();
 		        while (qIter.hasNext()) { 
 		        	pRes = qIter.next();
 		        	this.lookups.get(task).put(pRes.getId(), pRes.getValue());
+		        	scores.add(pRes.getScore());  
 		        }
 		        lowestScores.put(task, pRes.getScore());    // Remember the score in the last element available in this queue
-		        log.writeln("Lookup for task " + task + " was populated with " + this.lookups.get(task).size() + " values."); 
+//		        log.writeln("Lookup for task " + task + " was populated with " + this.lookups.get(task).size() + " values.");	        
+		        // Also calculate the standard deviation per priority queue
+				stDev.put(task, sd.evaluate(scores.stream().mapToDouble(d -> d).toArray()));
+//				log.writeln("Standard deviation for task " + task + " -->" + stDev.get(task));
 			}
+			
+			// If no weights have been specified, they will be automatically determined via the standard deviation of the scores per priority queue
+			if (weights.entrySet().iterator().next().getValue().length == 0) {			
+				// Sum up all standard deviations
+				double totalStDev = stDev.values().stream().mapToDouble(a -> a).sum();
+				// Assign a ratio over the total standard deviation as the weight on this attribute
+				for (String task : tasks.keySet()) {
+					weights.put(task, new Double[] {totalStDev/stDev.get(task)});
+					log.writeln("Weight assigned on task " + task + " -->" + (totalStDev/stDev.get(task)));
+				}				
+			}			
 			
 			// RANKING PHASE
 			// Counter of ranked aggregate results
@@ -301,10 +334,16 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 				for (int w = 0; w < weightCombinations; w++) {
 					threshold[w] = 0.0;     // Reset thresholds for all combinations
 				}
+				probed.clear(); // New results to be fetched from each queue
 				
 				// Update ranked list with the next result from each queue
 				for (String task : tasks.keySet()) {
-					updateRankedList(task);
+					probed.set(this.similarities.get(task).getTaskId(), updateRankedList(task));
+				}
+				// If no updates have been made to the ranked list, then all queues have been exhausted and the process should be terminated
+				if (probed.length() == 0) {
+//					System.out.println("All queues have been exhausted!");
+					break;
 				}
 				
 				n++;				
@@ -332,13 +371,13 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 						// Issue next result once the greatest lower bound exceeds the upper bounds of all other candidates
 						// Also compare current threshold with the highest lower bound
 						if ((lb >= mb) && (lb >= threshold[w])) {
-							k[w]++;
 							// Get the object identifier listed at the head of this priority queue
 							String item = mapLowerBounds[w].values().iterator().next();
 							ub = curResults[w].get(item).getUpperBound();
 							
 							// One more result can be issued for this combination of weights
-							issueRankedResult(k[w], w, item, lb);
+							issueRankedResult(k[w], w, item, lb, true);   // Exact ranking
+							k[w] = results[w].size();
 //							log.writeln("RESULT: " + item + " " + lb + " " + ub + " " + threshold[w]);
 
 							// Remove this result from the rank aggregation list and the priority queues
@@ -363,17 +402,17 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		
 			// Report extra results by descending lower bound
 			reportExtraResultsLB();
-
+*/
 			// Report extra results by descending average bound
 			reportExtraResultsMB();
-*/						
+					
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		
-		System.out.print(n + ",");  // Count iterations for experimental results
+//		System.out.print(n + ",");  // Count iterations for experimental results
 		this.log.writeln("In total " + n + " results have been examined from each queue.");
-		this.log.writeln("Random accesses to lookup values: " + randomAccesses);
+		this.log.writeln("Random accesses to lookup values: " + randomAccesses + " (for all weight combinations).");
 		this.log.writeln("Last upper bound examined: " + ub);
 		
 		// Array of final results		
@@ -391,22 +430,19 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	private void reportExtraResultsUB() {
 		
 		Double ub;
-		log.writeln("-----------Extra-results-by-UPPER-bound-------------------");
+		boolean keepReporting = true;
+//		log.writeln("-----------Extra-results-by-UPPER-bound-------------------");
 		// Examine current candidates for each combination of weights
 		for (int w = 0; w < weightCombinations; w++) {
 			int i = results[w].size();
 			Iterator<Double> iterUpperBound = mapUpperBounds[w].keySet().iterator();
 			// Probe by descending upper bounds
-			while (iterUpperBound.hasNext()) {
+			while (iterUpperBound.hasNext() && keepReporting) {
 				ub = iterUpperBound.next(); 
 				for (String item: mapUpperBounds[w].get(ub)) {
-					if (i < topk) { 
-						log.writeln(item + " LB: " + curResults[w].get(item).getLowerBound() + " UB: "+ curResults[w].get(item).getUpperBound() + " THR: " + threshold[w]);
-						i++;
-						issueRankedResult(i, w, item, ub);
-					}
-					else
-						return;
+					keepReporting =issueRankedResult(i, w, item, ub, false);  // These rankings should NOT be considered as exact
+					if (!keepReporting)
+						break;
 				}
 			}
 		}	
@@ -419,22 +455,19 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	private void reportExtraResultsLB() {
 		
 		Double lb;
-		log.writeln("-----------Extra-results-by-LOWER-bound-------------------");
+		boolean keepReporting = true;
+//		log.writeln("-----------Extra-results-by-LOWER-bound-------------------");
 		// Examine current candidates for each combination of weights
 		for (int w = 0; w < weightCombinations; w++) {
 			int i = results[w].size();
 			Iterator<Double> iterLowerBound = mapLowerBounds[w].keySet().iterator();
 			// Probe by descending lower bounds
-			while (iterLowerBound.hasNext()) {
+			while (iterLowerBound.hasNext() && keepReporting) {
 				lb = iterLowerBound.next(); 
 				for (String item: mapLowerBounds[w].get(lb)) {
-					if (i < topk) {
-						log.writeln(item + " LB: " + curResults[w].get(item).getLowerBound() + " UB: "+ curResults[w].get(item).getUpperBound());  //+ " THR: " + threshold[w]
-						i++;
-						issueRankedResult(i, w, item, lb);
-					}
-					else
-						return;
+					keepReporting = issueRankedResult(i, w, item, lb, false);  // These rankings should NOT be considered as exact	
+					if (!keepReporting)
+						break;
 				}
 			}
 		}	
@@ -446,23 +479,19 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	 */
 	private void reportExtraResultsMB() {
 		
-		Double mb;
-		log.writeln("-----------Extra-results-by-AVERAGE-bound-------------------");
+		Double mb;	
+//		log.writeln("-----------Extra-results-by-AVERAGE-bound-------------------");
 		// Examine current candidates for each combination of weights
 		for (int w = 0; w < weightCombinations; w++) {
-			int i = results[w].size();
+			boolean keepReporting = true;
 			Iterator<Double> iterAvgBound = mapAverageBounds[w].keySet().iterator();
 			// Probe by descending upper bounds
-			while (iterAvgBound.hasNext()) {
+			while (iterAvgBound.hasNext() && keepReporting) {
 				mb = iterAvgBound.next(); 
 				for (String item: mapAverageBounds[w].get(mb)) {
-					if (i < topk)  {
-						log.writeln(item + " LB: " + curResults[w].get(item).getLowerBound() + " UB: "+ curResults[w].get(item).getUpperBound());
-						i++;
-						issueRankedResult(i, w, item, mb);
-					}
-					else
-						return;
+					keepReporting = issueRankedResult(results[w].size(), w, item, mb, false);  // Such rankings should NOT be considered as exact
+					if (!keepReporting)
+						break;
 				}
 			}
 		}	
@@ -471,12 +500,20 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	
 	/**
 	 * Inserts the i-th ranked result to the output list. Rank is based on the overall score; ties in scores are resolved arbitrarily.
+	 * @param i  The rank to the assigned to the output result.
 	 * @param w  The identifier of the weight combination to be applied on the scores.
 	 * @param item   The original identifier of this item in the dataset
 	 * @param rank	 The rank of this result in the output list.
 	 * @param score  The overall (weighted) score of this result.
+	 * @param exact  Boolean indicating whether the ranking of this result is exact or not.
+	 * @return  True, if extra result(s) have been issued; otherwise, False.
 	 */
-	private void issueRankedResult(int i, int w, String item, double score) {
+	private boolean issueRankedResult(int i, int w, String item, double score, boolean exact) {
+		
+		i++;   // Showing rank as 1,2,3,... instead of 0,1,2,...
+		// Stop once topk results have been issued, even though there might be ties having the same score as the topk result
+		if (i > topk)
+			return false;
 		
 		// Create a new resulting item and report its rank and its original identifier
 		// Includes values and scores per individual attribute; this is also needed for the similarity matrix
@@ -488,7 +525,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		int j = 0;
 		for (String task : tasks.keySet()) {
 			Attribute attr = new Attribute();
-			attr.setName(this.datasetIdentifiers.get(task).getColumnName());
+			attr.setName(this.datasetIdentifiers.get(task).getValueAttribute());
 			if (this.lookups.get(task).get(item) == null) {   	 // By default, assign zero similarity for NULL values in this attribute							
 				attr.setValue("");   // Use blank string instead of NULL
 				attr.setScore(0.0);
@@ -505,10 +542,16 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 			j++;
 		}
 		// Its aggregated score is the lower bound
-		res.setScore(score);
+		res.setScore(score / tasks.size());  // Aggregate score over all running tasks (one per queried attribute)
+		
+		// Indicate whether this ranking should be considered exact or not
+		res.setExact(exact);
 		
 		// Issue result to the output queue
 		results[w].add(res);
+//		log.writeln(i + " RESULT: " + res.getId() + " " + res.getScore());
+		
+		return true;
 	}
 	
 }

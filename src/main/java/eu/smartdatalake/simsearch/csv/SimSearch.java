@@ -150,7 +150,7 @@ public class SimSearch implements Runnable {
 		// This kind of search can also provide results progressively
 		// CAUTION! The number of items to fetch is actually is >> k specified in the top-k query.
 		this.numResults = numSearch.compute(collectionSize);
-
+		
 		running.set(false);
 		
 		return running.get();
@@ -247,9 +247,10 @@ public class SimSearch implements Runnable {
 		default:
 			break;
 		}
+		
 		duration = System.nanoTime() - duration;
 		if (!running)
-			this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (CSV) returned " + this.numResults + " results in " + duration / 1000000000.0 + " sec.");
+			this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (ingested) returned " + this.numResults + " results in " + duration / 1000000000.0 + " sec.");
 	}
 	
 }

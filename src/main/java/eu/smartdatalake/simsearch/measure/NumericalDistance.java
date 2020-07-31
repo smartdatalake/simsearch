@@ -24,6 +24,8 @@ public class NumericalDistance<V> implements IDistance<V> {
 	@Override
 	public double calc(V v) {
 		// No need to check again for NULL values; already handled by DecayedSimilarity class
+		
+//		System.out.println("Numerical value:" + v.toString() + " Unscaled distance:" +  (Math.abs(this.baseElement - Double.parseDouble(v.toString()))));
 //		if (v != null)
 			return (Math.abs(this.baseElement - Double.parseDouble(v.toString())));
 	}

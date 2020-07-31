@@ -2,14 +2,18 @@
 
 ## Overview
 
-SimSearch is a Java library providing functions for combined similarity search against multi-faceted entities, i.e., datasets with different types of attributes (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, etc.). This library builts specialized indexes for each specific attribute type. It currently supports the following operationss:
+SimSearch is a Java library providing functions for combined similarity search against multi-faceted entities, i.e., datasets with different types of attributes (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, etc.). This library builts specialized indexes for each specific attribute type. It currently supports the following operations:
 
 - Categorical similarity search: progressively return data elements with the highest similarity score to the given query set of keywords.
 - Numerical similarity search: progressively return data elements with the highest similarity score to the given query (numerical) value.
 - Spatial similarity search: implements k-nearest neighbor search and return data elements closest to the given query (point) location.
 - Top-k rank aggregation: find top-k results across all examined attributes and issue each result progressively, ranked by an aggregate similarity score.
 
-Datasets can be CSV files and/or tables in a [PostgreSQL](https://www.postgresql.org/) database (with [PostGIS extension](https://postgis.net/) if geometries are also stored in a spatial column).
+Attribute data values may come from diverse data sources:
+
+- CSV files that will be ingested and indices will be constructed in memory (e.g., R-trees for spatial locations, B-trees for numerical values, inverted indices for textual values).
+- Tables in a [PostgreSQL](https://www.postgresql.org/) database (with [PostGIS extension](https://postgis.net/) if geometries are also stored in a spatial column).
+- Data available from REST APIs, like JSON data hosted in [Elasticsearch](https://www.elastic.co/elasticsearch).
 
 ## Documentation
 
@@ -41,7 +45,7 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 (2: DELETE SOURCES -> Disables attributes from querying; attributes may be enabled again using functionality (1).
 
-(3): LIST SOURCES -> Returns a list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one.
+(3): CATALOG -> Returns a list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one.
 
 (4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file conataining the query specification (as in `search.json.example` file or [`data/gdelt/search.json`](data/gdelt/search.json)). Once evaluation is complete, results will be available in JSON format (as in [`data/gdelt/search_results.json`](data/gdelt/search_results.json)).
 

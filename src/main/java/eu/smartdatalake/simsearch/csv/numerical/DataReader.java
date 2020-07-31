@@ -5,9 +5,11 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.sql.ResultSet;
+import java.text.NumberFormat;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 
 import eu.smartdatalake.simsearch.Logger;
@@ -171,7 +173,7 @@ public class DataReader {
 	}
 
 	/**
-	 * Reading data from a table from a dBMS over a JDBC connection.
+	 * Reading numerical attribute data from a table in a dBMS over a JDBC connection.
 	 * @param tableName
 	 * @param keyColumnName
 	 * @param valColumnName
@@ -185,31 +187,44 @@ public class DataReader {
 
 		long startTime = System.nanoTime();
 		// In case no column for key datasetIdentifiers has been specified, use the primary key of the table  
-		if (keyColumnName == null) { 
-			// FIXME: Assuming that primary key is a single attribute (column) 
-			// FIXME: SQL query to retrieve primary key attribute works for PostgreSQL only
-			String sqlPrimaryKey = "SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE i.indrelid = '" + tableName + "'::regclass AND i.indisprimary;";	 
-			keyColumnName = (String) jdbcConnector.findSingletonValue(sqlPrimaryKey);
+		if (keyColumnName == null) {
+			// Assuming that primary key is a single attribute (column), this query can retrieve it 
+			// FIXME: Currently working with PostgreSQL only
+			keyColumnName = jdbcConnector.getPrimaryKeyColumn(tableName);
+			if (keyColumnName == null)  // TODO: Handle other JDBC sources
+				return null;
 		}
-  	  
+
 	  	ResultSet rs;	
+	  	int n = 0;
 		try { 
-			 //Execute SQL query in the DBMS and fetch all values available for this attribute
-			 rs = jdbcConnector.executeQuery("SELECT " + keyColumnName + ", " + valColumnName + " FROM " + tableName + ";");		  
+//			 System.out.println("QUERY: SELECT " + keyColumnName + ", " + valColumnName + " FROM " + tableName + " WHERE " + valColumnName + " IS NOT NULL;");
+			 //Execute SQL query in the DBMS and fetch all NOT NULL values available for this attribute
+			 String sql = "SELECT " + keyColumnName + ", " + valColumnName + " FROM " + tableName + " WHERE " + valColumnName + " IS NOT NULL";
+//			 System.out.println("NUMERICAL query: " + sql);
+			 rs = jdbcConnector.executeQuery(sql);  
 			 // Iterate through all retrieved results and put them to the in-memory look-up
-		     while (rs.next()) {  
+		     while (rs.next()) { 
 		    	 dict.put(rs.getString(1), rs.getDouble(2));
+/*
+		    	// FIXME: Special handling for double values from Proteus, which are returned as strings
+		    	 if ((rs.getString(2) != null) && (!rs.getString(2).trim().isEmpty())) {
+		    		 dict.put(rs.getString(1), Double.parseDouble(rs.getString(2).replace(",", ".")));
+//		    		 System.out.println("VALUE: " + Double.parseDouble(rs.getString(2).replace(",", ".")));
+		    	 }
+*/
+		    	 n++;
 		      }
-		     log.writeln("Extracted data from database table " + tableName + " regarding column " + valColumnName + " in " + (System.nanoTime() - startTime) / 1000000000.0 + " sec.");
+		     log.writeln("Extracted " + n + " data values from database table " + tableName + " regarding column " + valColumnName + " in " + (System.nanoTime() - startTime) / 1000000000.0 + " sec.");
 		 }
 		 catch(Exception e) { 
 				log.writeln("An error occurred while retrieving data from the database.");
 				e.printStackTrace();
 		 }
-		 
-		 
+		 		 
 		 return dict;
 	}
+	
 	
 	/**
 	 * Creates a dictionary of (key,value) pairs of all items read from a CSV file
@@ -232,7 +247,12 @@ public class DataReader {
 		avgVal = stDev = 0.0;
 		minVal = Double.MAX_VALUE;
 		maxVal = Double.MIN_VALUE;
-		
+
+		// FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
+        String otherThanQuote = " [^\"] ";
+        String quotedString = String.format(" \" %s* \" ", otherThanQuote);
+        String regex = String.format("(?x) "+ columnDelimiter + "(?=(?:%s*%s)*%s*$)", otherThanQuote, quotedString, otherThanQuote);
+        
 		int errorLines = 0;
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(inputFile));
@@ -243,8 +263,7 @@ public class DataReader {
 			// if the file has a header, retain the names of the columns for possible future use
 			if (header) {
 				line = br.readLine();
-				//FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
-				columns = line.split(columnDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
+				columns = line.split(regex,-1);				
 				columnNames = new HashMap<Integer, String>();
 				for (int i = 0; i < columns.length; i++) {
 					columnNames.put(i, columns[i]);
@@ -257,7 +276,7 @@ public class DataReader {
 					break;
 				}
 				try {
-					columns = line.split(columnDelimiter);
+					columns = line.split(regex,-1);
 					if ((columns[colKey].isEmpty()) || (columns[colValue].isEmpty())) 
 						throw new NullPointerException();
 					v = Double.parseDouble(columns[colKey]);

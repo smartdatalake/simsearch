@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,6 +12,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTReader;
 
 import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 
 /**
  * Consumes data from a CSV file and extracts location values from two specific attributes.
@@ -103,6 +105,11 @@ public class LocationReader {
 
 		HashMap<String, Geometry> dict = new HashMap<String, Geometry>();
 		
+		// FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
+        String otherThanQuote = " [^\"] ";
+        String quotedString = String.format(" \" %s* \" ", otherThanQuote);
+        String regex = String.format("(?x) "+ columnDelimiter + "(?=(?:%s*%s)*%s*$)", otherThanQuote, quotedString, otherThanQuote);
+        
 		int count = 0;
 		int errorLines = 0;
 		try {
@@ -122,7 +129,7 @@ public class LocationReader {
 					break;
 				}
 				try {  //FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
-					columns = line.split(columnDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
+					columns = line.split(regex,-1);
 					if ((columns[colKey].isEmpty()) || (columns[colValue].isEmpty()))
 						throw new NullPointerException();;
 					// Generate a geometry object from the input coordinates
@@ -148,6 +155,54 @@ public class LocationReader {
 	}
 
 	/**
+	 * Reading spatial attribute data (POINT locations only) from a table in a dBMS over a JDBC connection.
+	 * @param tableName
+	 * @param keyColumnName
+	 * @param longitudeColumnName
+	 * @param latitudeColumnName
+	 * @param jdbcConnector
+	 * @param log
+	 * @return
+	 */
+	public HashMap<String, Geometry> readFromJDBCTable(String tableName, String keyColumnName, String longitudeColumnName, String latitudeColumnName, JdbcConnector jdbcConnector, Logger log) {
+
+		HashMap<String, Geometry> dict = new HashMap<String, Geometry>();
+
+		long startTime = System.nanoTime();
+		// In case no column for key datasetIdentifiers has been specified, use the primary key of the table  
+		if (keyColumnName == null) {
+			// Assuming that primary key is a single attribute (column), this query can retrieve it 
+			// FIXME: Currently working with PostgreSQL only
+			keyColumnName = jdbcConnector.getPrimaryKeyColumn(tableName);
+			if (keyColumnName == null)  // TODO: Handle other JDBC sources
+				return null;
+		}
+  	  
+	  	ResultSet rs;	
+	  	int n = 0;
+		try { 
+			 //Execute SQL query in the DBMS and fetch all NOT NULL coordinate values available
+			 String sql = "SELECT " + keyColumnName + ", " + longitudeColumnName + ", " + latitudeColumnName + " FROM " + tableName + " WHERE " + longitudeColumnName + " IS NOT NULL AND " + latitudeColumnName + " IS NOT NULL";
+//			 System.out.println("SPATIAL query: " + sql);
+			 rs = jdbcConnector.executeQuery(sql);		  
+			 // Iterate through all retrieved results and put them to the in-memory look-up
+		     while (rs.next()) {  
+		    	 // Generate a geometry object from the input coordinates
+		    	 dict.put(rs.getString(1), LonLat2Geometry(Double.parseDouble(rs.getString(2)), Double.parseDouble(rs.getString(3))));
+		    	 n++;
+		      }
+		     log.writeln("Extracted " + n + " data values from database table " + tableName + " regarding columns " + longitudeColumnName + ", " + latitudeColumnName + " in " + (System.nanoTime() - startTime) / 1000000000.0 + " sec.");
+		 }
+		 catch(Exception e) { 
+				log.writeln("An error occurred while retrieving data from the database.");
+				e.printStackTrace();
+		 }
+		 		 
+		 return dict;
+	}
+	
+	
+	/**
 	 * Creates a dictionary of (key,geometry) pairs of all items read from a CSV file
 	 * ASSUMPTION: Input data collection only contains POINT locations referenced in WGS84.
 	 * @param inputFile
@@ -163,7 +218,12 @@ public class LocationReader {
 	public HashMap<String, Geometry> readFromCSVFile(String inputFile, int maxLines, int colKey, int colLongitude, int colLatitude, String columnDelimiter, boolean header, Logger log) {
 
 		HashMap<String, Geometry> dict = new HashMap<String, Geometry>();
-		
+
+		// FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
+        String otherThanQuote = " [^\"] ";
+        String quotedString = String.format(" \" %s* \" ", otherThanQuote);
+        String regex = String.format("(?x) "+ columnDelimiter + "(?=(?:%s*%s)*%s*$)", otherThanQuote, quotedString, otherThanQuote);
+        
 		int count = 0;
 		int errorLines = 0;
 		try {
@@ -182,8 +242,8 @@ public class LocationReader {
 				if (maxLines > 0 && count >= maxLines) {
 					break;
 				}
-				try {  //FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
-					columns = line.split(columnDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
+				try {
+					columns = line.split(regex,-1);
 					if ((columns[colKey].isEmpty()) || (columns[colLongitude].isEmpty()) || (columns[colLatitude].isEmpty())) 
 						throw new NullPointerException();
 					// Generate a geometry object from the input coordinates

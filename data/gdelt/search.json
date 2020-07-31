@@ -3,18 +3,18 @@
 	"algorithm":"threshold",
 	"queries":[    
 				{
-					"search_column":"persons",
-					"search_value": ["joe biden","donald trump"],
+					"column":"persons",
+					"value": ["joe biden","donald trump"],
 					"weights":["1.0","0.8"]
 				},
 				{
-					"search_column":"timestamp",
-					"search_value":"20191104084500",
+					"column":"timestamp",
+					"value":"20191104084500",
 					"weights":["1.0","0.4"]
 				},
 				{
-					"search_column":["longitude","latitude"],
-					"search_value":"POINT(-74.94 42.15)",
+					"column":["longitude","latitude"],
+					"value":"POINT(-74.94 42.15)",
 					"weights":["1.0","0.7"]
 				}
 			]

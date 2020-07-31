@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TObjectIntMap;
@@ -25,6 +27,12 @@ public class TokenSetCollectionReader {
 		TokenSetCollection collection = new TokenSetCollection();
 //		List<TokenSet> sets = new ArrayList<TokenSet>();
 		int lineCount = 0, errorLines = 0;
+		
+		// FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
+        String otherThanQuote = " [^\"] ";
+        String quotedString = String.format(" \" %s* \" ", otherThanQuote);
+        String regex = String.format("(?x) "+ colDelimiter + "(?=(?:%s*%s)*%s*$)", otherThanQuote, quotedString, otherThanQuote);
+		
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(file));
 			String line;
@@ -34,8 +42,7 @@ public class TokenSetCollectionReader {
 			// if the file has a header, retain the names of the columns for possible future use
 			if (header) {
 				line = br.readLine();
-				//FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
-				columns = line.split(colDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
+				columns = line.split(regex,-1);  //colDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)"
 				columnNames = new HashMap<Integer, String>();
 				for (int i = 0; i < columns.length; i++) {
 					columnNames.put(i, columns[i]);
@@ -47,10 +54,9 @@ public class TokenSetCollectionReader {
 					break;
 				}
 				try {
-					//FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
-					columns = line.split(colDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
+					columns = line.split(regex,-1);  //colDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)"
 					set = new TokenSet();
-					//DatasetIdentifier of the set
+					// Identifier of the set
 					if (colSetId >= 0) {
 						set.id = columns[colSetId];
 					}
@@ -94,6 +100,59 @@ public class TokenSetCollectionReader {
 
 		return collection;
 	}
+
+	
+	public TokenSetCollection ingestFromJDBCTable(String tableName, String keyColumnName, String valColumnName, String tokDelimiter, JdbcConnector jdbcConnector, Logger log) {
+
+		TokenSetCollection collection = new TokenSetCollection();
+ 
+		// In case no column for key datasetIdentifiers has been specified, use the primary key of the table  
+		if (keyColumnName == null) {
+			// Assuming that primary key is a single attribute (column), this query can retrieve it 
+			// FIXME: Currently working with PostgreSQL only
+			keyColumnName = jdbcConnector.getPrimaryKeyColumn(tableName);
+			if (keyColumnName == null)  // TODO: Handle other JDBC sources
+				return null;
+		}
+		
+		ResultSet rs;	
+	  	int n = 0;
+		try { 	
+			TokenSet set;
+			//Execute SQL query in the DBMS and fetch all NOT NULL values available for this attribute
+			String sql = "SELECT " + keyColumnName + ", " + valColumnName + " FROM " + tableName + " WHERE " + valColumnName + " IS NOT NULL";
+//			System.out.println("CATEGORICAL query: " + sql);
+			rs = jdbcConnector.executeQuery(sql); 
+			// Iterate through all retrieved results and put them to the in-memory look-up
+		    while (rs.next()) {  
+		    	set = new TokenSet();
+		    	// Identifier of the set
+		    	set.id = rs.getString(1);
+		    	//Tokens
+		    	set.tokens = new ArrayList<String>();
+		    	List<String> tokens = new ArrayList<String>(new HashSet<String>(Arrays.asList(rs.getString(2).replaceAll("\n", "").split(tokDelimiter))));
+//		    	System.out.println(Arrays.toString(tokens.toArray()));
+		    	set.tokens.addAll(tokens);
+		    	collection.sets.put(set.id, set);
+		    	n++;
+		    }
+		}
+		catch(Exception e) { 
+			log.writeln("An error occurred while retrieving data from the database.");
+			e.printStackTrace();
+		}
+			
+		double elementsPerSet = 0;
+		for (TokenSet set : collection.sets.values()) {
+			elementsPerSet += set.tokens.size();
+		}
+		elementsPerSet /= collection.sets.size();
+
+		log.writeln("Extracted " + n + " data values from database table " + tableName + " regarding column " + valColumnName + ". Num of sets: " + collection.sets.size() + ". Elements per set: " + elementsPerSet);
+		
+		return collection;
+	}
+
 
 	
 	public TokenSetCollection createQueryFromCSVFile(String file, int colSetId, int colSetTokens, String colDelimiter,

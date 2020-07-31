@@ -13,56 +13,63 @@
 					"name":"localPath1",
 					"type":"csv",
 					"directory":"./test/"
-				}
+				},
+				{
+					"name":"remoteElasticSearchAPI",
+					"type":"restapi",
+					"url":"http://localhost:9200/myIndexName/_search?pretty"
+				},
 			],
 	"search":[ {
 					"operation":"spatial_knn",
-					"data_source":"localPath1",
+					"source":"localPath1",
 					"dataset":"dataset1.csv",
 					"header":"true",
 					"search_column":"WKT"
 				},
 				{
 					"operation":"numerical_topk",
-					"data_source":"localPath1",
+					"source":"localPath1",
 					"header":"true",
 					"dataset":"dataset1.csv",
 					"search_column":"pos_sentiment"
 				},
 				{
 					"operation":"numerical_topk",
-					"data_source":"localPath1",
+					"source":"localPath1",
 					"dataset":"dataset1.csv",
 					"header":"true",
 					"search_column":"neg_sentiment"
 				},
 				{
 					"operation":"numerical_topk",
-					"data_source":"localPath1",
-					"dataset":"dataset2.csv",
+					"source":"remoteElasticSearchAPI",
+					"dataset":"companies",
+					"key_column":"id",
 					"search_column":"employees"
 				},
 				{
 					"operation":"categorical_topk",
-					"data_source":"localPath1",
-					"dataset":"dataset3.csv",
+					"source":"localPath1",
+					"dataset":"dataset2.csv",
 					"search_column":"persons"
 				},
 				{
 					"operation":"numerical_topk",
-					"data_source":"localPath1",
-					"dataset":"dataset4.csv",
+					"source":"remoteElasticSearchAPI",
+					"dataset":"companies",
+					"key_column":"id",
 					"search_column":"revenue"
 				},
 				{
 					"operation":"spatial_knn",
-					"data_source":"localPostGISdatabase",
+					"source":"localPostGISdatabase",
 					"dataset":"companies",
 					"search_column":"location"
 				}, 
 				{
 					"operation":"categorical_topk",
-					"data_source":"localPostGISdatabase",
+					"source":"localPostGISdatabase",
 					"dataset":"companies",
 					"search_column":"keywords"
 				}
