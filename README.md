@@ -60,7 +60,7 @@ SimSearch also integrates a REST API and can be deployed as a web service applic
 $ java -Dserver.port=8090 -jar target/simsearch-0.0.1-SNAPSHOT.jar --service valid_api_keys.json
 ```
 
-Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). All requests should specify a valid API key; a list of all valid keys must be specified by the administrator of the service in a JSON file like [`valid_api_keys.json`](valid_api_keys.json) and invoked when the service is being launched as above.
+Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). All requests should specify a valid API key; a list of all valid keys must be specified by the administrator of the service in a JSON file like this [`example`](valid_api_keys.json.example) and invoked when the service is being launched as above.
 
 Once the SimSearch service is deployed as above, requests can be formulated according to its API documentation (typically accessible at `http://localhost:8090/swagger-ui.html#`). 
 
