@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -334,9 +335,17 @@ public class Coordinator {
 					continue;
 				}					
 
-				//DatasetIdentifier to be used for all constructs built for this attribute
+				// DatasetIdentifier to be used for all constructs built for this attribute
 				DatasetIdentifier id = new DatasetIdentifier(dataSources.get(sourceId), dataset, colValueName);
 			
+				// Specify whether this dataset can be involved in similarity search queries
+				if (searchConfig.queryable != null)
+					id.setQueryable(searchConfig.queryable);
+				
+				// Specify an optional prefix to be used for entity identifiers in the results
+				if (searchConfig.prefixURL != null)
+					id.setPrefixURL(searchConfig.prefixURL);
+				
 				// If specified, also keep the name of the search attribute in the identifier
 				id.setValueAttribute(colValueName);   
 				
@@ -511,10 +520,12 @@ public class Coordinator {
 		AttributeInfo[] dataSources = new AttributeInfo[this.datasetIdentifiers.size()];
 		int i = 0;
 		for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
-			dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.descOperation(id.getOperation()));
-			i++;
+			if (id.isQueryable()) {
+				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.descOperation(id.getOperation()));
+				i++;
+			}
 		}
-		return dataSources;
+		return Arrays.copyOf(dataSources, i);   // In case some entries have been skipped
 	}
 
 	/**

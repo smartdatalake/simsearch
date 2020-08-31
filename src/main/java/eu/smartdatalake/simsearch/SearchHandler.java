@@ -14,6 +14,7 @@ import org.locationtech.jts.geom.Geometry;
 
 import eu.smartdatalake.simsearch.csv.Index;
 import eu.smartdatalake.simsearch.csv.SimSearch;
+import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollection;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollectionReader;
 import eu.smartdatalake.simsearch.csv.numerical.BPlusTree;
@@ -537,21 +538,56 @@ public class SearchHandler {
 		    	}
 		    }
 *********************************************************************************/			    
-	    
+	
 			// Prepare a response to this combination of weights
 			SearchResponse response = new SearchResponse();
 			response.setWeights(curWeights.values().toArray(new Double[0]));
-			// Populate overall response to this multi-facet search query
-			response.setRankedResults(results[w]);
-
+			
+			// OPTIONAL: Use names and URL identifiers for the final results
+			HashMap<?,?> luNames = null;  	// An optional (non-queryable) dataset that contains names of entities
+			String prefixURL = null; 		// A prefix to be used in entity identifiers for the results
+			for (Map.Entry<String, DatasetIdentifier> entry : this.datasetIdentifiers.entrySet())  {
+				if (!entry.getValue().isQueryable()) {
+					luNames = this.datasets.get(entry.getKey());
+					prefixURL = this.datasetIdentifiers.get(entry.getKey()).getPrefixURL();
+				}		
+			}
+			
 			// Post-processing of the search results in order to calculate their pairwise similarity
 			// Cost to calculate the result similarity matrix grows quadratically with increasing k; if k > 50 results this step is skipped from the answer
 			if (results[w].length <= 50) {   
 				ResultMatrix matrixCalculator = new ResultMatrix(this.datasetIdentifiers, this.lookups, this.similarities, curWeights, this.normalizations);
 				ResultPair[] simMatrix = matrixCalculator.calc(results[w]);
+				// Some manipulation in order to return URL identifiers in the similarity matrix
+				if (prefixURL != null) {
+					for (int i = 0; i < simMatrix.length; i++) { 					
+						simMatrix[i].setLeft(myAssistant.formatURL(prefixURL, simMatrix[i].getLeft()));
+						simMatrix[i].setRight(myAssistant.formatURL(prefixURL, simMatrix[i].getRight()));
+					}
+				}					
 				response.setSimilarityMatrix(simMatrix);
+			}			
+
+			// Populate overall response to this multi-facet search query
+			response.setRankedResults(results[w]);
+	
+			// Extra manipulation to replace identifiers with their respective URLs in the search results
+			// Also include entity names, if available
+			if ((luNames != null) && (prefixURL != null) && (results[w].length <= 1000)) {
+				RankedResult[] curResults = response.getRankedResults();
+				for (int i = 0; i < curResults.length; i++) { 
+					String name = "UNKNOWN";    // Default name
+					// Names are actually indexed like tokens for set-valued attribute data
+					// FIXME: Avoid involving tokens when no similarity search is involved
+					if (luNames.get(curResults[i].getId()) != null)
+						name = ((TokenSet) luNames.get(curResults[i].getId())).toString().replace("[", "").replace("]", "");
+
+					// FIXME: Append the name with a delimiter; this will be handled by the web UI
+					curResults[i].setId(myAssistant.formatURL(prefixURL, curResults[i].getId()) + ";" + name);	
+				}
 			}
-			
+				
+			// Notifications
 			if (results[w].length < topk)
 				response.setNotification("Search inconclusive because at least one query facet failed to provide a sufficient number of candidates.");
 			else

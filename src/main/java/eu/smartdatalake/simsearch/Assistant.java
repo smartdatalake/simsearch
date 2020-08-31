@@ -222,6 +222,16 @@ public class Assistant {
 			return val.toString();
 	}
 
+	
+	/**
+	 * Format entity identifiers as URL for the final results
+	 * @param prefixURL  The HTTP prefix to be used.
+	 * @param id  The identifier of the entity
+	 * @return  A resolvable URL to be used as entity identifier for a similarity search result.
+	 */
+	public String formatURL(String prefixURL, String id) {
+		return (prefixURL + id.substring(0, 12));             // FIXME: Special handling for ATOKA identifiers using only the first 12 characters in identifiers
+	}
 
 	/**
 	 * Tokenizes the given string of keywords using a specific character as delimiter.

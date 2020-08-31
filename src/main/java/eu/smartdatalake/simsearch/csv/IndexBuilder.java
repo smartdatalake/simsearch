@@ -1,14 +1,9 @@
 package eu.smartdatalake.simsearch.csv;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import org.json.simple.JSONObject;
-import org.json.simple.JSONArray;
 import org.locationtech.jts.geom.Geometry;
 
 import com.google.common.base.Joiner;
@@ -160,15 +155,18 @@ public class IndexBuilder {
 			
 			// TODO:  Handle data from a non-indexed column in a DBMS acquired via a JDBC connection
 			
-			// Build inverted index against the target data (tokens)
-			InvertedIndex index = reader.buildInvertedIndex(targetCollection, log);
-			// Use the generated hash key as a reference to the index built on this attribute
-			indices.put(id.getHashKey(), index);
-
-			//CAUTION! No normalization applied to categorical search queries
-			normalizations.put(id.getHashKey(), null);
-			
-			log.writeln("Index on " + id.getValueAttribute() + " created.");
+			// Build indices for queryable attributes only
+			if (id.isQueryable()) {
+				// Build inverted index against the target data (tokens)
+				InvertedIndex index = reader.buildInvertedIndex(targetCollection, log);
+				// Use the generated hash key as a reference to the index built on this attribute
+				indices.put(id.getHashKey(), index);
+	
+				//CAUTION! No normalization applied to categorical search queries
+				normalizations.put(id.getHashKey(), null);
+				
+				log.writeln("Index on " + id.getValueAttribute() + " created.");
+			}
 		}
 		// settings for top-k similarity search on numerical values
 		else if (operation.equalsIgnoreCase("numerical_topk")) {
@@ -202,29 +200,33 @@ public class IndexBuilder {
 			// Use the generated hash key as a reference to the collected values for this attribute
 			datasets.put(id.getHashKey(), targetData);
 			
-			BPlusTree<Double, String> index = null;
-			// Apply normalization (if specified) against input dataset
-			if ((normalized != null) && (normalized.equalsIgnoreCase("z"))) {
-				normal = new ZNormal(dataReader.avgVal, dataReader.stDev);
-				index = dataReader.buildNormalizedIndex(targetData, normal, log);
-			}
-			else if ((normalized != null) && (normalized.equalsIgnoreCase("unity"))) {
-				normal = new UnityNormal(dataReader.avgVal, dataReader.minVal, dataReader.maxVal);
-				index = dataReader.buildNormalizedIndex(targetData, normal, log);
-			}
-			else
-				index = dataReader.buildIndex(targetData, log);
-
-			// Use the generated hash key as a reference to the index built on this attribute
-			indices.put(id.getHashKey(), index);
-				
-			// Remember the kind of normalization applied against this dataset
-			normalizations.put(id.getHashKey(), normal);
+			// Build indices for queryable attributes only
+			if (id.isQueryable()) {
 			
-			duration = System.nanoTime() - duration;
-			log.writeln("Index on " + id.getValueAttribute() + " created in " + duration / 1000000000.0 + " sec.");
-			log.writeln("Index contains " + index.numNodes + " internal nodes and " + index.numLeaves + " leaf nodes.");				
-		
+				BPlusTree<Double, String> index = null;
+				// Apply normalization (if specified) against input dataset
+				if ((normalized != null) && (normalized.equalsIgnoreCase("z"))) {
+					normal = new ZNormal(dataReader.avgVal, dataReader.stDev);
+					index = dataReader.buildNormalizedIndex(targetData, normal, log);
+				}
+				else if ((normalized != null) && (normalized.equalsIgnoreCase("unity"))) {
+					normal = new UnityNormal(dataReader.avgVal, dataReader.minVal, dataReader.maxVal);
+					index = dataReader.buildNormalizedIndex(targetData, normal, log);
+				}
+				else
+					index = dataReader.buildIndex(targetData, log);
+	
+				// Use the generated hash key as a reference to the index built on this attribute
+				indices.put(id.getHashKey(), index);
+					
+				// Remember the kind of normalization applied against this dataset
+				normalizations.put(id.getHashKey(), normal);
+				
+				duration = System.nanoTime() - duration;
+				log.writeln("Index on " + id.getValueAttribute() + " created in " + duration / 1000000000.0 + " sec.");
+				log.writeln("Index contains " + index.numNodes + " internal nodes and " + index.numLeaves + " leaf nodes.");	
+			}
+
 		}
 		// settings for k-NN similarity search on spatial locations
 		else if (operation.equalsIgnoreCase("spatial_knn")) {
@@ -260,19 +262,21 @@ public class IndexBuilder {
 			// Use the generated hash key as a reference to the collected values for this attribute
 			datasets.put(id.getHashKey(), targetData);
 			
-			// Create the R-tree index on this data
-			RTree<String, Location> index = locReader.buildIndex(targetData, log);
-			
-			// Use the generated hash key as a reference to the index built on this attribute
-			indices.put(id.getHashKey(), index);
+			// Build indices for queryable attributes only
+			if (id.isQueryable()) {
+				// Create the R-tree index on this data
+				RTree<String, Location> index = locReader.buildIndex(targetData, log);
 				
-			// NO normalization is applied against spatial datasets
-			normalizations.put(id.getHashKey(), null);
-			
-			duration = System.nanoTime() - duration;
-			log.writeln("Index on " + id.getValueAttribute() + " created in " + duration / 1000000000.0 + " sec.");
-			log.writeln("MBR: " + index.getMBR().toString() + ". Index has " + index.getDepth() + " levels and contains " + index.getItems() + " object locations.");				
-			
+				// Use the generated hash key as a reference to the index built on this attribute
+				indices.put(id.getHashKey(), index);
+					
+				// NO normalization is applied against spatial datasets
+				normalizations.put(id.getHashKey(), null);
+				
+				duration = System.nanoTime() - duration;
+				log.writeln("Index on " + id.getValueAttribute() + " created in " + duration / 1000000000.0 + " sec.");
+				log.writeln("MBR: " + index.getMBR().toString() + ". Index has " + index.getDepth() + " levels and contains " + index.getItems() + " object locations.");				
+			}
 		}
 		//TODO: Include indexing for other types of operations...
 		else {

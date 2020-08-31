@@ -25,6 +25,12 @@ public class MountSpecs {
 	@ApiModelProperty(required = false, notes = "Indicates whether a header with column names exists; applicable for input CSV file only")
 	public Boolean header;
 	
+	@ApiModelProperty(required = false, notes = "Specifies a prefix to be combined with values from key_column and provide entity identifiers for the final results; if omitted, no URL identifiers will be created")
+	public String prefixURL;
+	
+	@ApiModelProperty(required = false, notes = "Indicates whether this column names can be involved in similarity search queries; if omitted, its set to true by default")
+	public Boolean queryable;
+	
 	@ApiModelProperty(required = false, notes = "Delimiter characters between tokens (keywords)")
 	public String token_delimiter;
 	
