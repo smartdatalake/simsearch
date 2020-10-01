@@ -1,12 +1,9 @@
 package eu.smartdatalake.simsearch;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Scanner;
-
-import org.json.simple.parser.ParseException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,13 +13,21 @@ import eu.smartdatalake.simsearch.service.SimSearchServiceLauncher;
 
 /**
  * Main class for invoking execution of a multi-attribute similarity search request that issues ranked top-k results with aggregate scores.
- * Before issuing any queries, provide a JSON config file that contains specifications for dataset specification for various attributes available for search.
- * Query configurations (contained in JSON files) can be given from standard input once data indexing is done. 
- * EXECUTION command: 
+ * Before issuing any queries, attribute data sources must be mounted (either ingested from CSV files or in-situ from JDBC connections or REST APIs) using a JSON configuration.
+ * Query configurations (specified in JSON) can be submitted once data sources have been mounted. 
+ * 
+ * Execution command -- STANDALONE mode with requests specified from standard input: 
  * java -jar target/simsearch-0.0.1-SNAPSHOT.jar
+ * 
+ * Execution command -- SERVICE mode: for launching a web service, e.g., at port 8090, and specifying requests using the REST API: 
+ * java -Dserver.port=8090 -jar target/simsearch-0.0.1-SNAPSHOT.jar --service
  */
 public class Runner {	
 	
+	/**
+	 * Provides the path to the JSON file containing configurations for the various requests.
+	 * @return  Path to a JSON file.
+	 */
 	private static String getConfigFile() {
 		
 		System.out.println("Specify the path to a JSON file with specifications for this operation:");
@@ -38,25 +43,22 @@ public class Runner {
 		return configFile;
 	}
 	
+	/**
+	 * Main entry point to the SimSearch application.
+	 * @param args  Optional arguments: specify --service is a RESTful service will be deployed.
+	 */
 	public static void main(String[] args) {
 
-		if (args.length > 0 && args[0].equals("--service"))
+		if (args.length > 0 && args[0].equals("--service")) {  	// SERVICE mode
 			try {
 				new SimSearchServiceLauncher(args);
-			} catch (FileNotFoundException e1) {
-				e1.printStackTrace();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			} catch (ParseException e1) {
-				e1.printStackTrace();
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-		else {
+		}
+		else {            										// STANDALONE mode
+			// Instantiate a coordinator for handling all operations
 			Coordinator myCoordinator = new Coordinator();
-	/*		
-			Runtime runtime = Runtime.getRuntime();
-			long usedMemoryBefore = runtime.totalMemory() - runtime.freeMemory();
-			System.out.println("Initial memory footprint:" + (1.0 * usedMemoryBefore)/(1024*1024) + "MB");
-	*/	
 			Scanner in = new Scanner(System.in); 
 			do {
 				System.out.print("**********Choose a number corresponding to a functionality:**********\n1: MOUNT SOURCES; 2: DELETE SOURCES; 3: CATALOG; 4: SEARCH. Your choice: ");		
@@ -65,6 +67,7 @@ public class Runner {
 				switch (choice) {
 				case 1:	 // MOUNTING & INDEXING
 					try {
+						// Mount the specified data sources to make them available for similarity search; also create indices for ingested data sources
 						myCoordinator.mount(getConfigFile());			
 					}
 					catch (Exception e) {
@@ -83,16 +86,10 @@ public class Runner {
 					break;
 				case 3:  // CATALOG DATA SOURCES 
 					try {
-						// List of data sources specified					
+						// List of data sources available for similarity search queries					
 						ObjectWriter ow3 = new ObjectMapper().writer().withDefaultPrettyPrinter();
 						String json3 = ow3.writeValueAsString(myCoordinator.listDataSources());
-						System.out.println(json3);
-	/*					
-						AttributeInfo[] response = myCoordinator.listDataSources(getConfigFile());
-						ObjectWriter ow3 = new ObjectMapper().writer().withDefaultPrettyPrinter();
-						String json3 = ow3.writeValueAsString(response);
-						System.out.println(json3);
-	*/					
+						System.out.println(json3);					
 					} catch (Exception e) {
 						e.printStackTrace();
 						System.out.println("Listing of available data sources terminated abnormally.");
@@ -100,7 +97,7 @@ public class Runner {
 					break;
 				case 4:  // SEARCH 
 					try {					
-				        // Invoke search with the parameters specified in the JSON configuration
+				        // Invoke similarity search with the parameters specified in the given JSON configuration
 				        SearchResponse[] response = myCoordinator.search(getConfigFile());
 				        // Print response as JSON to standard output
 						try {
@@ -113,23 +110,16 @@ public class Runner {
 					} catch (Exception e) {
 						e.printStackTrace();
 						System.out.println("Query evaluation terminated abnormally. Make sure that the JSON file provides suitable search specifications.");
-	//					System.exit(1);
 					}
 					break;
 				default:   // EXIT (on any other choice)
-					System.out.println("Exiting similarity search.");
+					System.out.println("Exiting similarity search. All in-memory data will be purged.");
 					in.close();
 					System.exit(0);
 				}	
 							
 			} while(true);   // loop indefinitely until the user suspends execution	
 		}
-/*
-		runtime.gc();
-		long usedMemoryAfter = runtime.totalMemory() - runtime.freeMemory();
-		System.out.println("Memory footprint: " + (1.0 * (usedMemoryAfter - usedMemoryBefore))/(1024*1024) + "MB");
-*/
-
 	}
 
 }

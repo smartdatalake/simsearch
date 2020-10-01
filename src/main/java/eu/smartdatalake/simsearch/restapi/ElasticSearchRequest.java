@@ -37,9 +37,7 @@ import eu.smartdatalake.simsearch.measure.ISimilarity;
  * @param <K>  Type variable representing the keys of the stored objects (i.e., primary keys).
  * @param <V>  Type variable representing the values of the stored objects (i.e., their values on a given attribute).
  * 
- * // FIXME: There seems to be a default limit of 10000 results per query. Possible remedies:
- * https://discuss.elastic.co/t/pulling-more-than-10000-records-from-elasticsearch-query/181000
- * https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html#request-body-search-scroll
+ * // FIXME: A default limit of 10000 results per query is typically specified in ElastiSearch.
  */
 public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements ISimSearch<K, V>, Runnable {
 
@@ -66,15 +64,17 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 
 	/**
 	 * Constructor
-	 * @param uri
-	 * @param operation
-	 * @param keyColumnName
-	 * @param valColumnName
-	 * @param searchValue
-	 * @param collectionSize
-	 * @param simMeasure
-	 * @param resultsQueue
-	 * @param log
+	 * @param httpConn  The HTTP connection that provides access to the data.
+	 * @param operation  The type of the similarity search query (0: CATEGORICAL_TOPK, 1: SPATIAL_KNN, 2: NUMERICAL_TOPK).
+	 * @param keyColumnName  Name of the attribute holding the entity identifiers (keys).
+	 * @param valColumnName  Name of the attribute containing numerical values of these entities.
+	 * @param searchValue  String specifying the query value according to the type os the search operation (i.e., keywords, a location, or a number).
+	 * @param collectionSize  The count of results to fetch.
+	 * @param simMeasure  The similarity measure to be used in the search.
+	 * @param resultsQueue  Queue to collect query results.
+	 * @param datasets  Dictionary of the attribute data available for search.
+	 * @param hashKey  The unique hash key assigned to this search query.
+	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
 	public ElasticSearchRequest(HttpConnector httpConn, int operation, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
 		  
@@ -94,7 +94,7 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 		
     	// Construct search request according to the type of the operation
     	// FIXME: REST APIs may have different specifications for the various types of queries; currently using the ElasticSearch dialect
-		// FIXME: Elasticsearch is sensitive to scale and decay parameters; reduced decay values miss several more relevant results 
+		// CAUTION! Elasticsearch is sensitive to scale and decay parameters; reduced decay values miss several more relevant results 
 		if (operation == Constants.NUMERICAL_TOPK) {
 			query = "{\"_source\": [\"" + keyColumnName + "\", \"" + valColumnName + "\"]," + "\"query\": {\"function_score\": {\"query\": {\"exists\": { \"field\": \"" + valColumnName + "\" }},"
 				+ "\"exp\": {\"" + valColumnName + "\": {\"origin\": \"" + searchValue 
@@ -115,6 +115,9 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 	
 	/**
 	 * Connects to a REST API and retrieves items qualifying to the submitted similarity search request.
+	 * @param k  The count of results to fetch.
+	 * @param partialResults  The queue that collects results obtained from the specified query.
+	 * @return  The number of collected results.
 	 */
     public int compute(int k, ConcurrentLinkedQueue<PartialResult> partialResults) {
     	
@@ -158,8 +161,6 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 								val = ((JSONObject)item.get("_source")).get(valColumnName);
 								if (val == null)
 									continue;
-//								else 
-//									System.out.println(String.valueOf(item.get("_id")) + " : "+ String.valueOf(val));
 			            	
 								// Depending on the operation, cast resulting attribute value into the suitable data type
 				            	switch(this.operation) {

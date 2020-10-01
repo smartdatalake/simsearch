@@ -1,8 +1,6 @@
 package eu.smartdatalake.simsearch.csv.spatial;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.util.HashMap;
@@ -12,6 +10,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTReader;
 
 import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.csv.DataFileReader;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 
 /**
@@ -23,8 +22,8 @@ public class LocationReader {
 	
 	/** 
 	 * Returns a binary geometry representation according to its Well-Known Text serialization.
-	 * @param wkt  WKT of the geometry
-	 * @return  A geometry object
+	 * @param wkt  WKT of the geometry.
+	 * @return  A geometry object.
 	 */
 	public Geometry WKT2Geometry(String wkt) {  
 	  	    
@@ -41,9 +40,9 @@ public class LocationReader {
 	
 	/**
 	 * Provides a binary geometry representation from the given WGS84 lon/lat geographical coordinates.
-	 * @param lon
-	 * @param lat
-	 * @return
+	 * @param lon  A double value representing the longitude of the location.
+	 * @param lat  A double value representing the latitude of the location.
+	 * @return  The geometry representation (in WGS84) of the given location.
 	 */
 	public Geometry LonLat2Geometry(double lon, double lat) {  
   	    
@@ -61,9 +60,9 @@ public class LocationReader {
 	
 	/**
 	 * Creates an R-tree index from the input collection of geometry locations.
-	 * @param targetData
-	 * @param log
-	 * @return
+	 * @param targetData  A dictionary of all geometries with their unique identifiers as keys.
+	 * @param log  Handle to the logger of statistics calculated over the data.
+	 * @return  The R-tree index created over the input geometries.
 	 */
 	public RTree<String, Location> buildIndex(HashMap<String, Geometry> targetData, Logger log) {
 
@@ -90,16 +89,16 @@ public class LocationReader {
 	
 	
 	/**
-	 * Creates a dictionary of (key,geometry) pairs of all items read from a CSV file
+	 * Creates a dictionary of (key,geometry) pairs of all items read from a CSV file.
 	 * ASSUMPTION: Input data collection only contains POINT locations referenced in WGS84.
-	 * @param inputFile
-	 * @param maxLines
-	 * @param colKey
-	 * @param colValue
-	 * @param columnDelimiter
-	 * @param header
-	 * @param log
-	 * @return
+	 * @param inputFile  Path to the input CSV file or its URL at a remote server containing the attribute data.
+	 * @param maxLines  Instructs reader to only consume the first lines up to this limit.
+	 * @param colKey  An integer representing the ordinal number of the attribute containing the key of the entities.
+	 * @param colValue  An integer representing the ordinal number of the attribute containing the values (i.e., geometries) of the entities.
+	 * @param columnDelimiter  The delimiter character used between attribute values in the CSV file.
+	 * @param header  Boolean indicating whether the first line contains attribute names.
+	 * @param log  Handle to the logger for statistics and issues over the input data.
+	 * @return  A hash map of (key,geometry) values.
 	 */
 	public HashMap<String, Geometry> readFromCSVFile(String inputFile, int maxLines, int colKey, int colValue, String columnDelimiter, boolean header, Logger log) {
 
@@ -113,12 +112,13 @@ public class LocationReader {
 		int count = 0;
 		int errorLines = 0;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(inputFile));
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(inputFile);
 			String line;
 			String[] columns;
 			Geometry g;
 
-			// if the file has a header, ignore it
+			// If the file has a header, ignore it
 			if (header) {
 				line = br.readLine();
 			}
@@ -128,7 +128,7 @@ public class LocationReader {
 				if (maxLines > 0 && count >= maxLines) {
 					break;
 				}
-				try {  //FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
+				try {  // FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
 					columns = line.split(regex,-1);
 					if ((columns[colKey].isEmpty()) || (columns[colValue].isEmpty()))
 						throw new NullPointerException();;
@@ -156,13 +156,13 @@ public class LocationReader {
 
 	/**
 	 * Reading spatial attribute data (POINT locations only) from a table in a dBMS over a JDBC connection.
-	 * @param tableName
-	 * @param keyColumnName
-	 * @param longitudeColumnName
-	 * @param latitudeColumnName
-	 * @param jdbcConnector
-	 * @param log
-	 * @return
+	 * @param tableName  The name of the table (or view) that contains the input data.
+	 * @param keyColumnName  The name of the attribute containing the unique identifier (key) of the entities.
+	 * @param longitudeColumnName  The name of the attribute containing the longitude ordinate of the entities.
+	 * @param latitudeColumnName  The name of the attribute containing the latitude ordinate of the entities.
+	 * @param jdbcConnector  Instance of a JDBC connector to the DBMS where the table resides.
+	 * @param log  Logger for statistics and issues over the input data.
+	 * @return  A hash map of (key,geometry) values.
 	 */
 	public HashMap<String, Geometry> readFromJDBCTable(String tableName, String keyColumnName, String longitudeColumnName, String latitudeColumnName, JdbcConnector jdbcConnector, Logger log) {
 
@@ -205,15 +205,15 @@ public class LocationReader {
 	/**
 	 * Creates a dictionary of (key,geometry) pairs of all items read from a CSV file
 	 * ASSUMPTION: Input data collection only contains POINT locations referenced in WGS84.
-	 * @param inputFile
-	 * @param maxLines
-	 * @param colKey
-	 * @param colLongitude
-	 * @param colLatitude
-	 * @param columnDelimiter
-	 * @param header
-	 * @param log
-	 * @return
+	 * @param inputFile  Path to the input CSV file or its URL at a remote server containing the attribute data.
+	 * @param maxLines  Instructs reader to only consume the first lines up to this limit.
+	 * @param colKey  An integer representing the ordinal number of the attribute containing the key of the entities.
+	 * @param colLongitude  An integer representing the ordinal number of the attribute containing the longitude ordinates of the entities.
+	 * @param colLatitude  An integer representing the ordinal number of the attribute containing the latitude ordinates of the entities.
+	 * @param columnDelimiter  The delimiter character used between attribute values in the CSV file.
+	 * @param header  Boolean indicating whether the first line contains attribute names.
+	 * @param log  Logger for statistics and issues over the input data.
+	 * @return  A hash map of (key,geometry) values.
 	 */
 	public HashMap<String, Geometry> readFromCSVFile(String inputFile, int maxLines, int colKey, int colLongitude, int colLatitude, String columnDelimiter, boolean header, Logger log) {
 
@@ -227,12 +227,13 @@ public class LocationReader {
 		int count = 0;
 		int errorLines = 0;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(inputFile));
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(inputFile);
 			String line;
 			String[] columns;
 			Geometry g;
 
-			// if the file has a header, ignore it
+			// If the file has a header, ignore it
 			if (header) {
 				line = br.readLine();
 			}

@@ -10,7 +10,8 @@ import java.util.TimeZone;
  */
 public class Logger {
 
-	PrintStream logStream;
+	String logFile;
+	PrintStream logStream = null;
 	SimpleDateFormat gmtDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");         
 	
 	/**
@@ -21,7 +22,8 @@ public class Logger {
 	public Logger(String logFile, boolean append) {
 		
 		try {
-			logStream = new PrintStream(new FileOutputStream(logFile,append));
+			this.logStream = new PrintStream(new FileOutputStream(logFile,append));
+			this.logFile = logFile;  // Keep a reference to the logfile path
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -36,6 +38,8 @@ public class Logger {
 	 */
 	public void writeln(String message) {
 		
-		logStream.println(gmtDateFormat.format(new java.util.Date()) + " GMT " + message);
+		if (this.logStream != null)
+			this.logStream.println(gmtDateFormat.format(new java.util.Date()) + " GMT " + message);
 	}
+	
 }

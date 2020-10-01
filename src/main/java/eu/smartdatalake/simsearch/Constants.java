@@ -19,8 +19,8 @@ public class Constants {
 	public final static String OUTPUT_COLUMN_SEPARATOR = ";";   // Only in case of CSV output files
 	public final static String OUTPUT_QUOTE = "\"";   			// Only in case of CSV output files
 	
-	//FIXME: Specific types of distance measures apply for each search query facet
-	public final static int CATEGORICAL_TOPK = 0;   // categorical top-k similarity search
+	//FIXME: Specific types of distance measures apply to each facet of similarity search
+	public final static int CATEGORICAL_TOPK = 0;   // categorical (set-valued) top-k similarity search
 	public final static int SPATIAL_KNN = 1;   		// k-NN spatial similarity search
 	public final static int NUMERICAL_TOPK = 2;  	// numerical top-k similarity search
 	
@@ -28,7 +28,7 @@ public class Constants {
 	
 	public final static int INFLATION_FACTOR = 1000;     // Multiply the top-k with this value to specify the number of partial results to made available from each facet
 	
-	public final static String RANKING_METHOD = "threshold";	// By default, apply the threshold algorithm for rank aggregation
+	public final static String RANKING_METHOD = "threshold";	// By default, apply the threshold algorithm in rank aggregation
 
 	public static final String INCORRECT_DBMS = "Incorrect or no value set for the DBMS where input data is stored. Please specify a correct value in the configuration settings.";
 	  

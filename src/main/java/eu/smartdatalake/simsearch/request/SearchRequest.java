@@ -3,6 +3,9 @@ package eu.smartdatalake.simsearch.request;
 import eu.smartdatalake.simsearch.IRequest;
 import io.swagger.annotations.ApiModelProperty;
 
+/**
+ * Specifies parameters for multi-attribute similarity search requests.
+ */
 public class SearchRequest implements IRequest {
 
 	@ApiModelProperty(required = true, notes = "The number of top-k results to return")

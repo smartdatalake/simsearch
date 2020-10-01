@@ -2,8 +2,10 @@ package eu.smartdatalake.simsearch;
 
 import java.io.File;
 import java.io.FileReader;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,10 +36,12 @@ import eu.smartdatalake.simsearch.csv.Index;
 import eu.smartdatalake.simsearch.csv.IndexBuilder;
 
 /**
- * Orchestrates indexing and multi-attribute similarity search and issues progressively ranked aggregated top-k results.
- * Available ranking methods: Threshold, No Random Access.
- * Provides two basic functionalities:	(1) Mounting: establishes data connections and prepares indices for the specified attributes;
- * 										(2) Search: Handles multi-facet similarity search requests.
+ * Orchestrates multi-attribute similarity search and issues progressively ranked aggregated top-k results.
+ * Available ranking methods: Threshold, No Random Access, Partial Random Access.
+ * Provides four basic functionalities:	(1) Mounting: establishes data connections and prepares indices for the specified attribute data;
+ * 										(2) Catalog: lists all attributes available for similarity search queries;
+ * 										(3) Delete: removes attribute data source(s) from those available for similarity search;
+ * 										(4) Search: handles multi-facet similarity search requests.
  * Extra data connections (along with possible indexing) can be established even in case queries have been previously submitted against other attributes.
  */
 public class Coordinator {
@@ -73,7 +77,7 @@ public class Coordinator {
 
 	/**
 	 * Checks if a data source has already been specified on the requested facet (i.e., attribute in a dataset).
-	 * @param q   The requested identifier.
+	 * @param q  The requested identifier.
 	 * @return  True, if identifier exists; otherwise, False.
 	 */
 	private boolean existsIdentifier(DatasetIdentifier q) {
@@ -90,8 +94,8 @@ public class Coordinator {
 
 	/**
 	 * Finds the internal identifier used for the data of a given attribute.
-	 * @param column   The name of the attribute.
-	 * @return  The dataset identifier.
+	 * @param column  The name of the attribute.
+	 * @return  The internal dataset identifier.
 	 */
 	private DatasetIdentifier findIdentifier(String column) {
 		
@@ -125,8 +129,8 @@ public class Coordinator {
 	
 	
 	/**
-	 * Identifies whether a data source (to a directory of a JDBC connection to a database) is already defined.
-	 * @param key   A unique identifier of the data source, usually specified by the administrator.
+	 * Identifies whether a data source (to a directory of a JDBC connection to a database) of an attribute is already defined.
+	 * @param key  A unique identifier of the data source, usually specified by the administrator.
 	 * @return  An instance of a DataSource object representing the details of the connection.
 	 */
 	private DataSource findDataSource(String key) {
@@ -141,23 +145,25 @@ public class Coordinator {
 	
 	
 	/**
-	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) to be used in searching.
+	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) of the attributes to be used in searching.
 	 * This method accepts a file with the configuration settings.
 	 * @param jsonFile  Path to the JSON configuration file of the data sources, attributes and operations to be used in subsequent search requests.
+	 * @return  Notification regarding any issues occurred during mounting of the specified attribute data sources.
 	 */
-	public void mount(String jsonFile) {
+	public Response mount(String jsonFile) {
 		
 		JSONObject config = parseConfig(jsonFile);		
-		this.mount(config);
+		return this.mount(config);
 	}
 	
 	
 	/**
-	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) to be used in searching.
+	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) of the attributes to be used in searching.
 	 * This method accepts a configuration formatted as a JSON object.
 	 * @param mountConfig  JSON configuration file of the data sources, attributes and operations to be used in subsequent search requests.
+	 * @return  Notification regarding any issues occurred during mounting of the specified attribute data sources.
 	 */
-	public void mount(JSONObject mountConfig) { 
+	public Response mount(JSONObject mountConfig) { 
 		
 		MountRequest params = null;
 		ObjectMapper mapper = new ObjectMapper();	
@@ -169,25 +175,30 @@ public class Coordinator {
 			e.printStackTrace();
 		}
 		
-		mount(params);
+		return mount(params);
 	}
 	
+	
 	/**
-	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) to be used in searching.
+	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) of the attributes to be used in searching.
 	 * This method accepts a configuration formatted as a JSON object.
 	 * @param params  Parameters specifying the data sources, attributes and operations to be used in subsequent search requests.
+	 * @return  Notification regarding any issues occurred during mounting of the specified attribute data sources.
 	 */
-	public void mount(MountRequest params) {
+	public Response mount(MountRequest params) {
+		
+		Response mountResponse = new Response();
 		
 		// log file
 		try {
 			if (log == null) {   // Use already existing log file if an index after query execution has started
 				String logFile;
 				if (params.log != null) 
-					logFile = params.log;
-				else   // Otherwise, use current system time to compose the name of the log file
-					logFile = "SimSearch" + new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()) + ".log";
-				log = new Logger(logFile, false);
+					logFile = params.log;   // User-specified file location
+				else   // Otherwise, use current system time to compose the name of the log file and put it in the TMP directory
+					logFile = System.getProperty("java.io.tmpdir") + "/" + "SimSearch" + new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()) + ".log";
+				System.out.println("Logging activity at file:" + logFile);
+				log = new Logger(logFile, false);		
 			}
 		} catch(Exception e) {
 			e.printStackTrace();
@@ -210,8 +221,11 @@ public class Coordinator {
        	
 	        	if (dataSource == null) {
 	        		
-		        	if (sourceConfig.type.equals("csv")) {   // This is a CSV data source
-		        		dataSource = new DataSource(sourceConfig.name, sourceConfig.directory);
+		        	if (sourceConfig.type.equals("csv")) {   		// This is a CSV data source
+		        		if (sourceConfig.url != null)	// File resides in a remote HTTP/FTP server
+		        			dataSource = new DataSource(sourceConfig.name, sourceConfig.url);
+		        		else							// File resides in a local directory
+		        			dataSource = new DataSource(sourceConfig.name, sourceConfig.directory);
 		        		dataSources.put(dataSource.getKey(), dataSource);
 //		        		System.out.println("PATH: " + dataSources.get(connection.getKey()).getPathDir());
 		        	}
@@ -242,10 +256,12 @@ public class Coordinator {
 		        	else if (sourceConfig.type.equals("restapi")) {   // This is a REST API data source, e.g., Elasticsearch	        		
 		        		try {
 		        			HttpConnector httpConn = null;
-		        			// If authorization (API KEY) is specified by the user, then use it 'as is' in the header of requests
-		        			if (sourceConfig.api_key != null)
+		        			// Instantiate a connection to the REST API depending on the type of authentication
+		        			if (sourceConfig.api_key != null)  // If authorization (API KEY) is specified by the user, then use it 'as is' in the header of requests
 		        				httpConn = new HttpConnector(new URI(sourceConfig.url), sourceConfig.api_key);
-		        			else
+		        			else if ((sourceConfig.username != null) && (sourceConfig.password != null))  // Basic authentication with username/password
+		        				httpConn = new HttpConnector(new URI(sourceConfig.url), sourceConfig.username, sourceConfig.password);
+		        			else  // No authentication required
 		        				httpConn = new HttpConnector(new URI(sourceConfig.url));
 			        			
 							// Remember this connection; this may be used for successive queries
@@ -261,7 +277,6 @@ public class Coordinator {
 						} catch (URISyntaxException e) {
 							e.printStackTrace();
 						}
-	        		
 		        	}
 	        	}
 	        }
@@ -282,6 +297,7 @@ public class Coordinator {
 				String sourceId = searchConfig.source;
 				
 				if (!dataSources.containsKey(sourceId)) {
+					mountResponse.appendNotification("Data source with name " + sourceId + " has not been specified and will be ignored during search.");
 					log.writeln("Data source with name " + sourceId + " has not been specified and will be ignored during search.");
 					continue;
 				}
@@ -304,11 +320,23 @@ public class Coordinator {
 					log.writeln("Connections to REST API " + dataSources.get(sourceId).getHttpConn().toString() + " will be used for queries.");
 				}
 				else if (dataSources.get(sourceId).getPathDir() != null) {   // Otherwise, querying a CSV file
-					// CAUTION! Directory and file name get concatenated
+					// File may reside either at the local file system or at a remote HTTP/FTP server
+					// CAUTION! Directory (or URL) and file name get concatenated
 					File sourcePath = new File(dataSources.get(sourceId).getPathDir());
-					File filePath = new File(sourcePath, dataset);
-					dataset = filePath.toString();
-					
+					if (sourcePath.isDirectory()) {  	// File at a local directory
+						File filePath = new File(sourcePath, dataset);
+						dataset = filePath.toString();
+					}
+					else {								// File at a remote server
+						try {
+							URL url = new URL(dataSources.get(sourceId).getPathDir());
+							if (url.getHost() != null)
+								dataset = url.toString() + dataset;
+						} catch (MalformedURLException e) {
+							e.printStackTrace();
+						}
+					}
+									
 					String columnDelimiter = Constants.COLUMN_SEPARATOR;
 					if (searchConfig.separator!= null) {
 						columnDelimiter = searchConfig.separator;
@@ -324,6 +352,7 @@ public class Coordinator {
 						if ((searchConfig.header != null) && (searchConfig.header == true)) {     
 							colQuery = myAssistant.getColumnNumber(dataset, colValueName, columnDelimiter);
 							if (colQuery < 0) {
+								mountResponse.appendNotification("Attribute name " + colValueName + " is not found in the input data! No queries can target this attribute.");
 								log.writeln("Attribute name " + colValueName + " is not found in the input data! No queries can target this attribute.");
 								continue;
 							}
@@ -331,6 +360,7 @@ public class Coordinator {
 					}				
 				}
 				else {
+					mountResponse.appendNotification("Incomplete specifications to allow search against data source " + sourceId);
 					log.writeln("Incomplete specifications to allow search against data source " + sourceId);
 					continue;
 				}					
@@ -357,6 +387,7 @@ public class Coordinator {
 				
 				// Skip index construction if an index is already built on this attribute
 				if (existsIdentifier(id)) {
+					mountResponse.appendNotification("Attribute " + id.getValueAttribute() + " in dataset " + dataset +  " for " + operation + " has already been defined. Superfluous specification will be ignored.");
 					log.writeln("Attribute " + id.getValueAttribute() + " in dataset " + dataset +  " for " + operation + " has already been defined. Superfluous specification will be ignored.");
 					continue;
 				}
@@ -373,6 +404,7 @@ public class Coordinator {
 					id.setOperation(Constants.SPATIAL_KNN);
 					break;
 		        default:
+		        	mountResponse.appendNotification("Unknown operation specified: " + operation);
 		        	log.writeln("Unknown operation specified: " + operation);
 		        	continue;
 		        }
@@ -410,6 +442,7 @@ public class Coordinator {
 		for (JdbcConnector jdbcConn: openJdbcConnections)
 			jdbcConn.closeConnection();
 		
+		return mountResponse;
 	}
 
 	
@@ -441,19 +474,21 @@ public class Coordinator {
 	/**
 	 * Discard all structures (indices, in memory look-ups) created on the given attribute(s) according to user-specified configurations.
 	 * @param jsonFile   Path to the JSON configuration file of the attributes and operations to be removed.
+	 * @return  Notification regarding the removed attribute(s) or any issues occurred during their removal.
 	 */
-	public void delete(String jsonFile) {
+	public Response delete(String jsonFile) {
 		
 		JSONObject config = parseConfig(jsonFile);		
-		this.delete(config);
+		return this.delete(config);
 	}
 	
 
 	/**
 	 * Discard all structures (indices, in memory look-ups) created on the given attribute(s) according to user-specified configurations.
 	 * @param removeConfig  JSON configuration for attributes and operations to be removed; these must have been previously specified in a mount request.
+	 * @return  Notification regarding the removed attribute(s) or any issues occurred during their removal.
 	 */
-	public void delete(JSONObject removeConfig) {
+	public Response delete(JSONObject removeConfig) {
 		
 		RemoveRequest params = null;
 		ObjectMapper mapper = new ObjectMapper();	
@@ -465,15 +500,18 @@ public class Coordinator {
 			e.printStackTrace();
 		}
 		
-		delete(params);
+		return delete(params);
 	}
 	
 	
 	/**
 	 * Discard all structures (indices, in memory look-ups) created on a given attribute according to user-specified parameters.
 	 * @param params  Parameters specifying the attributes and operations to be removed; these must have been previously specified in a mount request.
+	 * @return  Notification regarding the removed attribute(s) or any issues occurred during their removal.
 	 */
-	public void delete(RemoveRequest params) {
+	public Response delete(RemoveRequest params) {
+		
+		Response delResponse = new Response();
 		
 		// Array of specified data attributes and their supported operations to remove
 		AttributeInfo[] arrAttrs2Remove = params.remove;
@@ -492,6 +530,7 @@ public class Coordinator {
 		
 				if (id == null) {
 					log.writeln("No dataset with attribute " + colValueName + " is available for search.");
+					delResponse.appendNotification("No dataset with attribute " + colValueName + " is available for search.");
 					throw new NullPointerException("No dataset with attribute " + colValueName + " is available for search.");
 				}
 
@@ -502,12 +541,15 @@ public class Coordinator {
 					datasets.remove(id.getHashKey());
 					indices.remove(id.getHashKey());
 					normalizations.remove(id.getHashKey());
-					log.writeln("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " for " + operation + ".");				
+					delResponse.appendNotification("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " in " + operation + " operations.");
+					log.writeln("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " in " + operation + " operations.");				
 				}
 				else
 					continue;
 	        }
 		}
+		
+		return delResponse;
 	}
 
 	
@@ -525,9 +567,11 @@ public class Coordinator {
 				i++;
 			}
 		}
+		
 		return Arrays.copyOf(dataSources, i);   // In case some entries have been skipped
 	}
 
+	
 	/**
 	 * Provides a catalog with the collection of attributes available for querying; if an operation is specified, only relevant attributes will be reported.
 	 * This method accepts a file with the configuration settings.
@@ -540,10 +584,11 @@ public class Coordinator {
 		return this.listDataSources(config);
 	}
 
+	
 	/**
 	 * Provides a catalog with the collection of attributes available for querying; if an operation is specified, only relevant attributes will be reported.
 	 * This method accepts a configuration formatted as a JSON object.
-	 * @param jsonFile   Path to the JSON configuration file that specifies an operation.
+	 * @param catalogConfig  JSON configuration that specifies a CatalogRequest operation.
 	 * @return An array of attribute names including their supported similarity search operation(s).
 	 */
 	public AttributeInfo[] listDataSources(JSONObject catalogConfig) {
@@ -566,12 +611,12 @@ public class Coordinator {
 	/**
 	 * Provides a catalog with the collection of attributes available for querying; if an operation is specified, only relevant attributes will be reported.
 	 * This method accepts an instance of CatalogRequest class.
-	 * @param catalogConfig  An instance of a CatalogRequest class; if not null, it should specify a string for similarity search operation (categorical_topk, spatial_knn, numerical_topk)
+	 * @param params  An instance of a CatalogRequest class; if not null, it should specify a string for similarity search operation (categorical_topk, spatial_knn, numerical_topk)
 	 * @return  An array of attribute names along with the supported similarity search operation(s).
 	 */
-	public AttributeInfo[] listDataSources(CatalogRequest catalogConfig) {
+	public AttributeInfo[] listDataSources(CatalogRequest params) {
 		
-		String operation = catalogConfig.operation;
+		String operation = params.operation;
 		
 		// If no specific operation is given, report all attributes available for search
 		if (operation == null)
@@ -584,6 +629,7 @@ public class Coordinator {
 				dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.descOperation(id.getOperation())));
 			}
 		}
+		
 		return dataSources.toArray(new AttributeInfo[dataSources.size()]);
 	}
 	
@@ -596,8 +642,7 @@ public class Coordinator {
 	 */
 	public SearchResponse[] search(String jsonFile) {
 		
-		JSONObject config = parseConfig(jsonFile);
-		
+		JSONObject config = parseConfig(jsonFile);	
 		return search(config);
 	}
 	
@@ -637,6 +682,16 @@ public class Coordinator {
 		SearchHandler reqHandler = new SearchHandler(dataSources, datasetIdentifiers, datasets, indices, normalizations, log);
 		
 		return reqHandler.search(params);
+	}
+	
+	/**
+	 * Explicitly writes the given message to the log file of the running instance.
+	 * @param msg  A message to be written to the log file.
+	 */
+	public void log(String msg) {
+		
+		if (this.log != null)
+			this.log.writeln(msg);
 	}
 	
 }

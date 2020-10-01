@@ -26,7 +26,7 @@ import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**
- * Implements functionality for various similarity search queries (numerical, categorical, spatial) against a DBMS.
+ * Implements functionality for in-situ queries of various types of similarity search (numerical, categorical, spatial) against a DBMS.
  * @param <K>  Type variable representing the keys of the stored objects (i.e., primary keys).
  * @param <V>  Type variable representing the values of the stored objects (i.e., their values on a given attribute).
  */
@@ -60,21 +60,22 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	ISimilarity simMeasure;
 	
 	public AtomicBoolean running = new AtomicBoolean(false);
+
 	
 	/**
 	 * Constructor
-	 * @param databaseConnector
-	 * @param operation
-	 * @param tableName
-	 * @param keyColumnName
-	 * @param valColumnName
-	 * @param searchValue
-	 * @param collectionSize
+	 * @param databaseConnector  The JDBC connection that provides access to the table.
+	 * @param operation  The type of the similarity search query (0: CATEGORICAL_TOPK, 1: SPATIAL_KNN, 2: NUMERICAL_TOPK).
+	 * @param tableName  The table name containing the attribute data used in the search.
+	 * @param keyColumnName  Name of the attribute holding the entity identifiers (keys).
+	 * @param valColumnName  Name of the attribute containing numerical values of these entities.
+	 * @param searchValue  String specifying the query value according to the type os the search operation (i.e., keywords, a location, or a number).
+	 * @param collectionSize  The count of results to fetch.
 	 * @param simMeasure   The similarity measure to be used in the search.
-	 * @param resultsQueue
-	 * @param datasets
-	 * @param hashKey
-	 * @param log
+	 * @param resultsQueue  Queue to collect query results.
+	 * @param datasets  Dictionary of the attribute data available for search.
+	 * @param hashKey  The unique hash key assigned to this search query.
+	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
 	public SimSearchQuery(JdbcConnector databaseConnector, int operation, String tableName, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
 	  
@@ -147,8 +148,12 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 		}	
 	}
 
+
 	/**
-	 * Connects to a database and retrieves records qualifying to the submitted SQL SELECT query.
+	 * Connects to a database and retrieves records qualifying to the SQL SELECT query executed in-situ.
+	 * @param k  The count of results to fetch.
+	 * @param partialResults  The queue that collects results obtained from the specified query.
+	 * @return  The number of collected results.
 	 */
      public int compute(int k, ConcurrentLinkedQueue<PartialResult> partialResults) {
 	
@@ -254,7 +259,7 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 
 	
 	/**
-	 * Executes the specified similarity search query against the database.
+	 * Executes the specified similarity search query in-situ against the database.
 	 */
 	public void run() {
 		
@@ -265,9 +270,6 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	          	break;
 	        case "AVATICA":    // Connection to Proteus 
 	        	sql = udfClause + "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " WHERE " + whereClause + " ORDER BY " + orderClause + " LIMIT $k$";
-	        	break;
-	        case "ORACLE":   // Placeholder for another DBMS
-	        	sql = "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " WHERE " + whereClause + " ORDER BY " + orderClause + " FETCH FIRST $k$ ROWS ONLY";
 	        	break;
 	        default:
 	        	this.log.writeln(Constants.INCORRECT_DBMS);
@@ -281,4 +283,5 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	      
 	      running.set(false);
 	}
+	
 }

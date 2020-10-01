@@ -19,4 +19,5 @@ public class Location {
 		this.key = id;
 		this.loc = g;
 	}
+	
 }

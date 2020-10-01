@@ -47,4 +47,5 @@ public interface ISimilarity<V> {
 	 * @return  An integer value that is used to identify the thread.
 	 */
 	public int getTaskId();
+	
 }

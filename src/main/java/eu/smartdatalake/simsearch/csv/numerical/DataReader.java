@@ -1,24 +1,21 @@
 package eu.smartdatalake.simsearch.csv.numerical;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.sql.ResultSet;
-import java.text.NumberFormat;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Locale;
 import java.util.Map;
 
 import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.csv.DataFileReader;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 
 /**
- * Consumes data from a CSV file or over a JDBC connection and extracts numerical values from a specific attribute.
- * Values are maintained in a hash table taking their keys from another attribute in the file. 
- * Aggregate statistics are also collected while parsing the file.
+ * Consumes data from a CSV file or a table over a JDBC connection and extracts numerical values from a specific attribute.
+ * Values are maintained in a hash table taking their keys from another attribute in the file or table. 
+ * Aggregate statistics are also collected while parsing the attribute data.
  * A B+-tree index may be created from the collected (key,value) pairs.
  */
 public class DataReader {
@@ -120,7 +117,8 @@ public class DataReader {
 	 * Builds a B+-tree index based on (key,value) pairs available in a collection.
 	 * CAUTION! Indexes original features without applying normalization.
 	 * @param targetData  The collection of data given as (key, value) pairs.
-	 * @return A handle to the root of the created B+-tree.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A handle to the root of the created B+-tree.
 	 */
 	public BPlusTree<Double, String> buildIndex(HashMap<String, Double> targetData, Logger log) {
 
@@ -149,6 +147,7 @@ public class DataReader {
 	 * The values are normalized according to the specified normalization method (Z-score or unity-based).
 	 * @param targetData  The collection of data given as (key, value) pairs.
 	 * @param normal  The normalization method to be applied in each value before insertion into the index.
+	 * @param log  Handle to the log file for keeping messages and statistics.
 	 * @return A handle to the root of the created B+-tree.
 	 */
 	public BPlusTree<Double, String> buildNormalizedIndex(HashMap<String, Double> targetData, INormal normal, Logger log) {
@@ -172,14 +171,15 @@ public class DataReader {
 		return index;
 	}
 
+	
 	/**
 	 * Reading numerical attribute data from a table in a dBMS over a JDBC connection.
-	 * @param tableName
-	 * @param keyColumnName
-	 * @param valColumnName
-	 * @param jdbcConnector
-	 * @param log
-	 * @return
+	 * @param tableName  Name of the table that holds the attribute data.
+	 * @param keyColumnName  Name of the attribute holding the entity identifiers (keys)
+	 * @param valColumnName  Name of the attribute containing numerical values of these entities.
+	 * @param jdbcConnector  The JDBC connection that provides access to the table.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A dictionary (i.e., a hash map) of the (key,value) pairs.
 	 */
 	public HashMap<String, Double> readFromJDBCTable(String tableName, String keyColumnName, String valColumnName, JdbcConnector jdbcConnector, Logger log) {
 
@@ -227,17 +227,17 @@ public class DataReader {
 	
 	
 	/**
-	 * Creates a dictionary of (key,value) pairs of all items read from a CSV file
+	 * Creates a dictionary of (key,value) pairs of all items read from a CSV file.
 	 * Also calculates aggregate statistics (COUNT, MIN, MAX, AVG, STDEV) over the input collection.
 	 * ASSUMPTION: Input data collection consists of pairs of doubles (KEY) and strings (VALUE)
-	 * @param inputFile
-	 * @param maxLines
-	 * @param colKey
-	 * @param colValue
-	 * @param columnDelimiter
-	 * @param header
-	 * @param log
-	 * @return  A dictionary (i.e., a hash map) of the (key,value) pairs
+	 * @param inputFile  Path to the input CSV file or its URL at a remote server containing the attribute data.
+	 * @param maxLines  Number of the first lines to read from the file, skipping the rest; if a negative value is specified, all lines will be consumed.
+	 * @param colKey  Ordinal number of the attribute holding the entity identifiers.
+	 * @param colValue  Ordinal number of the column containing a given numerical attribute of these entities.
+	 * @param columnDelimiter  Delimiter character between columns in the file.
+	 * @param header  Boolean indicating that the first line contains the names of the attributes.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A dictionary (i.e., a hash map) of the (key,value) pairs.
 	 */
 	public HashMap<String, Double> readFromCSVFile(String inputFile, int maxLines, int colKey, int colValue, String columnDelimiter, boolean header, Logger log) {
 
@@ -255,7 +255,8 @@ public class DataReader {
         
 		int errorLines = 0;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(inputFile));
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(inputFile);
 			String line;
 			String[] columns;
 			double v;
@@ -318,4 +319,5 @@ public class DataReader {
 		
 		return null;   // No column names are specified
 	}
+	
 }

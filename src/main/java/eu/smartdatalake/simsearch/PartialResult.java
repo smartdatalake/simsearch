@@ -1,7 +1,7 @@
 package eu.smartdatalake.simsearch;
 
 /**
- * Auxiliary class representing a result from search against a single attribute along with the resulting similarity score.
+ * Auxiliary class representing a result from searching against a single attribute along with the resulting similarity score.
  */
 public class PartialResult<K,V> {
 	private K id; 			// Result id
@@ -41,6 +41,13 @@ public class PartialResult<K,V> {
 	}
 	
 	
+	@Override
+	public String toString() {
+		return this.id + "@" + this.score;
+	}
+	
+	// GETTER methods
+	
 	public K getId() {
 		return id;
 	}
@@ -49,6 +56,12 @@ public class PartialResult<K,V> {
 		return score;
 	}
 
+	public V getValue() {
+		return value;
+	}
+	
+	// SETTER methods
+	
 	public void setId(K id) {
 		this.id = id;
 	}
@@ -57,16 +70,8 @@ public class PartialResult<K,V> {
 		this.score = score;
 	}
 
-	public V getValue() {
-		return value;
-	}
-
 	public void setValue(V value) {
 		this.value = value;
 	}
-	
-	@Override
-	public String toString() {
-		return this.id + "@" + this.score;
-	}
+
 }

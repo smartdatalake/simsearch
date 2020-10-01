@@ -25,7 +25,7 @@ public class CategoricalDistance<V> implements IDistance<V> {
 	
 	/**
 	 * Returns the distance of the given set of tokens from the fixed query set.
-	 * FIXME: Calculates Jaccard distance by default; Include other similarity measures?
+	 * Calculates Jaccard distance by default. FIXME: Include other similarity measures?
 	 */
 	@Override
 	public double calc(V v) {
@@ -46,7 +46,7 @@ public class CategoricalDistance<V> implements IDistance<V> {
 
 	/**
 	 * Returns the distance between two sets of tokens.
-	 * FIXME: Calculates Jaccard distance by default; Include other similarity measures?
+	 * Calculates Jaccard distance by default. FIXME: Include other similarity measures?
 	 */
 	@Override
 	public double calc(V v1, V v2) {

@@ -37,8 +37,6 @@ public class SpatialValueFinder<K,V> implements IValueFinder<K,V> {
 	@Override
 	public Geometry find(HashMap<K,V> dataset, K k) {
 		
-//		System.out.println("VALUE RETRIEVAL QUERY: " + sqlTemplate);
-		
 		// Replace identifier in the query template and execute
 		Object val = dataConnector.findSingletonValue(queryTemplate.replace("$id", k.toString()));
 		String wkt = null;	

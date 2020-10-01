@@ -20,8 +20,8 @@ public class DataSource {
 	
 	/**
 	 * Constructor for JDBC data sources
-	 * @param key
-	 * @param jdbcConnPool
+	 * @param key  Internal identifier used for this data source.
+	 * @param jdbcConnPool  JDBC connection pool for connecting to a DBMS.
 	 */
 	public DataSource(String key, JdbcConnectionPool jdbcConnPool) {
 		this.key = key;
@@ -33,8 +33,8 @@ public class DataSource {
 	
 	/**
 	 * Constructor for CSV data sources
-	 * @param key
-	 * @param pathDir
+	 * @param key  Internal identifier used for this data source.
+	 * @param pathDir  Directory on local disk or URL in a remote HTTP/FTP server that contains CSV data files.
 	 */
 	public DataSource(String key, String pathDir) {
 		this.key = key;
@@ -46,8 +46,8 @@ public class DataSource {
 	
 	/**
 	 * Constructor for REST API data sources
-	 * @param key
-	 * @param httpConn
+	 * @param key  Internal identifier used for this data source.
+	 * @param httpConn  HTTP connection for accessing REST APIs (or another instance of a SimSearch service).
 	 */
 	public DataSource(String key, HttpConnector httpConn) {
 		this.key = key;
@@ -57,6 +57,8 @@ public class DataSource {
 		this.jdbcConnPool = null;
 	}
 
+	// SETTER methods
+	
 	public void setKey(String key) {
 		this.key = key;
 	}
@@ -64,6 +66,25 @@ public class DataSource {
 	public void setPathDir(String pathDir) {
 		this.pathDir = pathDir;
 	}
+
+	public void setJdbcConnPool(JdbcConnectionPool jdbcConnPool) {
+		this.jdbcConnPool = jdbcConnPool;
+	}
+
+	public void setHttpConn(HttpConnector httpConn) {
+		this.httpConn = httpConn;
+	}
+
+	public void setInSitu(boolean inSitu) {
+		this.inSitu = inSitu;
+	}
+
+	public void setSimSearchService(boolean isSimSearchService) {
+		this.isSimSearchService = isSimSearchService;
+	}
+	
+	// GETTER methods
+	
 	public String getKey() {
 		return key;
 	}	
@@ -76,32 +97,16 @@ public class DataSource {
 		return jdbcConnPool;
 	}
 
-	public void setJdbcConnPool(JdbcConnectionPool jdbcConnPool) {
-		this.jdbcConnPool = jdbcConnPool;
-	}
-
 	public HttpConnector getHttpConn() {
 		return httpConn;
 	}
-
-	public void setHttpConn(HttpConnector httpConn) {
-		this.httpConn = httpConn;
-	}
-
+	
 	public boolean isInSitu() {
 		return inSitu;
 	}
-
-	public void setInSitu(boolean inSitu) {
-		this.inSitu = inSitu;
-	}
-
+	
 	public boolean isSimSearchService() {
 		return isSimSearchService;
-	}
-
-	public void setSimSearchService(boolean isSimSearchService) {
-		this.isSimSearchService = isSimSearchService;
 	}
 	
 }

@@ -3,7 +3,7 @@ package eu.smartdatalake.simsearch;
 import java.util.UUID;
 
 /**
- * Provides identification for the attribute of a given dataset.
+ * Provides identification for the data regarding a specific attribute available from a data source.
  */
 public class DatasetIdentifier {
 
@@ -17,10 +17,9 @@ public class DatasetIdentifier {
 	private String prefixURL = null;    // URL prefix to be combined with the values in attrKey (assuming this yields resolvable URLs)
 	
 	/**
-	 * Constructor
-	 * @param connection
-	 * @param dataset
-	 * @param colValueName
+	 * @param source  The data source (directory, JDBC connection, or REST API) that provides access to the attribute data.
+	 * @param dataset  The name of the dataset (file, table) that contains the attribute data.
+	 * @param colValueName  The column name containing the attribute data to be used.
 	 */
 	public DatasetIdentifier(DataSource source, String dataset, String colValueName) {
 		
@@ -93,8 +92,8 @@ public class DatasetIdentifier {
 	}
 
 	/**
-	 * Prefix to be used in composing URLs and issuing them as entity identifiers for similarity search results.
-	 * @param prefixURL  The prefix to be added in the identifiers (coming from values in attrKey).
+	 * Prefix to be used in composing URLs and issuing them as entity identifiers in similarity search results.
+	 * @param prefixURL  The prefix to be appended to the entity identifiers (coming from values in attrKey).
 	 */
 	public void setPrefixURL(String prefixURL) {
 		this.prefixURL = prefixURL;

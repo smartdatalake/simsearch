@@ -21,8 +21,8 @@ public class AttributeInfo {
 	
 	/**
 	 * Constructor
-	 * @param column
-	 * @param operation
+	 * @param column  The attribute name that contains the data.
+	 * @param operation  The similarity search operation supported on this data.
 	 */
 	public AttributeInfo(String column, String operation) {
 		this.column = Arrays.asList(column);

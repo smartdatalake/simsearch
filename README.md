@@ -40,7 +40,7 @@ $ mvn clean package spring-boot:repackage
 
 To invoke SimSearch in standalone mode as a Java application, run the executable:
 ```sh
-$ java -jar target/simsearch-0.0.1-SNAPSHOT.jar
+$ java -jar target/simsearch-0.2-SNAPSHOT.jar
 ```
 
 Next, choose a number corresponding to a functionality you want to apply:
@@ -57,25 +57,45 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 SimSearch also integrates a REST API and can be deployed as a web service application at a specific port (e.g., 8090) as follows:
 ```sh
-$ java -Dserver.port=8090 -jar target/simsearch-0.0.1-SNAPSHOT.jar --service valid_api_keys.json
+$ java -Dserver.port=8090 -jar target/simsearch-0.2-SNAPSHOT.jar --service
 ```
 
-Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). All requests should specify a valid API key; a list of all valid keys must be specified by the administrator of the service in a JSON file like this [`example`](valid_api_keys.json.example) and invoked when the service is being launched as above.
+Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). Once the user wishes to make some data source(s) available for similarity search, a new instance of the service is created, which is associated with an auto-generated API key that is returned back to the user. All subsequent requests against this instance of the SimSearch service should specify this API key. Multiple instances may be active in parallel, each one responding to requests that specify its own unique API key.
 
-Once the SimSearch service is deployed as above, requests can be formulated according to its API documentation (typically accessible at `http://localhost:8090/swagger-ui.html#`). 
+Once an instance of the SimSearch service is deployed as above, requests can be formulated according to the API documentation (typically accessible at `http://localhost:8090/swagger-ui.html#`). 
 
-Thus, users are able to issue requests to the SimSearch service via a client application (e.g., Python scripts), such as:
+Thus, users are able to issue requests to an instance of the SimSearch service via a client application (e.g., Python scripts), such as:
 
-- [`MOUNT SOURCES request`](data/gdelt/simsearch-gdelt-sources.py) -> Specifies a JSON with the available data sources and queryable attributes and (if necessary) builts suitable indices on their values. An API key with administrative privileges is required. This operation must be applied before any queries are submitted. Note that multiple data sources of different types (ingested/in-situ) can be specified, as in this [example](data/gdelt/simsearch-multiple-sources.py).
+- [`MOUNT SOURCES request`](data/gdelt/simsearch-gdelt-sources.py) -> Creates a new instance of the SimSearch service against some data source(s). It uses a JSON with the available data sources and their queryable attributes and (if necessary) builts suitable indices on their values. An API key is generated and must be used in any subsequent requests against this instance. This operation must be applied before any queries are submitted. Note that multiple data sources of different types (ingested/in-situ) can be specified, as in this [example](data/gdelt/simsearch-multiple-sources.py).
 
-- [`DELETE SOURCES request`](data/gdelt/simsearch-gdelt-delete.py) -> Disables attributes from querying; attributes may be enabled again by using the mounting functionality above. An API key with administrative privileges is required. 
+- [`DELETE SOURCES request`](data/gdelt/simsearch-gdelt-delete.py) -> Disables attributes from querying; attributes may be enabled again by using the mounting functionality above. An API key referring to this instance of the SimSearch service is required. 
 
-- [`CATALOG request`](data/gdelt/simsearch-gdelt-catalog.py) -> Returns a JSON list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one. An API key ecognizable by the SimSearch service must be specified.
+- [`APPEND SOURCES request`](data/gdelt/simsearch-gdelt-append.py) -> Specifies a JSON with extra data sources and queryable attributes. This is similar to the aforementioned `mount` request, but instead of creating a new instance, the specified data source(s) (ingested/in-situ) are appended to those already available through this instance of the SimSearch service. The API key initially issued for this instance must be specified in this request. This operation must be applied before any queries are submitted referring to these data sources.
 
-- [`SEARCH request`](data/gdelt/simsearch-gdelt-query.py) -> Allows specification of a top-k similarity search query using a JSON and an API key recognizable by the SimSearch service. Once evaluation is complete, results will be issued in JSON format.
+- [`CATALOG request`](data/gdelt/simsearch-gdelt-catalog.py) -> Returns a JSON list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one. An API key referring to this instance of the SimSearch service is required.
 
+- [`SEARCH request`](data/gdelt/simsearch-gdelt-query.py) -> Allows specification of a top-k similarity search query using a JSON. An API key referring to this instance of the SimSearch service is required. Once evaluation is complete, results will be issued in JSON format.
+
+## Creating and launching a Docker image 
+
+We provide an indicative `Dockerfile` that may be used to create a Docker image (`sdl/simsearch-docker`) from the executable:
+
+```sh
+$ docker build -t sdl/simsearch-docker .
+```
+
+This docker image can then be used to launch a web service application at a specific port (e.g., 8090) as follows:
+
+```sh
+$ docker run -p 8090:8080 sdl/simsearch-docker:latest --service
+```
+
+Once the service is launched, requests can be sent as mentioned above in order to create, manage, and query instances of SimSearch against data source(s).
 
 ## License
 
 The contents of this project are licensed under the [Apache License 2.0](https://github.com/smartdatalake/simsearch/blob/master/LICENSE).
 
+## Acknowledgement
+
+This software is being developed in the context of the [SmartDataLake](https://smartdatalake.eu/) project. This project has received funding from the European Union’s [Horizon 2020 research and innovation programme](https://ec.europa.eu/programmes/horizon2020/en) under grant agreement No 825041.

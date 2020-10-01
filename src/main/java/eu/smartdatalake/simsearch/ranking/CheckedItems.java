@@ -29,4 +29,5 @@ public class CheckedItems {
 	public boolean contains(String val) {
 		return checkedKeys.contains(val);
 	}
+	
 }

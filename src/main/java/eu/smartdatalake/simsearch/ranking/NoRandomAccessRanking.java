@@ -119,7 +119,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 	 * @param taskKey   The hashKey of the task to be checked for its next result.
 	 * @param i   The queue that provides the new result
 	 * @param w   The identifier of the weight combination to be applied on the scores.
-	 * @return True, if the ranked aggregated list has been updated; otherwise, False.
+	 * @return  A Boolean value: True, if the ranked aggregated list has been updated; otherwise, False.
 	 */
 	private boolean updateRankedList(String taskKey, int i, int w) {
 
@@ -360,15 +360,15 @@ public class NoRandomAccessRanking implements IRankAggregator {
 		}	
 	}
 	
+	
 	/**
 	 * Inserts the i-th ranked result to the output list. Rank is based on the overall score; ties in scores are resolved arbitrarily.
 	 * @param i  The rank to the assigned to the output result.
 	 * @param w  The identifier of the weight combination to be applied on the scores.
 	 * @param item   The original identifier of this item in the dataset
-	 * @param rank	 The rank of this result in the output list.
 	 * @param score  The overall (weighted) score of this result.
 	 * @param exact  Boolean indicating whether the ranking of this result is exact or not.
-	 * @return  True, if extra result(s) have been issued; otherwise, False.
+	 * @return  A Boolean value: True, if extra result(s) have been issued; otherwise, False.
 	 */
 	private boolean issueRankedResult(int i, int w, String item, double score, boolean exact) {
 		

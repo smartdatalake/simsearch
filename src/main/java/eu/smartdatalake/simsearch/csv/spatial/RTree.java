@@ -22,9 +22,8 @@ public class RTree<K extends Comparable<? super K>, V> implements Index<Object, 
 	}
 	
 	/**
-	 * Inserts the MBR of the given geometry into the R-tree.
-	 * @param g  The geometry specification.
-	 * @param id  The id of the indexed object.
+	 * Inserts the MBR of the given location into the R-tree.
+	 * @param p  The location (including the geometry and an identifier) of the entity.
 	 */
 	public void insert(Location p) {
 		Envelope env = p.loc.getEnvelopeInternal();

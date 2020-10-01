@@ -35,4 +35,5 @@ public class Attribute {
 	public void setScore(double score) {
 		this.score = score;
 	}
+	
 }

@@ -19,8 +19,8 @@ public class JdbcConnector implements IDataConnector {
   
   /**
    * Constructor
-   * @param conn
-   * @param dbSystem
+   * @param conn  A connection (session) with a specific database.
+   * @param dbSystem  The name of the DBMS (e.g., POSTGRESQL) as extracted from the respective JDBC driver.
    */
   public JdbcConnector(Connection conn, String dbSystem) {
 	  
@@ -120,8 +120,8 @@ public class JdbcConnector implements IDataConnector {
   }
 
   /**
-   * Provides the name of the DBMS (e.g., POSTGRESQL, ORACLE) to which this connection is established.
-   * @return
+   * Provides the name of the DBMS to which this connection is established.
+   * @return  The name of the DBMS (e.g., POSTGRESQL) as extracted from the respective JDBC driver.
    */
   public String getDbSystem() {
 

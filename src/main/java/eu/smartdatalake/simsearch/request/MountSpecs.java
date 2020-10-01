@@ -2,6 +2,9 @@ package eu.smartdatalake.simsearch.request;
 
 import io.swagger.annotations.ApiModelProperty;
 
+/**
+ * Specifications regarding the similarity search operation supported by an attribute data source in a MountRequest.
+ */
 public class MountSpecs {
 
 	@ApiModelProperty(required = true, notes = "The unique name of the data source (directory, JDBC connection, or REST API)")

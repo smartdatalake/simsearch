@@ -58,11 +58,13 @@ public class SimSearch implements Runnable {
 	 * @param operation  The type of the similarity search query (0: CATEGORICAL).
 	 * @param name  A user-specified name given to the running instance of similarity search.
 	 * @param idx  Handle to the inverted index already built over the input data tokens.
+	 * @param origTokenSetCollection  The original collection of tokens (i.e., keywords) specified in the query.
 	 * @param queryCollection  The query collection of tokens to search for similarity.
 	 * @param collectionSize  The count of results to fetch.
 	 * @param simMeasure  The similarity measure to be used in the search.
-	 * @param resultsQueue  Queue to collect query results
-	 * @param log  Handle to the log file for keeping messages and statistics
+	 * @param resultsQueue  Queue to collect query results.
+	 * @param hashKey  The unique hash key assigned to this search query.
+	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
 	public SimSearch(int operation, String name, Index<Object, Object> idx, HashMap<?, ?> origTokenSetCollection, TokenSetCollection queryCollection, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, String hashKey, Logger log) {
 
@@ -89,8 +91,9 @@ public class SimSearch implements Runnable {
 	 * @param searchingKey    The key value to search against the index.
 	 * @param collectionSize  The count of results to fetch.
 	 * @param simMeasure  The similarity measure to be used in the search.
-	 * @param resultsQueue   Queue to collect query results
-	 * @param log  Handle to the log file for keeping messages and statistics
+	 * @param resultsQueue   Queue to collect query results.
+	 * @param hashKey  The unique hash key assigned to this search query.
+	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
 	public SimSearch(int operation, String name, Index<Object, Object> idx, double searchingKey, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, String hashKey, Logger log) {
 
@@ -116,8 +119,9 @@ public class SimSearch implements Runnable {
 	 * @param queryLocation  The query location to be used for searching against the index.
 	 * @param collectionSize  The count of results to fetch.
 	 * @param simMeasure  The similarity measure to be used in the search.
-	 * @param resultsQueue  Queue to collect query results
-	 * @param log  Handle to the log file for keeping messages and statistics
+	 * @param resultsQueue  Queue to collect query results.
+	 * @param hashKey  The unique hash key assigned to this search query.
+	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
 	public SimSearch(int operation, String name, Index<Object, Object> idx, Location queryLocation, int collectionSize, ISimilarity<?> simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, String hashKey, Logger log) {
 		
@@ -140,7 +144,7 @@ public class SimSearch implements Runnable {
 	 * Instantiates a numerical similarity search query.
 	 * @param idx  The B+-tree index used in the search. It contains (numerical) keys and (string) values for the object datasetIdentifiers.
 	 * @param searchingKey  The search key against the index (i.e., the numerical value specified by the query).
-	 * @param partialResults  The queue to collect query results.
+	 * @return  A boolean value: True, if the query is still running; otherwise, False.
 	 */
 	public boolean applyNumericalSimSearch(Index<Object, Object> idx, Double searchingKey) {
 		
@@ -161,7 +165,7 @@ public class SimSearch implements Runnable {
 	 * Instantiates a spatial similarity search query.
 	 * @param idx  The R-tree index used in the search. It contains (MBR) keys and (id, location) values for the objects.
 	 * @param searchLoc  The query location to search for k-NN similarities against the index.
-	 * @param partialResults  The queue to collect query results.
+	 * @return  A boolean value: True, if the query is still running; otherwise, False.
 	 */
 	public boolean applySpatialSimSearch(Index<Object, Object> idx, Location searchLoc) {
 		
@@ -205,8 +209,7 @@ public class SimSearch implements Runnable {
 	 * Instantiates a categorical similarity search query against an inverted index of sets of tokens.
 	 * @param idx  The inverted index previously built over the target data (i.e., sets of tokens identified on a user-specified attribute).
 	 * @param queryCollection  The collection of query tokens to search in the dataset.
-	 * @param collectionSize   The number of results to fetch.
-	 * @param partialResults   The queue to collect query results.
+	 * @return  A boolean value: True, if the query is still running; otherwise, False.
 	 */
 	public boolean applyCategoricalSimSearch(Index<Object, Object> idx, TokenSetCollection queryCollection) {
 		
@@ -227,8 +230,7 @@ public class SimSearch implements Runnable {
 	
 	
 	/**
-	 * Executes the specified similarity search query against the index 
-	 * and returns results one-by-one.
+	 * Executes the specified similarity search query against the index and returns results one-by-one.
 	 */
 	public void run() {
 		

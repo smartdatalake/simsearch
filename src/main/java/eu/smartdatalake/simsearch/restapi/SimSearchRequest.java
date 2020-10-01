@@ -31,7 +31,6 @@ import eu.smartdatalake.simsearch.measure.ISimilarity;
  * CAUTION! This request always affects a SINGLE attribute; even in the case of POINT locations their lon/lat coordinates are specified as a WKT string.
  * @param <K>  Type variable representing the keys of the stored objects (i.e., primary keys).
  * @param <V>  Type variable representing the values of the stored objects (i.e., their values on a given attribute).
- *
  */
 public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISimSearch<K, V>, Runnable {
 
@@ -55,19 +54,21 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
 	
 	// NO query template for value retrieval; random access to a SimSearch REST API is prohibited
 	public String queryValueRetrievalTemplate = null;	
-
+	
 	/**
 	 * Constructor
-	 * @param uri
-	 * @param operation
-	 * @param keyColumnName
-	 * @param valColumnName
-	 * @param searchValue
-	 * @param collectionSize
-	 * @param simMeasure
-	 * @param resultsQueue
-	 * @param log
-	 */	
+	 * @param httpConn  The HTTP connection that provides access to the data.
+	 * @param operation  The type of the similarity search query (0: CATEGORICAL_TOPK, 1: SPATIAL_KNN, 2: NUMERICAL_TOPK).
+	 * @param keyColumnName  Name of the attribute holding the entity identifiers (keys).
+	 * @param valColumnName  Name of the attribute containing numerical values of these entities.
+	 * @param searchValue  String specifying the query value according to the type os the search operation (i.e., keywords, a location, or a number).
+	 * @param collectionSize  The count of results to fetch.
+	 * @param simMeasure  The similarity measure to be used in the search.
+	 * @param resultsQueue  Queue to collect query results.
+	 * @param datasets  Dictionary of the attribute data available for search.
+	 * @param hashKey  The unique hash key assigned to this search query.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 */
 	public SimSearchRequest(HttpConnector httpConn, int operation, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
 		  
 		super();
@@ -91,10 +92,13 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
 
 //		System.out.println("QUERY: " + query);		
 	}
-
+	
 	
 	/**
 	 * Connects to a REST API and retrieves items qualifying to the submitted similarity search request.
+	 * @param k  The count of results to fetch.
+	 * @param partialResults  The queue that collects results obtained from the specified query.
+	 * @return  The number of collected results.
 	 */
     public int compute(int k, ConcurrentLinkedQueue<PartialResult> partialResults) {
     	 	 
@@ -128,7 +132,6 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
 	
 							// Obtain the array of ranked results qualifying to the query
 							JSONArray arrItems = (JSONArray) items.get("rankedResults");
-//							System.out.println("RESULTS: " + arrItems.size());
 							
 							// ... and iterate over them in order to populate the respective priority queue
 							Iterator<Object> iterator = arrItems.iterator();
@@ -187,11 +190,7 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
     	} catch (ParseException | IOException e) {
 			e.printStackTrace();		
     	} 
-/*
-    	for (PartialResult p: partialResults) {
-    		System.out.println(p.getId() + ": " + p.getValue().toString() + " --> " + p.getScore());
-    	}
-*/ 
+
     	duration = System.nanoTime() - duration;
     	this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (SimSearch service) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
     	
@@ -212,6 +211,7 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
 	      running.set(false);
 	}
 
+	
  	/**
  	 * Progressively provides the next query result.
  	 * NOT applicable with this type of search, as results are issued directly to the queue.

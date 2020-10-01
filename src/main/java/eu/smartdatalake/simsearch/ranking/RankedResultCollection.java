@@ -33,4 +33,5 @@ public class RankedResultCollection {
 	public RankedResult[] toArray() {
 		return resultList.toArray(new RankedResult[resultList.size()]);		
 	}	
+	
 }

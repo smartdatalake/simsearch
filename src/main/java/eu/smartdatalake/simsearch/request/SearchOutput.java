@@ -2,6 +2,9 @@ package eu.smartdatalake.simsearch.request;
 
 import io.swagger.annotations.ApiModelProperty;
 
+/**
+ * Specifies the output file characteristics for multi-attribute similarity search requests.
+ */
 public class SearchOutput {
 
 	@ApiModelProperty(required = false, allowableValues = "json, csv", notes = "The output format for search results; specify either JSON (default) or CSV.")

@@ -38,7 +38,7 @@ public class OutputWriter {
 					if (out.quote != null) {
 						outQuote = out.quote;
 						if (outQuote == null || outQuote.equals(""))
-							outQuote = Constants.OUTPUT_QUOTE;   // Default quote for string values in the output CSV file
+							outQuote = Constants.OUTPUT_QUOTE;   	// Default quote for string values in the output CSV file
 					}
 					
 					// output file
@@ -69,6 +69,7 @@ public class OutputWriter {
 	public void close() {
 		outStream.close();
 	}
+	
 	
 	/**
 	 * Writes the search results into the CSV file.

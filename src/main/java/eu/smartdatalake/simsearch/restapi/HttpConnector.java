@@ -2,6 +2,7 @@ package eu.smartdatalake.simsearch.restapi;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Base64;
 import java.util.Iterator;
 
 import org.apache.http.HttpEntity;
@@ -26,6 +27,8 @@ import eu.smartdatalake.simsearch.IDataConnector;
 public class HttpConnector implements IDataConnector {
 
 	private URI uri;
+	private String username = null;
+	private String password = null;
 	private String api_key = null;
 	CloseableHttpClient httpClient;
 
@@ -53,22 +56,37 @@ public class HttpConnector implements IDataConnector {
 	
 	
 	/**
-	 * Constructor of this class.
+	 * Constructor #1 of this class.
 	 * @param uri  The URI to which the REST API listens to for requests. 
 	 */
 	public HttpConnector(URI uri) {
 		this.uri = uri;
 	}
 	
+	
 	/**
-	 * Constructor of this class.
+	 * Constructor #2 of this class.
 	 * @param uri  The URI to which the REST API listens to for requests.
-	 * @param api_key
+	 * @param api_key  The API key necessary to establish connection to this REST API.
 	 */
 	public HttpConnector(URI uri, String api_key) {
 		this.uri = uri;
 		this.api_key = api_key;
 	}
+	
+	
+	/**
+	 * Constructor #3 of this class.
+	 * @param uri  The URI to which the REST API listens to for requests.
+	 * @param username  The username required for authorized access to the REST API.
+	 * @param password  The password required for authorized access to the REST API.
+	 */
+	public HttpConnector(URI uri, String username, String password) {
+		this.uri = uri;
+		this.username = username;
+		this.password = password;
+	}
+	
 	
 	/**
 	 * Executes the specified queried against the REST API.
@@ -83,12 +101,22 @@ public class HttpConnector implements IDataConnector {
 			HttpGetWithEntity request = new HttpGetWithEntity(this.uri);
 			request.addHeader(HttpHeaders.CONTENT_TYPE, "application/json");
 			request.addHeader(HttpHeaders.TIMEOUT, "60000");   // Specify a timeout after 60 seconds
-			if (this.api_key != null)
-				request.addHeader("api_key", this.api_key);    // FIXME: Specifically for requests in another SimSearch service
-				//request.addHeader(HttpHeaders.AUTHORIZATION, "ApiKey XXXXXXXXXXXXXXXXXX");
+			
+			// Encode username and password credentials for authorized access
+			if ((this.username != null) && (this.password != null)) {
+				String encoding = Base64.getEncoder().encodeToString((this.username.concat(":").concat(this.password)).getBytes("UTF-8"));
+				request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + encoding);
+			}
+	        
+			// Custom use of API key as required for requests in another SimSearch service
+			if (this.api_key != null) {
+				request.addHeader("api_key", this.api_key);    
+				//request.addHeader(HttpHeaders.AUTHORIZATION, "ApiKey XXXXXXXXXXXXXXXXXX"); // NOT USED: API key is included in the authorization header
+			}
+			
+			// Specify the query for this requests and execute it and get the response
 			StringEntity data = new StringEntity(query);
 			request.setEntity(data);
-			// Execute it and get the response
 			response = httpClient.execute(request);
 			return response;
 		} 
@@ -108,7 +136,6 @@ public class HttpConnector implements IDataConnector {
 		  	
 	 	 Object val = null;
 	 	 try {
-//		 	System.out.println(query);
 
 	 		CloseableHttpResponse response = executeQuery(query);
 	 		JSONParser jsonParser = new JSONParser();
@@ -123,7 +150,7 @@ public class HttpConnector implements IDataConnector {
 					// ... and then parse its JSON contents
 					try {				
 						JSONObject items = (JSONObject) jsonParser.parse(result);
-						// Obtain the array of hits (qualifying results); FIXME: specific for Elasticsearch
+						// Obtain the array of hits (qualifying results); FIXME: custom handling for Elasticsearch
 						JSONArray arrItems = (JSONArray) ((JSONObject) items.get("hits")).get("hits");
 						
 						// ... and iterate over them in order to populate the respective priority queue

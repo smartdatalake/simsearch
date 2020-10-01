@@ -4,7 +4,7 @@ import org.locationtech.jts.geom.Geometry;
 
 /**
  * Implements a spatial distance measure based on the Haversine distance.
- * FIXME: This class assumes that all locations have the same CRS (i.e., WGS84).
+ * FIXME: This class assumes that all locations always have a common CRS (i.e., WGS84).
  * @param <V>  Type variable to represent the values involved in the distance calculations (i.e., geometry locations).
  */
 public class SpatialDistance<V> implements IDistance<V> {
@@ -13,7 +13,7 @@ public class SpatialDistance<V> implements IDistance<V> {
 
 	/**
 	 * Constructor #1
-	 * @param baseElement  The geometry location specified in the search query.
+	 * @param baseLocation  The geometry location specified in the search query.
 	 */
 	public SpatialDistance(Geometry baseLocation) {
 		

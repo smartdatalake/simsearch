@@ -52,7 +52,7 @@ public class CategoricalValueFinder<K,V> implements IValueFinder<K,V> {
 			if (val instanceof PGobject) {
 				keywords = keywords.substring(1, keywords.length()-1);
 			}
-			// FIXME: comma is the default delimiter in PostgreSQL arrays and in Elasticsearch
+			// FIXME: comma is the default delimiter in PostgreSQL arrays and in Elasticsearch; only handling this case only
 			TokenSet tokenset = tokenize(k.toString(), keywords, ",");  
 			
 			// Insert tokenset into the lookup
@@ -89,4 +89,5 @@ public class CategoricalValueFinder<K,V> implements IValueFinder<K,V> {
 		
 		return set;
 	}
+	
 }

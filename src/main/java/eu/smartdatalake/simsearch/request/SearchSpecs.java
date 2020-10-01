@@ -2,6 +2,9 @@ package eu.smartdatalake.simsearch.request;
 
 import io.swagger.annotations.ApiModelProperty;
 
+/**
+ * Specifications of a similarity search query against a particular attribute.
+ */
 public class SearchSpecs {
 
 	@ApiModelProperty(required = true, notes = "The attribute to search against; for search on composite attribute (e.g., location with lon/lat coordinates), specify an array of attribute names")

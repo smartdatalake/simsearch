@@ -3,6 +3,9 @@ package eu.smartdatalake.simsearch.request;
 import eu.smartdatalake.simsearch.IRequest;
 import io.swagger.annotations.ApiModelProperty;
 
+/**
+ * Specification of a Mount request that makes particular data source(s) available for designated similarity search operation(s).
+ */
 public class MountRequest implements IRequest {
 
 	@ApiModelProperty(required = false, notes = "Path to a text file that logs all activity")

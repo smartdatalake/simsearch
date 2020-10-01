@@ -38,7 +38,7 @@ public class CategoricalSimSearch<K extends Comparable<? super K>, V> implements
 	 * Constructor
 	 * @param idx  The inverted indexed built over the input sets of tokens. 
 	 * @param simMeasure  The similarity measure to be used in the search.
-	 * @param logStream  Handle to the log file for notifications and execution statistics.
+	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
 	public CategoricalSimSearch(TIntList[] idx, ISimilarity simMeasure, Logger log) {
 		
@@ -80,6 +80,7 @@ public class CategoricalSimSearch<K extends Comparable<? super K>, V> implements
 	 * Once the score of a result is above the estimated score of any unseen items, this result is issued.
 	 * @param queryCollection  The (transformed) collection of tokens specified by the query.
 	 * @param targetCollection  The (transformed) collection of the sets of tokens in the dataset.
+	 * @param origTokenSetCollection  The original collection of the sets of tokens in the dataset.
 	 * @param k  The number of results to fetch, i.e., those with the top-k (highest) similarity scores.
 	 * @param partialResults  Queue to collect query results.
 	 * @return  The number of collected results.

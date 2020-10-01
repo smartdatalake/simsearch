@@ -79,14 +79,14 @@ public class ThresholdRanking implements IRankAggregator {
 	/**
 	 * Constructor
 	 * @param datasetIdentifiers List of the attributes involved in similarity search queries.
-	 * @param datasets   List of the various data collections involved in the similarity search queries.
-	 * @param similarities   List of the similarity measures applied in each search query.
-	 * @param weights  List of the weights to be applied in similarity scores returned by each search query.
-	 * @param normalizations  List of normalization functions to be applied in data values during random access.
-	 * @param tasks  The list of running threads; each one executes a query and it is associated with its respective queue that collects its results.
-	 * @param queues  The list of the queues collecting results from each search query.
-	 * @param valueFinders
-	 * @param runControl  The list of boolean values indicating the status of each thread.
+	 * @param datasets   Dictionary of the various data collections involved in the similarity search queries.
+	 * @param similarities   Dictionary of the similarity measures applied in each search query.
+	 * @param weights  Dictionary of the weights to be applied in similarity scores returned by each search query.
+	 * @param normalizations  Dictionary of normalization functions to be applied in data values during random access.
+	 * @param tasks  Dictionary of running threads; each one executes a query and it is associated with its respective queue that collects its results.
+	 * @param queues  Dictionary of the queues collecting results from each search query.
+	 * @param valueFinders  Dictionary of the random access operations available for the attributes involved in the similarity search.
+	 * @param runControl  Dictionary of boolean values indicating the status of each thread.
 	 * @param topk  The count of ranked aggregated results to collect, i.e., those with the top-k (highest) aggregated similarity scores.
 	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
@@ -162,7 +162,7 @@ public class ThresholdRanking implements IRankAggregator {
 	 * @param taskKey   The hashKey of the task to be checked for its next result.
 	 * @param i   The queue that provides the new result.
 	 * @param w   The identifier of the weight combination to be applied on the scores.
-	 * @return  True, if the ranked aggregated list has been updated; otherwise, False.
+	 * @return  A Boolean value: True, if the ranked aggregated list has been updated; otherwise, False.
 	 */
 	private boolean updateRankedList(String taskKey, int i, int w) {
 
@@ -408,7 +408,7 @@ public class ThresholdRanking implements IRankAggregator {
 	 * @param i  The rank to the assigned to the output result.
 	 * @param w   The identifier of the weight combination to be applied on the scores.
 	 * @param exact  Boolean indicating whether the ranking of this result is exact or not.
-	 * @return  True, if extra result(s) have been issued; otherwise, False.
+	 * @return  A Boolean value: True, if extra result(s) have been issued; otherwise, False.
 	 */
 	private boolean issueRankedResult(int i, int w, boolean exact) {
 		// Report the items listed with this score
@@ -457,4 +457,5 @@ public class ThresholdRanking implements IRankAggregator {
 		}
 		return true;
 	}
+	
 }

@@ -38,7 +38,7 @@ public class kNNSearch<K extends Comparable<? super K>, V> implements ISimSearch
 	/**
 	 * Constructor
 	 * @param index  The underlying R-tree index to be used in the search.
-	 * @param key  Query location specified for this spatial similarity search.
+	 * @param loc  Query location specified for this spatial similarity search.
 	 * @param simMeasure  The similarity measure to be used.
 	 * @param partialResults   The queue to collect query results.
 	 * @param log  Handle to the log file for notifications and execution statistics.
@@ -101,7 +101,7 @@ public class kNNSearch<K extends Comparable<? super K>, V> implements ISimSearch
 	
 	/**
 	 * Computes the k-NN results.
-	 * FIXME: Process does not actually work progressively; it currently collects the k-NN results before issuing them
+	 * FIXME: Process does not actually work progressively; it currently collects all k-NN results before issuing them.
 	 * @param k  The number of results to fetch, i.e., those with the top-k (closest) distances to the query point.
 	 * @return  The number of collected results.
 	 */
@@ -119,7 +119,6 @@ public class kNNSearch<K extends Comparable<? super K>, V> implements ISimSearch
 		for (int i = 0; i < res.length; i++) {
 			p = (Location) res[i];
 			distance = this.locSimilarity.getDistanceMeasure().calc((V) p.loc);
-//			System.out.println(p.loc.toString() + " -> " + simScore);
 			matches.put(distance, p);
 		}
 

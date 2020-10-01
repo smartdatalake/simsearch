@@ -104,7 +104,7 @@ public class IndexBuilder {
 		// Specification of the column containing values
 		int colValue = Constants.SEARCH_COLUMN;  // Default column with values to search against
 		String colValueName = null;
-		// Check whether multiple columns have been specified; FIXME: currently, only considering this for lon, lat coordinates
+		// Check whether multiple columns have been specified; FIXME: currently, only considering this for lon, lat coordinates in locations
 		if (mountConfig.search_column != null) {
 			if (mountConfig.search_column instanceof ArrayList) {
 				// Combine name for the virtual column to be used for indexing and searching				

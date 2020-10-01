@@ -44,9 +44,9 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 	 * Constructor
 	 * @param index  The underlying B+-tree index to be used in the search.
 	 * @param key  The search key.
-	 * @param k   Number of results requested by the query.
 	 * @param simMeasure  The similarity measure to be used.
-	 * @param logStream  Handle to the log file for notifications and execution statistics.
+	 * @param partialResults  Queue that collects the results of this search.
+	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
 	public NumericalSimSearch(BPlusTree<K, V> index, K key, ISimilarity<K> simMeasure, ConcurrentLinkedQueue<PartialResult> partialResults, Logger log) {
 		
@@ -64,7 +64,7 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 
 
 	/**
-	 * Provides the ranking of the most recently issued result
+	 * Provides the ranking of the most recently issued result.
 	 * @return  The ranking order.
 	 */
 	public int getRank() {
@@ -73,7 +73,7 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 
 
 	/**
-	 * Provides the similarity score of the most recently issued result
+	 * Provides the similarity score of the most recently issued result.
 	 * @return  The computed similarity score.
 	 */
 	public Double getScore() {
@@ -238,7 +238,6 @@ public class NumericalSimSearch<K extends Comparable<? super K>, V> implements I
 	/**
 	 * Collects the specified number of results of a similarity search query.
 	 * @param k  The number of top-k results to fetch.
-	 * @param results  A collection with the query results.
 	 * @return  The number of collected results.
 	 */
 	public long compute(int k) {

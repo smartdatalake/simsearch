@@ -7,6 +7,9 @@ import eu.smartdatalake.simsearch.DatasetIdentifier;
 import eu.smartdatalake.simsearch.csv.numerical.INormal;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
+/**
+ * A matrix containing the similarity between all possible combinations in the query results.
+ */
 public class ResultMatrix {
 
 	// List of all data/index datasetIdentifiers involved in the search
@@ -41,6 +44,7 @@ public class ResultMatrix {
 		this.weights = weights;
 		this.normalizations = normalizations;
 	}
+	
 	
 	/**
 	 * Post-processing of the search results in order to calculate their pairwise similarity.

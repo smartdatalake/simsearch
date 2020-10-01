@@ -46,7 +46,7 @@ import eu.smartdatalake.simsearch.restapi.HttpConnector;
 import eu.smartdatalake.simsearch.restapi.SimSearchRequest;
 
 /**
- * Handles a new multi-attribute similarity search request. a new instance is invoked by the coordinator.
+ * Handles a new multi-attribute similarity search request. A new instance of this class is invoked by the coordinator.
  */
 public class SearchHandler {
 
@@ -72,11 +72,11 @@ public class SearchHandler {
 
 	/**
 	 * Constructor
-	 * @param dataSources
-	 * @param datasetIdentifiers
-	 * @param datasets
-	 * @param indices
-	 * @param normalizations
+	 * @param dataSources  Dictionary of the available data sources.
+	 * @param datasetIdentifiers  Dictionary of the attributes available for similarity search operations.
+	 * @param datasets  Dictionary of the attribute datasets available for querying.
+	 * @param indices  Dictionary of in-memory indices on attribute data built for similarity search operations.
+	 * @param normalizations  Dictionary of normalizations applicable to numerical attribute data. 
 	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
 	public SearchHandler(Map<String, DataSource> dataSources, Map<String, DatasetIdentifier> datasetIdentifiers, Map<String, HashMap<?,?>> datasets, Map<String, Index> indices, Map<String, INormal> normalizations, Logger log) {
@@ -119,8 +119,9 @@ public class SearchHandler {
 	
 
 	/**
-	 * Provides the maximum value in a numerical attribute
+	 * Provides the maximum value available in a numerical attribute.
 	 * @param dbConnector  The JDBC connection specification to a DBMS (if applicable).
+	 * @param httpConnector  The HTTP connection specification for accessing REST APIs (if applicable).
 	 * @param id  The identifier of the attribute in a dataset.
 	 * @return  The maximum numerical value available in the specified attribute.
 	 */
@@ -130,7 +131,7 @@ public class SearchHandler {
 			return (Double)dbConnector.findSingletonValue("SELECT max(" + id.attrValue + ") FROM " + id.getDatasetName() + ";");
 		}
 		else if (httpConnector != null) {   // Querying against a REST API
-			// FIXME: Retrieve max value specifically from Elasticsearch
+			// FIXME: Custom retrieval of max value specifically from Elasticsearch
 			String query = "{\"_source\": [\"" + id.attrValue + "\"]," + "\"query\": {\"match_all\": {}}, \"sort\": [{\"" + id.attrValue + "\": {\"order\": \"desc\"}}],  \"size\": 1}";
 			return (Double)httpConnector.findSingletonValue(query);
 //			return Double.MAX_VALUE;
@@ -143,8 +144,8 @@ public class SearchHandler {
 
 	
 	/**
-	 * Calculate the exact similarity score for a given object with random access to the underlying datasets.
-	 * @param id  The object identifier.
+	 * Calculates the exact similarity score for a given entity with random access to the underlying datasets.
+	 * @param id  The entity identifier.
 	 * @param w  The identifier of the weight combination to be applied on the scores.
 	 * @return  The exact aggregated score based on all attribute values.
 	 */
@@ -174,7 +175,6 @@ public class SearchHandler {
 	 * Given a user-specified JSON configuration, execute the various similarity search queries and provide the ranked aggregated results.
 	 * @param params   JSON configuration that provides the multi-facet query specifications.
 	 * @return   A JSON-formatted response with the ranked results.
-	 * @throws IOException 
 	 */
 	public SearchResponse[] search(SearchRequest params) {
 		
@@ -248,7 +248,7 @@ public class SearchHandler {
 				if (dataSource.getHttpConn() != null) {  // Initialize a new HTTP connection to the specified REST API
 					httpConn = dataSource.getHttpConn();
 					if (rankingMethod.equals("threshold")) {
-//						rankingMethod = "partial_random_access";   // Random access cannot be applied against the SimSearch REST API						
+//						rankingMethod = "partial_random_access";   // FIXME: Random access cannot be applied against the SimSearch REST API						
 						responses = new SearchResponse[1];
 						SearchResponse response = new SearchResponse();
 						log.writeln("Request aborted because random access is not supported against the SimSearch REST API.");
@@ -268,7 +268,7 @@ public class SearchHandler {
 				
 				// Inflate top-k value in order to fetch enough candidates from attribute search
 				// In case just one attribute is involved, there is no need for inflation
-				int collectionSize = (queries.length > 1) ? Constants.INFLATION_FACTOR * topk : topk; // FIXME: Avoid hard-coded value 
+				int collectionSize = (queries.length > 1) ? Constants.INFLATION_FACTOR * topk : topk;
 
 				// Exponential decay factor lambda to be used in similarity calculations
 				double decay = Constants.DECAY_FACTOR;
@@ -527,17 +527,7 @@ public class SearchHandler {
 		    while (it.hasNext()) {
 		    	Map.Entry pair = (Map.Entry)it.next();
 		    	curWeights.put((String) pair.getKey(), ((Double[])pair.getValue())[w]);
-		    }
-		    
-/************************USED FOR EXPERIMENTS ONLY********************************
-		    // FIXME: Change the estimated aggregate scores with the exact ones
-		    if (!rankingMethod.equals("threshold")) {
-		    	for (int p = 0; p < results[w].length; p++) {
-		    		// Apply random access to original attribute values and replace estimated score with the exact one
-		    		results[w][p].setScore(getExactScoreRandomAccess(results[w][p].getId(), w));	
-		    	}
-		    }
-*********************************************************************************/			    
+		    }		    
 	
 			// Prepare a response to this combination of weights
 			SearchResponse response = new SearchResponse();

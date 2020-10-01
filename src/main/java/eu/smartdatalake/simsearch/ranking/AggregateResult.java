@@ -8,6 +8,7 @@ import eu.smartdatalake.simsearch.PartialResult;
  * Auxiliary class that collects results along with upper and lower bounds on their aggregated scores.
  */
 public class AggregateResult extends PartialResult {
+	
 	private BitSet appearances; // Bitmap indicating the queues where this value
 								// has been seen so far
 	private double lb; // Lower bound
@@ -65,4 +66,5 @@ public class AggregateResult extends PartialResult {
 	public String print() {
 		return this.getId() + "@(" + this.lb + "," + this.ub + ") " + appearances.toString();
 	}
+	
 }

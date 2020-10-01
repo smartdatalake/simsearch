@@ -1,8 +1,6 @@
 package eu.smartdatalake.simsearch;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,6 +9,7 @@ import java.util.List;
 
 import org.json.simple.JSONArray;
 
+import eu.smartdatalake.simsearch.csv.DataFileReader;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 
@@ -23,7 +22,7 @@ public class Assistant {
 	 * Constructor
 	 */
 	public Assistant() {
-
+		
 	}
 	
 	
@@ -50,9 +49,9 @@ public class Assistant {
 	/**
 	 * Identifies which column in the header of the input CSV file corresponds to the given attribute name.
 	 * @param inputFile   The input CSV file.
-	 * @param attrValue  The attribute name.
+	 * @param colName  The attribute name.
 	 * @param columnDelimiter  The delimiter character in the CSV file.
-	 * @return  An integer >=0 representing the ordering of the column in the file; -1, if this attribute name is not found in the header.
+	 * @return  A positive integer representing the ordinal number of the column in the file; -1, if this attribute name is not found in the header.
 	 */
 	public int getColumnNumber(String inputFile, String colName, String columnDelimiter) {
 
@@ -65,10 +64,11 @@ public class Assistant {
 				col = columns[0];
 			}
 			
-			BufferedReader br = new BufferedReader(new FileReader(inputFile));
-			// if the file has a header, identify the names of the columns
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(inputFile);
+			// This file has a header, so identify the names of the columns in its first line
 			String line = br.readLine();
-			//FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
+			// FIXME: Custom handling when delimiter appears in an attribute value enclosed in quotes
 			String[] columns = line.split(columnDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
 			for (int i=0; i< columns.length; i++) {
 			    if (columns[i].equals(col)) {
@@ -91,9 +91,9 @@ public class Assistant {
 	/**
 	 * Identifies which column in the database table corresponds to the given attribute name.
 	 * @param dataSource   The database table.
-	 * @param attrValue  The attribute name.
+	 * @param colName  The attribute name.
 	 * @param jdbcConnector  A connection instance to the database.
-	 * @return  An integer >=0 representing the ordering of the column in the table; -1, if this attribute name is not found.
+	 * @return  A positive integer representing the ordering of the column in the table; -1, if this attribute name is not found.
 	 */
 	public int getColumnNumber(String dataSource, String colName, JdbcConnector jdbcConnector) {
 
@@ -114,15 +114,13 @@ public class Assistant {
 				index = (int) jdbcConnector.findSingletonValue(sql);
 				break;
 			case "AVATICA":   		// Connected to Avatica JDBC (Proteus)
-				// TODO: How else to examine existence of a specific column in Proteus?
+				// FIXME: Any alternative to examine existence of a specific column in Proteus?
 				sql = "SELECT count(*) FROM (SELECT " + col + " FROM " + dataSource + " WHERE " + col + " IS NOT NULL LIMIT 1) test";
 				index = Integer.parseInt((String) jdbcConnector.findSingletonValue(sql));
 				break;
 	        default:
 	        	sql = null;
 	        } 
-//			System.out.println(sql);	
-//			System.out.println("COLUMN: " + index);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -133,9 +131,9 @@ public class Assistant {
 	/**
 	 * Identifies whether the given column in the database table has an associated index (numerical, spatial, textual).
 	 * @param dataSource   The database table.
-	 * @param attrValue  The attribute name.
+	 * @param colName  The attribute name.
 	 * @param jdbcConnector  A connection instance to the database.
-	 * @return  True, if an index exists in this column; otherwise, False.
+	 * @return  A Boolean value: True, if an index exists in this column; otherwise, False.
 	 */
 	public boolean isJDBCColumnIndexed(String dataSource, String colName, JdbcConnector jdbcConnector) {
 
@@ -147,15 +145,12 @@ public class Assistant {
 			case "POSTGRESQL":  // Connected to PostgreSQL
 				sql = "SELECT i.relname AS index_name FROM pg_class t, pg_class i, pg_index ix, pg_attribute a WHERE t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) AND t.relkind = 'r' AND t.relname LIKE '" + dataSource + "%' AND a.attname LIKE '" + colName + "%' ORDER BY t.relname, i.relname;";
 				break;
-			case "AVATICA":   // FIXME: How to examine if a specific column is indexed in Avatica JDBC connections (Proteus)?
+			case "AVATICA":   // FIXME: Any alternative to examine if a specific column is indexed in Avatica JDBC connections (Proteus)?
 				sql = "SELECT TRY_CAST(" + colName + " AS double) FROM " + dataSource + " WHERE " + colName + " IS NOT NULL LIMIT 1";   // Work-around to identify queryable numerical attributes
-//				sql = null;
-//				indexName = "idxByProteus";   // FIXME: Placeholder to indicate that no data from Proteus need be ingested
 				break;
 	        default:
 	        	sql = null;
 	        } 
-//			System.out.println(sql);
 			if (sql != null)
 				indexName = jdbcConnector.findSingletonValue(sql);
 		} catch (Exception e) {
@@ -191,8 +186,7 @@ public class Assistant {
 	 */
 	public Double[] arrayJSON2Double(JSONArray jsonArray) {
 		
-		Double[] doubleArray = null;
-		
+		Double[] doubleArray = null;		
 		if (jsonArray != null) {
 			doubleArray = new Double[jsonArray.size()];
 			for (int i = 0; i < jsonArray.size(); i++) {
@@ -216,7 +210,6 @@ public class Assistant {
 		    if ((long) num == num) 
 		    	return Long.toString((long) num);
 		    return String.valueOf(num);
-		  
 		}
 		else
 			return val.toString();
@@ -230,9 +223,11 @@ public class Assistant {
 	 * @return  A resolvable URL to be used as entity identifier for a similarity search result.
 	 */
 	public String formatURL(String prefixURL, String id) {
-		return (prefixURL + id.substring(0, 12));             // FIXME: Special handling for ATOKA identifiers using only the first 12 characters in identifiers
+		
+		return (prefixURL + id.substring(0, 12));             // FIXME: Custom handling for ATOKA identifiers using only the first 12 characters in identifiers
 	}
 
+	
 	/**
 	 * Tokenizes the given string of keywords using a specific character as delimiter.
 	 * FIXME: This method is also specified in the CategoricalValueFinder class.	

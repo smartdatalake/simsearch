@@ -21,7 +21,7 @@ import eu.smartdatalake.simsearch.csv.Index;
 /**
  * Implements a B+-tree index to be used in similarity search against numerical values.
  * This source code adjusts and extends the one available at https://github.com/jiaguofang/b-plus-tree
- * TODO: Implement serialization of the constructed index
+ * TODO: Implement serialization of the constructed index.
  * @param <K>  Type variable representing the keys of the indexed objects.
  * @param <V>  Type variable representing the values of the indexed objects.
  */
@@ -77,9 +77,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<Obje
 
 	/**
 	 * FIXME: Serialize the built index into a file; NOT working yet!
-	 * 
-	 * @param filename
-	 *            Path to the file on disk
+	 * @param filename  Path to the file on disk
 	 */
 	public void serialize(String filename) {
 
@@ -215,7 +213,6 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<Obje
 
 	/**
 	 * Generic Node class.
-	 *
 	 */
 	abstract class Node implements Serializable {
 
@@ -261,8 +258,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<Obje
 	}
 
 	/**
-	 * Nested class used for representation of internal nodes
-	 *
+	 * Nested class used for representation of internal nodes.
 	 */
 	private class InternalNode extends Node implements Serializable {
 
@@ -439,8 +435,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<Obje
 	}
 
 	/**
-	 * Nested class used for representation of leaves
-	 *
+	 * Nested class used for representation of leaves.
 	 */
 	private class LeafNode extends Node implements Serializable {
 

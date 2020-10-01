@@ -1,8 +1,6 @@
 package eu.smartdatalake.simsearch.csv.categorical;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -13,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.csv.DataFileReader;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
@@ -22,8 +21,19 @@ public class TokenSetCollectionReader {
 
 	public Map<Integer, String> columnNames = null;
 	
-	public TokenSetCollection importFromCSVFile(String file, int colSetId, int colSetTokens, String colDelimiter,
-			String tokDelimiter, int maxLines, boolean header, Logger log) {
+	/**
+	 * Consumes a CSV file and creates a collection of the sets of tokens to be used in similarity search.
+	 * @param file  Path to the input CSV file or its URL at a remote server containing the attribute data.
+	 * @param colSetId  Ordinal number of the attribute holding the entity identifiers.
+	 * @param colSetTokens  Ordinal number of the attribute containing the sets of tokens (e.g., keywords).
+	 * @param colDelimiter  Delimiter character between columns in the file.
+	 * @param tokDelimiter  Delimiter character between tokens.
+	 * @param maxLines  Number of the first lines to read from the file, skipping the rest; if a negative value is specified, all lines will be consumed.
+	 * @param header  Boolean indicating that the first line contains the names of the attributes.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A collection of the sets of tokens to be used in similarity search.
+	 */
+	public TokenSetCollection importFromCSVFile(String file, int colSetId, int colSetTokens, String colDelimiter, String tokDelimiter, int maxLines, boolean header, Logger log) {
 		TokenSetCollection collection = new TokenSetCollection();
 //		List<TokenSet> sets = new ArrayList<TokenSet>();
 		int lineCount = 0, errorLines = 0;
@@ -34,12 +44,13 @@ public class TokenSetCollectionReader {
         String regex = String.format("(?x) "+ colDelimiter + "(?=(?:%s*%s)*%s*$)", otherThanQuote, quotedString, otherThanQuote);
 		
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(file));
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(file);
 			String line;
 			String[] columns;
 			TokenSet set;
 
-			// if the file has a header, retain the names of the columns for possible future use
+			// If the file has a header, retain the names of the columns for possible future use
 			if (header) {
 				line = br.readLine();
 				columns = line.split(regex,-1);  //colDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)"
@@ -65,7 +76,7 @@ public class TokenSetCollectionReader {
 					//Tokens
 					set.tokens = new ArrayList<String>();
 					List<String> tokens = new ArrayList<String>(new HashSet<String>(Arrays.asList(columns[colSetTokens].split(tokDelimiter))));
-					// FIXME: Special handling for GDelt tokens with aggregate values
+					// FIXME: Custom handling for GDelt tokens with aggregate values
 					for (String t : tokens) {
 						if (t.indexOf('|') > 0 )
 							set.tokens.add(t.substring(0, t.indexOf('|')));
@@ -102,6 +113,16 @@ public class TokenSetCollectionReader {
 	}
 
 	
+	/**
+	 * Accesses a DBMS table using a JDBC connection and creates a collection of the sets of tokens to be used in similarity search.
+	 * @param tableName  Name of the table that holds the attribute data.
+	 * @param keyColumnName  Column name of the attribute holding the entity identifiers.
+	 * @param valColumnName  Column name of the attribute containing the sets of tokens (e.g., keywords).
+	 * @param tokDelimiter  Delimiter character between tokens.
+	 * @param jdbcConnector  The JDBC connection that provides access to the table.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A collection of the sets of tokens to be used in similarity search.
+	 */
 	public TokenSetCollection ingestFromJDBCTable(String tableName, String keyColumnName, String valColumnName, String tokDelimiter, JdbcConnector jdbcConnector, Logger log) {
 
 		TokenSetCollection collection = new TokenSetCollection();
@@ -153,20 +174,34 @@ public class TokenSetCollectionReader {
 		return collection;
 	}
 
-
 	
-	public TokenSetCollection createQueryFromCSVFile(String file, int colSetId, int colSetTokens, String colDelimiter,
-			String tokDelimiter, int maxLines, boolean header, String tokenizer, int qgram, int queryId, Logger log) {
+	/**
+	 * Consumes a CSV file and creates a collection of the sets of tokens to be used as query in similarity search.
+	 * @param file  Path to the input CSV file or its URL at a remote server containing the sets of tokens specified in the query.
+	 * @param colSetId  Ordinal number of the attribute holding the entity identifiers.
+	 * @param colSetTokens  Ordinal number of the attribute containing the sets of tokens (e.g., keywords).
+	 * @param colDelimiter  Delimiter character between columns in the file.
+	 * @param tokDelimiter  Delimiter character between tokens.
+	 * @param maxLines  Number of the first lines to read from the file, skipping the rest; if a negative value is specified, all lines will be consumed.
+	 * @param header  Boolean indicating that the first line contains the names of the attributes.
+	 * @param tokenizer  The tokenizer used.
+	 * @param qgram  The qgram used.
+	 * @param queryId  Line number in the file that contains the query specification and is being used as the query identifier. 
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A collection of the sets of tokens to be used as the query specification in similarity search.
+	 */
+	public TokenSetCollection createQueryFromCSVFile(String file, int colSetId, int colSetTokens, String colDelimiter, String tokDelimiter, int maxLines, boolean header, String tokenizer, int qgram, int queryId, Logger log) {
 		TokenSetCollection collection = new TokenSetCollection();
 //		List<TokenSet> sets = new ArrayList<TokenSet>();
 		int lineCount = 0, errorLines = 0;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(file));
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(file);
 			String line;
 			String[] columns;
 			TokenSet set;
 
-			// if the file has header, ignore the first line
+			// If the file has header, ignore the first line
 			if (header) {
 				br.readLine();
 			}
@@ -183,7 +218,7 @@ public class TokenSetCollectionReader {
 					columns = line.split(colDelimiter);
 					set = new TokenSet();
 					set.id = columns[colSetId];
-					//DatasetIdentifier of the set
+					// DatasetIdentifier of the set
 					if (colSetId >= 0) {
 						set.id = columns[colSetId];
 					}
@@ -237,6 +272,13 @@ public class TokenSetCollectionReader {
 	}
 	
 
+	/**
+	 * Accepts a string of keywords and creates a collection of the sets of tokens to be used as query in similarity search.
+	 * @param keywords  A string containing the keywords to be used as tokens.
+	 * @param tokDelimiter  Delimiter character between keywords.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A collection of the sets of tokens to be used as the query specification in similarity search.
+	 */
 	public TokenSetCollection createFromQueryKeywords(String keywords, String tokDelimiter, Logger log) {
 		TokenSetCollection collection = new TokenSetCollection();
 //		List<TokenSet> sets = new ArrayList<TokenSet>();
@@ -279,8 +321,13 @@ public class TokenSetCollectionReader {
 		return collection;
 	}
 	
-	
 
+	/**
+	 * Accepts an array of keywords and creates a collection of the sets of tokens to be used as query in similarity search.
+	 * @param keywords  An array of keywords to be used as tokens.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  A collection of the sets of tokens to be used as the query specification in similarity search.
+	 */
 	public TokenSetCollection createFromQueryKeywords(String[] keywords, Logger log) {
 		
 		TokenSetCollection collection = new TokenSetCollection();
@@ -334,11 +381,13 @@ public class TokenSetCollectionReader {
 		return (qgram==0) ? 1: qgram;
 	}
 
+
 	public int findMinString(String file, int colSetTokens, String colDelimiter, int maxLines, boolean header) {
 
 		int lineCount = 0, errorLines = 0, min = 0;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(file));
+			// Custom reader to handle either local or remote CSV files
+			DataFileReader br = new DataFileReader(file);
 			String line;
 			String[] columns;
 
@@ -377,10 +426,11 @@ public class TokenSetCollectionReader {
 	
 	
 	/**
+	 * Creates an inverted index against the given collection of sets of tokens.
 	 * FIXME: queryCollection is NOT known when the index is built
-	 * @param targetCollection
-	 * @param logStream
-	 * @return
+	 * @param targetCollection  A collection of sets of tokens to be indexed.
+	 * @param log  Handle to the log file for keeping messages and statistics.
+	 * @return  An inverted index to facilitate similarity search operations against the sets of tokens.
 	 */
 	public InvertedIndex buildInvertedIndex(TokenSetCollection targetCollection, Logger log) {
 		
@@ -431,7 +481,6 @@ public class TokenSetCollectionReader {
 		index.tokenDictionary = tokenDictionary;
 		
 		return index;
-	}
-	
+	}	
 
 }

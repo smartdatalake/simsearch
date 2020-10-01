@@ -11,9 +11,10 @@ public class RankedResult {
 	private boolean exact;  // Indicates whether the ranking assigned to this result is exact or not (i.e., based on approximate bounds)
 	
 	Attribute[] attributes;
-	
+
 	/**
 	 * Constructor
+	 * @param size  The number of attributes involved in the search; their values will be listed in the final results.
 	 */
 	public RankedResult(int size) {
 		setExact(true);   	// By default, consider that the ranking for this result is exact

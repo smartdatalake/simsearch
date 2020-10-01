@@ -30,7 +30,6 @@ public class NumericalValueFinder<K,V> implements IValueFinder<K,V> {
 	@Override
 	public V find(HashMap<K,V> dataset, K k) {
 
-//		System.out.println("VALUE RETRIEVAL QUERY: " + sqlTemplate);
 		// Replace identifier in the query template and execute
 		V val = (V)dataConnector.findSingletonValue(queryTemplate.replace("$id", k.toString()));
 		// Insert numerical value into the lookup
