@@ -1,4 +1,0 @@
-{
-    "admin_api_keys": ["ADMIN_API_KEY_string"],
-    "user_api_keys": ["ADMIN_API_KEY_string", "USER_1_API_KEY_string", "USER_2_API_KEY_string"]
-}
