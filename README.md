@@ -4,10 +4,10 @@
 
 SimSearch is a Java library providing functions for combined similarity search against multi-faceted entities, i.e., datasets with different types of attributes (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, etc.). This library builts specialized indexes for each specific attribute type. It currently supports the following operations:
 
-- Categorical (set-valued) similarity search: return data elements with the highest similarity score to the given query set of keywords.
-- Numerical similarity search: return data elements with the highest similarity score to the given query (numerical) value.
-- Spatial similarity search: implements k-nearest neighbor search and return data elements closest to the given query (point) location.
-- Top-k rank aggregation: find top-k results across all examined attributes and issue each result ranked by an aggregate similarity score.
+- *Categorical (set-valued) similarity search*: return data elements with the highest similarity score to the given query set of keywords.
+- *Numerical similarity search*: return data elements with the highest similarity score to the given query (numerical) value.
+- *Spatial similarity search*: implements k-nearest neighbor search and return data elements closest to the given query (point) location.
+- *Top-k rank aggregation*: find top-k results across all examined attributes and issue each result ranked by an aggregate similarity score.
 
 Attribute data values may come from diverse data sources:
 
