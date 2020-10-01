@@ -92,6 +92,14 @@ $ docker run -p 8090:8080 sdl/simsearch-docker:latest --service
 
 Once the service is launched, requests can be sent as mentioned above in order to create, manage, and query instances of SimSearch against data source(s).
 
+## Demonstration
+
+We have made available two videos demonstrating the current functionality provided by the SimSearch software:
+
+- A [presentation](https://www.youtube.com/watch?v=18ltkd76B7k) of our paper [Similarity Search over Enriched Geospatial Data](https://dl.acm.org/doi/abs/10.1145/3403896.3403967) accepted in [GeoRich 2020 workshop](https://georich2020.github.io/). This video explains the motivation, outlines the processing flow, and presents results from an experimental validation of this framework.
+
+- Our [demonstration](https://www.youtube.com/watch?v=DDjmYQdxyUc) of the SimSearch functionality as of September 2020, as presented during the mid-term review of the SmartDataLake project.
+
 ## License
 
 The contents of this project are licensed under the [Apache License 2.0](https://github.com/smartdatalake/simsearch/blob/master/LICENSE).
