@@ -2,7 +2,7 @@
 
 ## Overview
 
-SimSearch is a Java library providing functions for combined similarity search against multi-faceted entities, i.e., datasets with different types of attributes (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, etc.). This library builts specialized indexes for each specific attribute type. It currently supports the following operations:
+SimSearch is a Java library providing functions for combined similarity search against multi-faceted entities, i.e., datasets with different types of attributes (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, etc.). This library builds specialized indexes for each specific attribute type. It currently supports the following operations:
 
 - *Categorical (set-valued) similarity search*: return data elements with the highest similarity score to the given query set of keywords.
 - *Numerical similarity search*: return data elements with the highest similarity score to the given query (numerical) value.
@@ -45,7 +45,7 @@ $ java -jar target/simsearch-0.2-SNAPSHOT.jar
 
 Next, choose a number corresponding to a functionality you want to apply:
 
-(1): MOUNT SOURCES -> Specifies the queryable attributes and (if necessary) builts suitable indices on their values. The user must also specify the path to a JSON file (as in `sources.json.example` file or [`data/gdelt/sources.json`](data/gdelt/sources.json)) containing the specification of data sources and attributes. This operation must be applied before any queries are submitted.
+(1): MOUNT SOURCES -> Specifies the queryable attributes and (if necessary) builds suitable indices on their values. The user must also specify the path to a JSON file (as in `sources.json.example` file or [`data/gdelt/sources.json`](data/gdelt/sources.json)) containing the specification of data sources and attributes. This operation must be applied before any queries are submitted.
 
 (2): DELETE SOURCES -> Disables attributes from querying; attributes may be enabled again using functionality (1).
 
@@ -66,7 +66,7 @@ Once an instance of the SimSearch service is deployed as above, requests can be 
 
 Thus, users are able to issue requests to an instance of the SimSearch service via a client application (e.g., Python scripts), such as:
 
-- [`MOUNT SOURCES request`](data/gdelt/simsearch-gdelt-sources.py) -> Creates a new instance of the SimSearch service against some data source(s). It uses a JSON with the available data sources and their queryable attributes and (if necessary) builts suitable indices on their values. An API key is generated and must be used in any subsequent requests against this instance. This operation must be applied before any queries are submitted. Note that multiple data sources of different types (ingested/in-situ) can be specified, as in this [example](data/gdelt/simsearch-multiple-sources.py).
+- [`MOUNT SOURCES request`](data/gdelt/simsearch-gdelt-sources.py) -> Creates a new instance of the SimSearch service against some data source(s). It uses a JSON with the available data sources and their queryable attributes and (if necessary) builds suitable indices on their values. An API key is generated and must be used in any subsequent requests against this instance. This operation must be applied before any queries are submitted. Note that multiple data sources of different types (ingested/in-situ) can be specified, as in this [example](data/gdelt/simsearch-multiple-sources.py).
 
 - [`DELETE SOURCES request`](data/gdelt/simsearch-gdelt-delete.py) -> Disables attributes from querying; attributes may be enabled again by using the mounting functionality above. An API key referring to this instance of the SimSearch service is required. 
 
