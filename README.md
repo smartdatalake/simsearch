@@ -87,7 +87,7 @@ $ docker build -t sdl/simsearch-docker .
 This docker image can then be used to launch a web service application at a specific port (e.g., 8090) as follows:
 
 ```sh
-$ docker run -p 8090:8080 sdl/simsearch-docker:latest --service
+$ docker run -p 8090:8080 sdl/simsearch-docker:latest
 ```
 
 Once the service is launched, requests can be sent as mentioned above in order to create, manage, and query instances of SimSearch against data source(s).
