@@ -67,6 +67,7 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	 * @param databaseConnector  The JDBC connection that provides access to the table.
 	 * @param operation  The type of the similarity search query (0: CATEGORICAL_TOPK, 1: SPATIAL_KNN, 2: NUMERICAL_TOPK).
 	 * @param tableName  The table name containing the attribute data used in the search.
+	 * @param filter  Optional filter in SQL syntax to be applied on data prior to similarity search.
 	 * @param keyColumnName  Name of the attribute holding the entity identifiers (keys).
 	 * @param valColumnName  Name of the attribute containing numerical values of these entities.
 	 * @param searchValue  String specifying the query value according to the type os the search operation (i.e., keywords, a location, or a number).
@@ -77,7 +78,7 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	 * @param hashKey  The unique hash key assigned to this search query.
 	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
-	public SimSearchQuery(JdbcConnector databaseConnector, int operation, String tableName, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
+	public SimSearchQuery(JdbcConnector databaseConnector, int operation, String tableName, String filter, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
 	  
 		super();
 		try
@@ -118,7 +119,8 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	        	viewClause = "WITH token_arrays AS " + 
 	        			"(SELECT " + this.keyColumnName + ", " + valColumnName + ", array_agg(elem) AS tokens " + 
 	        			"FROM " + tableName + ", jsonb_array_elements_text(" + valColumnName + ") AS elem " + 
-	        			"WHERE " + valColumnName + " ?| array["+ searchValue + "] " +
+	        			"WHERE " + valColumnName + " ?| array["+ searchValue + "] " + 
+	        			((filter != null)? " AND " + filter + " " : " " ) +    // Optional filter added to this temporary view
 	        			"GROUP BY " + this.keyColumnName + ", " + valColumnName + ") ";
 	        	distanceClause =  valColumnName + ", (1.0 - jaccard_similarity(tokens, array["+ searchValue +"])) AS distance ";
 	        	fromClause = "token_arrays";
@@ -136,8 +138,12 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
     	  }
     	  
     	  // Condition for excluding NULL values
-    	  // FIXME: This is required for Avatica JDBC (Proteus)
+    	  // FIXME: This is only required for Avatica JDBC (Proteus)
     	  whereClause = valColumnName + " IS NOT NULL";
+    	  
+    	  // Extra user-specified SQL condition to be applied prior to similarity search
+    	  if ((filter != null) && (operation != Constants.CATEGORICAL_TOPK))   // In categorical search, it has already specified in the temporary view
+    		  whereClause += " AND " + filter;
     	  
     	  // Template of SQL query to retrieve the value for a particular object ($id is a placeholder for its identifier)
     	  sqlValueRetrievalTemplate = "SELECT " + valColumnName + " FROM " + tableName + " WHERE " + this.keyColumnName + " = '$id'";
@@ -266,7 +272,7 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 	      //Determine constraint for top-k queries according to different SQL dialects
 	      switch(this.dbType) {
 	        case "POSTGRESQL":
-	        	sql = viewClause + "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " ORDER BY " + orderClause + " LIMIT $k$";
+	        	sql = viewClause + "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " WHERE " + whereClause + " ORDER BY " + orderClause + " LIMIT $k$";
 	          	break;
 	        case "AVATICA":    // Connection to Proteus 
 	        	sql = udfClause + "SELECT " + this.keyColumnName + ", " + distanceClause + " FROM " + fromClause + " WHERE " + whereClause + " ORDER BY " + orderClause + " LIMIT $k$";

@@ -40,7 +40,7 @@ $ mvn clean package spring-boot:repackage
 
 To invoke SimSearch in standalone mode as a Java application, run the executable:
 ```sh
-$ java -jar target/simsearch-0.2-SNAPSHOT.jar
+$ java -jar target/simsearch-0.2.1-SNAPSHOT.jar
 ```
 
 Next, choose a number corresponding to a functionality you want to apply:
@@ -57,7 +57,7 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 SimSearch also integrates a REST API and can be deployed as a web service application at a specific port (e.g., 8090) as follows:
 ```sh
-$ java -Dserver.port=8090 -jar target/simsearch-0.2-SNAPSHOT.jar --service
+$ java -Dserver.port=8090 -jar target/simsearch-0.2.1-SNAPSHOT.jar --service
 ```
 
 Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). Once the user wishes to make some data source(s) available for similarity search, a new instance of the service is created, which is associated with an auto-generated API key that is returned back to the user. All subsequent requests against this instance of the SimSearch service should specify this API key. Multiple instances may be active in parallel, each one responding to requests that specify its own unique API key.
@@ -74,7 +74,7 @@ Thus, users are able to issue requests to an instance of the SimSearch service v
 
 - [`CATALOG request`](data/gdelt/simsearch-gdelt-catalog.py) -> Returns a JSON list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one. An API key referring to this instance of the SimSearch service is required.
 
-- [`SEARCH request`](data/gdelt/simsearch-gdelt-query.py) -> Allows specification of a top-k similarity search query using a JSON. An API key referring to this instance of the SimSearch service is required. Once evaluation is complete, results will be issued in JSON format.
+- [`SEARCH request`](data/gdelt/simsearch-gdelt-query.py) -> Allows specification of a top-k similarity search query using a JSON. An API key referring to this instance of the SimSearch service is required. In case of *in-situ data sources* (e.g., DBMS, Elasticsearch), an optional *filter* may be specified along with the queried attribute. This user-specified condition (written in the dialect of the corresponding data source, e.g., SQL for a DBMS, or filter context for Elasticsearch) may involve any attributes available in that source and is used to filter the underlying data prior to applying similarity search. Once evaluation is complete, results will be issued in JSON format.
 
 ## Creating and launching a Docker image 
 

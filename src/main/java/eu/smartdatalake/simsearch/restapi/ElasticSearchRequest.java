@@ -66,6 +66,7 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 	 * Constructor
 	 * @param httpConn  The HTTP connection that provides access to the data.
 	 * @param operation  The type of the similarity search query (0: CATEGORICAL_TOPK, 1: SPATIAL_KNN, 2: NUMERICAL_TOPK).
+	 * @param filter  Optional filter in ES syntax to be applied on data prior to similarity search.
 	 * @param keyColumnName  Name of the attribute holding the entity identifiers (keys).
 	 * @param valColumnName  Name of the attribute containing numerical values of these entities.
 	 * @param searchValue  String specifying the query value according to the type os the search operation (i.e., keywords, a location, or a number).
@@ -76,7 +77,7 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 	 * @param hashKey  The unique hash key assigned to this search query.
 	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
-	public ElasticSearchRequest(HttpConnector httpConn, int operation, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
+	public ElasticSearchRequest(HttpConnector httpConn, int operation, String filter, String keyColumnName, String valColumnName, String searchValue, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, Map<String, HashMap<K,V>> datasets, String hashKey, Logger log) {
 		  
 		super();
 
@@ -92,21 +93,30 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 		this.collectionSize = 10000; // collectionSize;  
 		this.httpConn = httpConn;
 		
-    	// Construct search request according to the type of the operation
+    	// Construct similarity search request according to the type of the operation
     	// FIXME: REST APIs may have different specifications for the various types of queries; currently using the ElasticSearch dialect
 		// CAUTION! Elasticsearch is sensitive to scale and decay parameters; reduced decay values miss several more relevant results 
 		if (operation == Constants.NUMERICAL_TOPK) {
-			query = "{\"_source\": [\"" + keyColumnName + "\", \"" + valColumnName + "\"]," + "\"query\": {\"function_score\": {\"query\": {\"exists\": { \"field\": \"" + valColumnName + "\" }},"
+			query = "{\"function_score\": {\"query\": {\"exists\": { \"field\": \"" + valColumnName + "\" }},"
 				+ "\"exp\": {\"" + valColumnName + "\": {\"origin\": \"" + searchValue 
-				+ "\",\"scale\": \"1\",\"decay\" : 0.99999}}}},\"size\": " + this.collectionSize + "}";
+				+ "\",\"scale\": \"1\",\"decay\" : 0.99999}}}}";
 			}
 		else if (operation == Constants.CATEGORICAL_TOPK) {
-			query = "{\"_source\": [\"" + keyColumnName + "\", \"" + valColumnName + "\"]," + "\"query\": { \"match\": { \"" + valColumnName + "\": \"" + searchValue + "\" } }," + "\"size\": " + this.collectionSize + "}";
+			query = "{ \"match\": { \"" + valColumnName + "\": \"" + searchValue + "\" } }";
 			}
 		else if (operation == Constants.SPATIAL_KNN) {
-			query = "{\"_source\": [\"" + keyColumnName + "\", \"" + valColumnName + "\"]," + "\"query\": {\"function_score\": {\"exp\": {\"" + valColumnName + "\": {\"origin\": \"" + searchValue 
-				+ "\", \"scale\": \"100m\",\"decay\" : 0.99999}}}}," + "\"size\": " + this.collectionSize + "}";
-			}	
+			query = "{\"function_score\": {\"exp\": {\"" + valColumnName + "\": {\"origin\": \"" + searchValue 
+				+ "\", \"scale\": \"100m\",\"decay\" : 0.99999}}}}";
+			}
+		
+		// Extra user-specified filter context to be applied prior to similarity search
+		if (filter != null) {
+			query = "{\"bool\": {\"must\": [" + query + "], \"filter\": " + filter + "}}";
+		}
+
+		// Final search request to be submitted for evaluation
+		query = "{\"_source\": [\"" + keyColumnName + "\", \"" + valColumnName + "\"], \"query\": " + query + ",\"size\": " + this.collectionSize + "}";
+		//System.out.println(query);
 		
 		// Template of the query that retrieves the value for a particular object ($id is a placeholder for its identifier)
 		queryValueRetrievalTemplate = "{\"_source\": [\"" + keyColumnName + "\", \"" + valColumnName + "\"]," + "\"query\": {\"ids\": {\"values\": [\"$id\"]}}}";

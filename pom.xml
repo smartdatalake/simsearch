@@ -12,7 +12,7 @@
 	
 	<groupId>eu.smartdatalake</groupId>
 	<artifactId>simsearch</artifactId>
-	<version>0.2-SNAPSHOT</version>
+	<version>0.2.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>simsearch</name>

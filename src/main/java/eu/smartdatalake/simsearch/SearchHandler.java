@@ -1,6 +1,5 @@
 package eu.smartdatalake.simsearch;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -63,6 +62,7 @@ public class SearchHandler {
 	Map<String, Index> indices;
 	Map<String, DatasetIdentifier> datasetIdentifiers;
 	Map<String, IValueFinder> valueFinders;
+	
 	
 	// List of queues that collect results from each running task
 	Map<String, ConcurrentLinkedQueue<PartialResult>> queues;
@@ -257,7 +257,7 @@ public class SearchHandler {
 						return responses;						
 					}
 					httpConn.openConnection();
-					openHttpConnections.add(httpConn);
+					openHttpConnections.add(httpConn);	
 				}
 				
 				// operation
@@ -297,7 +297,8 @@ public class SearchHandler {
 					lookups.put(id.getHashKey(), datasets.get(id.getHashKey()));
 				}
 				
-				// settings for top-k similarity search on categorical values
+				// Settings for top-k similarity search on categorical values
+				// Optional filters on datasets from JDBC or REST API sources can be specified; NOT allowed on ingested data from CSV files
 				if (operation.equalsIgnoreCase("categorical_topk")) {
 					
 					Thread threadCatSearch = null;
@@ -330,7 +331,7 @@ public class SearchHandler {
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.CATEGORICAL_TOPK);
 						// FIXME: Separator for search keywords must be ";" in this case
-						SimSearchQuery catSearch = new SimSearchQuery(jdbcConn, Constants.CATEGORICAL_TOPK, id.getDatasetName(), colKeyName, colValueName, String.join(";", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						SimSearchQuery catSearch = new SimSearchQuery(jdbcConn, Constants.CATEGORICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.join(";", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, catSearch.sqlValueRetrievalTemplate));
 						threadCatSearch = new Thread(catSearch);
 						runControl.put(id.getHashKey(), catSearch.running);
@@ -343,7 +344,7 @@ public class SearchHandler {
 							runControl.put(id.getHashKey(), catSearch.running);
 						}
 						else {  // This is an ElasticSearch REST API
-							ElasticSearchRequest catSearch = new ElasticSearchRequest(httpConn, Constants.CATEGORICAL_TOPK, colKeyName, colValueName, String.join(",", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							ElasticSearchRequest catSearch = new ElasticSearchRequest(httpConn, Constants.CATEGORICAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.join(",", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new CategoricalValueFinder(httpConn, catSearch.queryValueRetrievalTemplate));
 							threadCatSearch = new Thread(catSearch);
 							runControl.put(id.getHashKey(), catSearch.running);
@@ -392,7 +393,7 @@ public class SearchHandler {
 					// Create an instance of the numerical search query (NUMERICAL_TOPK = 2)
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.NUMERICAL_TOPK);
-						SimSearchQuery numSearch = new SimSearchQuery(jdbcConn, Constants.NUMERICAL_TOPK, id.getDatasetName(), colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						SimSearchQuery numSearch = new SimSearchQuery(jdbcConn, Constants.NUMERICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlValueRetrievalTemplate));
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);	
@@ -405,13 +406,13 @@ public class SearchHandler {
 							runControl.put(id.getHashKey(), numSearch.running);
 						}
 						else {  // This is an ElasticSearch REST API
-							ElasticSearchRequest numSearch = new ElasticSearchRequest(httpConn, Constants.NUMERICAL_TOPK, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							ElasticSearchRequest numSearch = new ElasticSearchRequest(httpConn, Constants.NUMERICAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new NumericalValueFinder(httpConn, numSearch.queryValueRetrievalTemplate));
 							threadNumSearch = new Thread(numSearch);
 							runControl.put(id.getHashKey(), numSearch.running);
 						}	
 					}
-					else {				// Querying against in-memory indices over a CSV file						
+					else {		// Querying against in-memory indices over a CSV file						
 						// Identify the B+-tree already built for this attribute
 						BPlusTree<Double, String> index = (BPlusTree<Double, String>) indices.get(id.getHashKey());
 						// collectionSize = -1 -> no prefixed bound on the number of results to fetch from numerical similarity search
@@ -448,7 +449,7 @@ public class SearchHandler {
 					// Create an instance of the spatial similarity search query (SPATIAL_KNN = 1)
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.SPATIAL_KNN);
-						SimSearchQuery geoSearch = new SimSearchQuery(jdbcConn, Constants.SPATIAL_KNN, id.getDatasetName(), colKeyName, colValueName, queryPoint.toText(), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						SimSearchQuery geoSearch = new SimSearchQuery(jdbcConn, Constants.SPATIAL_KNN, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, queryPoint.toText(), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 						valueFinders.put(id.getHashKey(), new SpatialValueFinder(jdbcConn, geoSearch.sqlValueRetrievalTemplate));
 						threadGeoSearch = new Thread(geoSearch);
 						runControl.put(id.getHashKey(), geoSearch.running);
@@ -462,13 +463,13 @@ public class SearchHandler {
 						}
 						else {  // This is an ElasticSearch REST API
 							// FIXME: Geo-points in ElasticSearch are expressed as a string with the format: "lat, lon"
-							ElasticSearchRequest geoSearch = new ElasticSearchRequest(httpConn, Constants.SPATIAL_KNN, colKeyName, colValueName, "" + queryPoint.getCoordinates()[0].y + "," + queryPoint.getCoordinates()[0].x, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							ElasticSearchRequest geoSearch = new ElasticSearchRequest(httpConn, Constants.SPATIAL_KNN, queryConfig.filter, colKeyName, colValueName, "" + queryPoint.getCoordinates()[0].y + "," + queryPoint.getCoordinates()[0].x, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new SpatialValueFinder(httpConn, geoSearch.queryValueRetrievalTemplate));
 							threadGeoSearch = new Thread(geoSearch);
 							runControl.put(id.getHashKey(), geoSearch.running);
 						}
 					}
-					else {			// Querying against in-memory indices over a CSV file	
+					else {		// Querying against in-memory indices over a CSV file	
 						// Identify the R-tree already built for this attribute
 						RTree<String, Location> index = (RTree<String, Location>) indices.get(id.getHashKey());
 						SimSearch geoSearch = new SimSearch(Constants.SPATIAL_KNN, name, index, queryLocation, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
@@ -596,7 +597,6 @@ public class SearchHandler {
 			outCSVWriter.close();
 		
 		duration = System.nanoTime() - duration;
-//		System.out.print((duration/ 1000000000.0) + ",");   // Execution cost for experimental results
 		log.writeln("Rank aggregation [" + rankingMethod + "] issued " + responses[0].getRankedResults().length + " results. Processing time: " + duration / 1000000000.0 + " sec.");
 		
 		// Close any JDBC connections

@@ -89,7 +89,6 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
     	// Construct search request according to the specification of the REST API
 		// Only one weight (1.0) specified in the query, in order to fetch results with their scores as computed by the respective distance measure
 		query = "{\"k\":\"" + this.collectionSize + "\",\"queries\":[{\"operation\":\"" +  myAssistant.descOperation(operation) +  "\",  \"column\":" + (valColumnName.startsWith("[") ? valColumnName.replace(" ","").replace("[","[\"").replace("]","\"]").replace(",","\",\"") : "\"" + valColumnName + "\"") + ", \"value\":\"" + searchValue + "\", \"weights\": [\"1.0\"] }]}";
-
 //		System.out.println("QUERY: " + query);		
 	}
 	

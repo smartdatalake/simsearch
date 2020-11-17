@@ -18,4 +18,7 @@ public class SearchSpecs {
 
 	@ApiModelProperty(required = false, notes = "A positive double value used as decay factor in ranking of results")
 	public Double decay;
+	
+	@ApiModelProperty(required = false, notes = "A filter to be applied on in-situ queried data (e.g., in a DBMS or Elasticsearch) prior to similarity search. This filter should have a syntax according to the data source, e.g., the condition in a WHERE clause in SQL or a filter context in Elasticsearch, and is being applied as-is against the data.")
+	public String filter;
 }

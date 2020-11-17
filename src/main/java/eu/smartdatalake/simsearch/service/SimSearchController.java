@@ -22,7 +22,6 @@ import eu.smartdatalake.simsearch.request.RemoveRequest;
 import eu.smartdatalake.simsearch.request.SearchRequest;
 
 import java.lang.Exception;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
