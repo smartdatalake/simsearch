@@ -116,7 +116,7 @@ We have made available two videos demonstrating the current functionality provid
 - Our [demonstration](https://www.youtube.com/watch?v=DDjmYQdxyUc) of the SimSearch functionality as of September 2020, as presented during the mid-term review of the SmartDataLake project.
 
 
-# Note on R-tree implementation
+## Note on R-tree implementation
 
 SimSearch modifies and extends an R-tree implementation originally published [here](https://github.com/davidmoten/rtree-multi).
 
