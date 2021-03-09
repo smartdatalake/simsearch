@@ -18,11 +18,20 @@ public class AggregateScoreQueue {
 	
 	private ListMultimap<Double, String> scoreQueue;
 	private int capacity;
+	private int numInserts;
+	private int numDeletes;
 
+	/**
+	 * Constructor
+	 * @param topk  The capacity (i.e., the number of key-value pairs) of this priority queue.
+	 */
 	public AggregateScoreQueue(int topk) {
 		scoreQueue = Multimaps.newListMultimap(new TreeMap<>(Collections.reverseOrder()), ArrayList::new);
 		capacity = topk;
+		numInserts = 0;
+		numDeletes = 0;
 	}
+	
 	public ListMultimap<Double, String> getScoreQueue() {
 		return scoreQueue;
 	}
@@ -34,6 +43,7 @@ public class AggregateScoreQueue {
 	public boolean put(Double key, String value) {
 		
 		scoreQueue.put(key, value);
+		numInserts++;
 
 		// Remove excessive elements from the priority queue of scores, once its capacity is exceeded 
 		int c = scoreQueue.keySet().size();
@@ -42,10 +52,10 @@ public class AggregateScoreQueue {
 		// Iterate from the lowest score currently held in the ranked list
 		ListIterator<Double> iterKey = listKeys.listIterator(c);   
 		while ((c > this.capacity) && iterKey.hasPrevious()) {
-			scoreQueue.removeAll(iterKey.previous());    // Remove excessive elements having the lowest score
+			// Remove excessive elements having the lowest score
+			numDeletes += scoreQueue.removeAll(iterKey.previous()).size();    
 			c--;
 		}			
-
 		
 		return true;
 	}
@@ -63,10 +73,15 @@ public class AggregateScoreQueue {
 	}	
 	
 	public boolean remove(double key, String value) {
-		return scoreQueue.remove(key, value);
+		if (scoreQueue.remove(key, value)) {
+			numDeletes++;
+			return true;
+		}
+		return false;
 	}
 	
 	public void removeAll(Double key) {
+		numDeletes += scoreQueue.get(key).size();
 		scoreQueue.removeAll(key);	
 	}
 	
@@ -82,4 +97,17 @@ public class AggregateScoreQueue {
 		ArrayList<Double> listKeys = new ArrayList<Double>(scoreQueue.keySet());
 		return listKeys.get(listKeys.size()-1);
 	}
+
+	public int getNumInserts() {
+		return numInserts;
+	}
+
+	public int getNumDeletes() {
+		return numDeletes;
+	}
+
+	public int getCapacity() {
+		return capacity;
+	}
+
 }

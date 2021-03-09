@@ -1,5 +1,7 @@
 package eu.smartdatalake.simsearch.measure;
 
+import eu.smartdatalake.simsearch.engine.IDistance;
+
 /**
  * Implements a similarity measure based on an exponential decay function.
  * @param <V>  Type variable to represent the values involved in the similarity calculations (usually, double values).
@@ -22,13 +24,14 @@ public class DecayedSimilarity<V> implements ISimilarity<V> {
 	 * Constructor
 	 * @param distance   Parameterized distance measure to be used for calculating similarity scores
 	 * @param decay   The decay constant to be applied in similarity calculations.
+	 * @param scale  The scale factor used in normalizing distance values.
 	 * @param taskId  The task that executes the query with this similarity measure.
 	 */
-	public DecayedSimilarity(IDistance<V> distance, double decay, int taskId) {
+	public DecayedSimilarity(IDistance<V> distance, double decay, double scale, int taskId) {
 		
 		this.distance = distance;
 		this.lambda = decay;
-		this.scale = new Scaling(0.0);
+		this.scale = new Scaling(scale);
 		this.taskId = taskId;              	
 	}
 	

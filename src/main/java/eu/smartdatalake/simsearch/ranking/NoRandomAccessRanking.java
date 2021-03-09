@@ -10,10 +10,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.DatasetIdentifier;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
 import eu.smartdatalake.simsearch.csv.numerical.INormal;
+import eu.smartdatalake.simsearch.engine.IResult;
+import eu.smartdatalake.simsearch.engine.PartialResult;
+import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**
@@ -55,32 +56,35 @@ public class NoRandomAccessRanking implements IRankAggregator {
 
 	// Look-up tables built for the various datasets as needed in random access similarity calculations
 	// Using the dataset hash key as a reference to the collected values for each attribute
-	Map<String, HashMap<?, ?>> datasets;
+	Map<String, Map<?, ?>> datasets;
 		
 	// Collection of similarity functions to be used in random access calculations
 	Map<String, ISimilarity> similarities;
 	
 	// Collection of the ranked results to be given as output per weight combination
-	RankedResultCollection[] results;
+	ResultCollection[] results;
+	
+	// Sum of weights per combination
+	double[] sumWeights;  
 	
 	/**
 	 * Constructor
 	 * @param datasetIdentifiers List of the attributes involved in similarity search queries.
-	 * @param datasets   List of the various data collections involved in the similarity search queries.
-	 * @param similarities   List of the similarity measures applied in each search query.
-	 * @param weights  List of the weights to be applied in similarity scores returned by each search query.
-	 * @param normalizations  List of normalization functions to be applied in data values during random access.
-	 * @param tasks   The list of running threads; each one executes a query and it is associated with its respective queue that collects its results.
-	 * @param queues  The list of the queues collecting results from each search query.
-	 * @param runControl  The list of boolean values indicating the status of each thread.
+	 * @param lookups   Dictionary of the various data collections involved in the similarity search queries.
+	 * @param similarities   Dictionary of the similarity measures applied in each search query.
+	 * @param weights  Dictionary of the (possibly multiple alternative) weights per attribute to be applied in scoring the final results. 
+	 * @param normalizations  Dictionary of normalization functions to be applied in data values during random access.
+	 * @param tasks   The collection of running threads; each one executes a query and it is associated with its respective queue that collects its results.
+	 * @param queues  The collection of the queues collecting results from each search query.
+	 * @param runControl  The collection of boolean values indicating the status of each thread.
 	 * @param topk  The count of ranked aggregated results to collect, i.e., those with the top-k (highest) aggregated similarity scores.
 	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
-	public NoRandomAccessRanking(Map<String, DatasetIdentifier> datasetIdentifiers, Map<String, HashMap<?, ?>> datasets, Map<String, ISimilarity> similarities, Map<String, Double[]> weights, Map<String, INormal> normalizations, Map<String, Thread> tasks, Map<String, ConcurrentLinkedQueue<PartialResult>> queues, Map<String, AtomicBoolean> runControl, int topk, Logger log) {
+	public NoRandomAccessRanking(Map<String, DatasetIdentifier> datasetIdentifiers, Map<String, Map<?, ?>> lookups, Map<String, ISimilarity> similarities, Map<String, Double[]> weights, Map<String, INormal> normalizations, Map<String, Thread> tasks, Map<String, ConcurrentLinkedQueue<PartialResult>> queues, Map<String, AtomicBoolean> runControl, int topk, Logger log) {
 		
 		this.log = log;
 		this.datasetIdentifiers = datasetIdentifiers;
-		this.datasets = datasets;
+		this.datasets = lookups;
 		this.weights = weights;
 		this.similarities = similarities;
 		this.normalizations = normalizations;
@@ -102,20 +106,20 @@ public class NoRandomAccessRanking implements IRankAggregator {
 		curResults = new AggregateResultCollection[weightCombinations];
 		
 		// Array of collection of final ranked results; one collection (list) per combination of weights
-		results = new RankedResultCollection[weightCombinations];
+		results = new ResultCollection[weightCombinations];
 		
 		// Initialize all array structures
 		for (int w = 0; w < weightCombinations; w++) {
 			mapLowerBounds[w] = new AggregateScoreQueue(topk+1);
 			mapUpperBounds[w] = new AggregateScoreQueue(topk+1);
 			curResults[w] = new AggregateResultCollection();
-			results[w] = new RankedResultCollection();
+			results[w] = new ResultCollection();
 		}
 	}
 	
 
 	/**
-	 * Inserts or updates the ranked aggregated results based on a result from the i-the queue.
+	 * Inserts or updates the ranked aggregated results based on a result from the i-th queue.
 	 * @param taskKey   The hashKey of the task to be checked for its next result.
 	 * @param i   The queue that provides the new result
 	 * @param w   The identifier of the weight combination to be applied on the scores.
@@ -142,12 +146,12 @@ public class NoRandomAccessRanking implements IRankAggregator {
 					// coincides with the lower bound
 					if (aggResult.checkAppearance()) {						
 						mapUpperBounds[w].remove(aggResult.getUpperBound(), item);
-						aggResult.setUpperBound(aggResult.getLowerBound());
+						aggResult.setUpperBound(aggResult.getLowerBound());					
 					}
 
 					curResults[w].put(item, aggResult);
 					// Maintain updated bounds in the priority queues
-					mapLowerBounds[w].put(aggResult.getLowerBound(), item);
+					mapLowerBounds[w].put(aggResult.getLowerBound(), item);	
 					mapUpperBounds[w].put(aggResult.getUpperBound(), item);
 				} else { // INSERT new aggregate result to the ranked list...
 					aggResult = new AggregateResult(item, numTasks, score, score);
@@ -182,7 +186,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 			
 			// Remove previous upper bound from the priority queue
 			mapUpperBounds[w].remove(aggResult.getUpperBound(), item); 
-			// Initialize upper bound to the current lower bound (already updated)
+			// Initialize new upper bound to the current lower bound (already updated)
 			ub = aggResult.getLowerBound(); 
 			// Update upper bound with the latest scores from each queue where this result has not yet appeared
 			for (String task : tasks.keySet()) {
@@ -190,6 +194,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 					ub += this.weights.get(task)[w] * queues.get(task).peek().getScore();
 				}
 			}
+			
 			// Insert new upper bound into the priority queue
 			mapUpperBounds[w].put(ub, item); 	
 			curResults[w].get(item).setUpperBound(ub);
@@ -201,7 +206,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 	 * Implements the logic of the NRA (No Random Access) algorithm.
 	 */
 	@Override
-	public RankedResult[][] proc() {
+	public IResult[][] proc() {
 		
 		boolean running = true;
 		int n = 0;
@@ -213,6 +218,15 @@ public class NoRandomAccessRanking implements IRankAggregator {
 			// Number of ranked aggregated results so far
 			int[] k = new int[weightCombinations];    // Each k is monitoring progress for each combination of weights
 			Arrays.fill(k, 0);
+			
+			// Calculate the sum of weights for each combination
+			sumWeights = new double[weightCombinations];
+			Arrays.fill(sumWeights, 0.0);
+			for (int w = 0; w < weightCombinations; w++) {
+				for (String taskKey : tasks.keySet()) {
+					sumWeights[w] += this.weights.get(taskKey)[w];
+				}
+			}
 			
 			int i;
 			boolean allScalesSet = false;
@@ -329,16 +343,18 @@ public class NoRandomAccessRanking implements IRankAggregator {
 		this.log.writeln("In total " + n + " results have been examined from each queue.");
 		
 		// Array of final results		
-		RankedResult[][] allResults = new RankedResult[weightCombinations][topk];
+		IResult[][] allResults = new IResult[weightCombinations][topk];
 		for (int w = 0; w < weightCombinations; w++) {
 			allResults[w] = results[w].toArray();
-		}	
+//			this.log.writeln("LOWER BOUND queue -> insertions: " + mapLowerBounds[w].getNumInserts() + " deletions: " + mapLowerBounds[w].getNumDeletes() + " current size: " + mapLowerBounds[w].size());
+//			this.log.writeln("UPPER BOUND queue -> insertions: " + mapUpperBounds[w].getNumInserts() + " deletions: " + mapUpperBounds[w].getNumDeletes() + " current size: " + mapUpperBounds[w].size());
+		}
 		
 		return allResults;
 	}
 
 	/** 
-	 * Complement top-k final results by picking extra items with descending LOWER bounds on their aggregate scores.
+	 * Complement top-k final results approximately by picking extra items with descending LOWER bounds on their aggregate scores.
 	 */
 	private void reportExtraResultsLB() {
 		
@@ -372,6 +388,10 @@ public class NoRandomAccessRanking implements IRankAggregator {
 	 */
 	private boolean issueRankedResult(int i, int w, String item, double score, boolean exact) {
 		
+		// Skip any already issued entity when reporting extra (approximately scored) results for this weight combination
+		if (results[w].contains(item))
+			return true;
+		
 		i++;   // Showing rank as 1,2,3,... instead of 0,1,2,...
 		// Stop once topk results have been issued, even though there might be ties having the same score as the topk result
 		if (i > topk)
@@ -386,7 +406,7 @@ public class NoRandomAccessRanking implements IRankAggregator {
 		// ... also its original values at the searched attributes and the calculated similarity scores
 		int j = 0;
 		for (String task : tasks.keySet()) {
-			Attribute attr = new Attribute();
+			ResultFacet attr = new ResultFacet();
 			attr.setName(this.datasetIdentifiers.get(task).getValueAttribute());
 			if (this.datasets.get(task).get(item) == null) {   	 // By default, assign zero similarity for NULL values in this attribute							
 				attr.setValue("");   // Use blank string instead of NULL
@@ -404,8 +424,8 @@ public class NoRandomAccessRanking implements IRankAggregator {
 			j++;
 		}
 		// Its aggregated score is the lower bound
-		res.setScore(score / tasks.size());   // Aggregate score over all running tasks (one per queried attribute)
-		
+		res.setScore(score / sumWeights[w]);   // Weighted aggregate score over all running tasks (one per queried attribute)
+	
 		// Indicate whether this ranking should be considered exact or not
 		res.setExact(exact);
 		

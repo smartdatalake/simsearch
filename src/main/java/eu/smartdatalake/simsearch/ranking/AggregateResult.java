@@ -2,7 +2,7 @@ package eu.smartdatalake.simsearch.ranking;
 
 import java.util.BitSet;
 
-import eu.smartdatalake.simsearch.PartialResult;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 
 /**
  * Auxiliary class that collects results along with upper and lower bounds on their aggregated scores.

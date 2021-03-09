@@ -5,7 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import eu.smartdatalake.simsearch.IDataConnector;
+import eu.smartdatalake.simsearch.manager.IDataConnector;
 
 /**
  * Class that defines all methods available by a JDBC Database connector.

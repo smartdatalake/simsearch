@@ -1,0 +1,21 @@
+{
+	"k":"5",
+	"algorithm":"pivot_based",
+	"queries":[    
+				{
+					"column":"organizations",
+					"value": ["white house","united nations"],
+					"weights":["1.0","0.8"]
+				},
+				{
+					"column":"timestamp",
+					"value":"20191104084500",
+					"weights":["1.0","0.4"]
+				},
+				{
+					"column":"[longitude, latitude]",
+					"value":"POINT(-74.94 42.15)",
+					"weights":["1.0","0.7"]
+				}
+			]
+}

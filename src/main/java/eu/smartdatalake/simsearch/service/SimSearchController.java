@@ -13,9 +13,9 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import io.swagger.annotations.ApiParam;
 
 import eu.smartdatalake.simsearch.Coordinator;
-import eu.smartdatalake.simsearch.Response;
-import eu.smartdatalake.simsearch.SearchResponse;
-import eu.smartdatalake.simsearch.AttributeInfo;
+import eu.smartdatalake.simsearch.engine.Response;
+import eu.smartdatalake.simsearch.engine.SearchResponse;
+import eu.smartdatalake.simsearch.manager.AttributeInfo;
 import eu.smartdatalake.simsearch.request.MountRequest;
 import eu.smartdatalake.simsearch.request.CatalogRequest;
 import eu.smartdatalake.simsearch.request.RemoveRequest;
@@ -23,8 +23,11 @@ import eu.smartdatalake.simsearch.request.SearchRequest;
 
 import java.lang.Exception;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -38,6 +41,38 @@ public class SimSearchController {
 	int API_key_length = 128;   		// Standard length (in bits) for all generated API keys
 	
 	Map<String, Coordinator> dictCoordinators;    // Dictionary of all coordinator instances (each with its own API key) deployed at the SimSearch back-end.
+
+	List<String> adminApiKeys;   		// List of admin-defined API keys
+
+	/**
+	 * Provides the list of API keys defined by the administrator upon launching of the service.
+	 * @param propKeys  A string containing comma-separated values representing admin-defined API keys.
+	 * @return  A list of API keys as defined by the administrator when the service is launched.
+	 */
+	private List<String> getApiKeys(String propKeys) {
+
+		List<String> validApiKeys = new ArrayList<String>();
+
+		String keysString = System.getProperty(propKeys);
+		if (keysString != null ) {
+			StringTokenizer strTok = new StringTokenizer(keysString, " ");
+			while (strTok.hasMoreTokens()) {
+				validApiKeys.add(strTok.nextToken());
+			}
+		}
+
+		return validApiKeys;
+	}
+
+	/**
+	 * Checks whether the given API key is defined by the administrator, i.e., using a JSON when the service is launched.
+	 * @param api_key  The API key to check.
+	 * @return  A Boolean value: True, if the key is defined by the administrator; otherwise, False.
+	 */
+	private boolean isAdminApiKey(String api_key) {
+
+		return adminApiKeys.contains(api_key) ? true : false;
+	}
 	
 	/**
 	 * Checks whether the given API key is valid, i.e., listed among those generated for the various data sources.
@@ -69,6 +104,10 @@ public class SimSearchController {
 
 		// Instantiate a dictionary of all instantiated coordinators (one per generated API key)
 		dictCoordinators = new HashMap<String, Coordinator>();
+		
+		// Instantiate any administrative API keys specified in the optional input JSON
+		// This specifies the admin-defined API keys
+		adminApiKeys = getApiKeys("admin_api_keys");
 	}
 
 	/**
@@ -124,8 +163,8 @@ public class SimSearchController {
 	public ResponseEntity<Response> index(@ApiParam("The client API key allowing access to the data") @RequestHeader("api_key") String apiKey, @ApiParam("Request to method index") @RequestBody MountRequest params) {
 
 		Response appendResponse;
-		
-		if (!isValidApiKey(apiKey)) {
+
+		if (!isValidApiKey(apiKey) && !isAdminApiKey(apiKey)) {
 			appendResponse = new Response();
 			appendResponse.setNotification("Operation not allowed for this user. Please check your API key.");
 			return new ResponseEntity<>(appendResponse, HttpStatus.FORBIDDEN);
@@ -134,6 +173,13 @@ public class SimSearchController {
 		// Identify the coordinator that handles existing data sources for the specified API key
 		Coordinator myCoordinator = dictCoordinators.get(apiKey);
 
+		// If no coordinator exists yet for admin-defined API key, create one...
+		if ((isAdminApiKey(apiKey)) && (myCoordinator == null)) {
+			 myCoordinator = new Coordinator();
+			// ... and keep it for use in all subsequent requests against these data sources
+			dictCoordinators.put(apiKey, myCoordinator);
+		}
+		
 		System.out.println("Preparing indices. This process may take a few minutes. Please wait...");
 
 		// MOUNTING DATA SOURCE(S)

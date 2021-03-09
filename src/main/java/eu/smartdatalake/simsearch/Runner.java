@@ -17,10 +17,10 @@ import eu.smartdatalake.simsearch.service.SimSearchServiceLauncher;
  * Query configurations (specified in JSON) can be submitted once data sources have been mounted. 
  * 
  * Execution command -- STANDALONE mode with requests specified from standard input: 
- * java -jar target/simsearch-0.0.1-SNAPSHOT.jar
+ * java -jar target/simsearch-0.3-SNAPSHOT.jar
  * 
  * Execution command -- SERVICE mode: for launching a web service, e.g., at port 8090, and specifying requests using the REST API: 
- * java -Dserver.port=8090 -jar target/simsearch-0.0.1-SNAPSHOT.jar --service
+ * java -Dserver.port=8090 -jar target/simsearch-0.3-SNAPSHOT.jar --service
  */
 public class Runner {	
 	
@@ -44,14 +44,32 @@ public class Runner {
 	}
 	
 	/**
+	 * Prints a JSON response to standard output.
+	 * @param val  A JSON response to a SimSearch request.
+	 * @param msg  A message notification to display in case of errors.
+	 */
+	private static void printResponse(Object val, String msg) {
+		
+		try {
+			ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+			String json = ow.writeValueAsString(val);
+			System.out.println(json);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+			System.out.println(msg);
+		}
+	}
+	
+	
+	/**
 	 * Main entry point to the SimSearch application.
-	 * @param args  Optional arguments: specify --service is a RESTful service will be deployed.
+	 * @param args  Optional arguments: specify --service is a RESTful service will be deployed; otherwise, a standalone instance will be deployed.
 	 */
 	public static void main(String[] args) {
 
 		if (args.length > 0 && args[0].equals("--service")) {  	// SERVICE mode
 			try {
-				new SimSearchServiceLauncher(args);
+				new SimSearchServiceLauncher(args);   // Arguments may include a JSON file with predefined API key to be specifically used with the service
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -66,51 +84,20 @@ public class Runner {
 	
 				switch (choice) {
 				case 1:	 // MOUNTING & INDEXING
-					try {
-						// Mount the specified data sources to make them available for similarity search; also create indices for ingested data sources
-						myCoordinator.mount(getConfigFile());			
-					}
-					catch (Exception e) {
-						e.printStackTrace();
-						System.out.println("Mounting stage terminated abnormally.");
-					}
+					// Mount the specified data sources to make them available for similarity search; also create indices for ingested data sources
+					printResponse(myCoordinator.mount(getConfigFile()), "Mounting stage terminated abnormally.");
 					break;
 				case 2:  // DATA SOURCE REMOVAL
-					try {			        
-				        // Invoke removal of the specified data sources
-				        myCoordinator.delete(getConfigFile());
-					} catch (Exception e) {
-						e.printStackTrace();
-						System.out.println("Dataset removal terminated abnormally. Make sure that the JSON file provides suitable specifications.");
-					}
+					// Invoke removal of the specified data sources
+					printResponse(myCoordinator.delete(getConfigFile()), "Dataset removal terminated abnormally. Make sure that the JSON file provides suitable specifications.");
 					break;
 				case 3:  // CATALOG DATA SOURCES 
-					try {
-						// List of data sources available for similarity search queries					
-						ObjectWriter ow3 = new ObjectMapper().writer().withDefaultPrettyPrinter();
-						String json3 = ow3.writeValueAsString(myCoordinator.listDataSources());
-						System.out.println(json3);					
-					} catch (Exception e) {
-						e.printStackTrace();
-						System.out.println("Listing of available data sources terminated abnormally.");
-					}
+					// List all data sources available for similarity search queries	
+					printResponse(myCoordinator.listDataSources(), "Listing of available data sources terminated abnormally.");
 					break;
 				case 4:  // SEARCH 
-					try {					
-				        // Invoke similarity search with the parameters specified in the given JSON configuration
-				        SearchResponse[] response = myCoordinator.search(getConfigFile());
-				        // Print response as JSON to standard output
-						try {
-							ObjectWriter ow4 = new ObjectMapper().writer().withDefaultPrettyPrinter();
-							String json4 = ow4.writeValueAsString(response);
-							System.out.println(json4);
-						} catch (JsonProcessingException e) {
-							e.printStackTrace();
-						}
-					} catch (Exception e) {
-						e.printStackTrace();
-						System.out.println("Query evaluation terminated abnormally. Make sure that the JSON file provides suitable search specifications.");
-					}
+					 // Invoke similarity search with the parameters specified in the given JSON configuration
+					printResponse(myCoordinator.search(getConfigFile()), "Query evaluation terminated abnormally. Make sure that the JSON file provides suitable search specifications.");
 					break;
 				default:   // EXIT (on any other choice)
 					System.out.println("Exiting similarity search. All in-memory data will be purged.");

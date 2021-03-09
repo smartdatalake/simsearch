@@ -14,10 +14,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.DatasetIdentifier;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
 import eu.smartdatalake.simsearch.csv.numerical.INormal;
+import eu.smartdatalake.simsearch.engine.IResult;
+import eu.smartdatalake.simsearch.engine.PartialResult;
+import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**
@@ -69,7 +70,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	Map<String, ISimilarity> similarities;
 	
 	// Collection of the ranked results to be given as output per weight combination
-	RankedResultCollection[] results;
+	ResultCollection[] results;
 	
 	// Retains the lowest scores obtained per priority queue
 	Map<String, Double> lowestScores;
@@ -80,16 +81,19 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	// List with the identifiers of the checked objects (the same one for all combinations of weights)
 	CheckedItems checkedItems;
 	
+	// Sum of weights per combination
+	double[] sumWeights;   
+	
 	/**
 	 * Constructor
-	 * @param datasetIdentifiers List of the attributes involved in similarity search queries.
-	 * @param lookups   Look-up tables for attributes involved in the similarity search.
-	 * @param similarities   List of the similarity measures applied in each search query.
-	 * @param weights  List of the weights to be applied in similarity scores returned by each search query.
-	 * @param normalizations  List of normalization functions to be applied in data values during random access.
-	 * @param tasks   The list of running threads; each one executes a query and it is associated with its respective queue that collects its results.
-	 * @param queues  The list of the queues collecting results from each search query.
-	 * @param runControl  The list of boolean values indicating the status of each thread.
+	 * @param datasetIdentifiers  Dictionary of the attributes involved in similarity search queries.
+	 * @param lookups  Look-up tables for attributes involved in the similarity search.
+	 * @param similarities   Dictionary of the similarity measures applied in each search query.
+	 * @param weights  Dictionary of the (possibly multiple alternative) weights per attribute to be applied in scoring the final results. 
+	 * @param normalizations  Dictionary of normalization functions to be applied in data values during random access.
+	 * @param tasks   The collection of running threads; each one executes a query and it is associated with its respective queue that collects its results.
+	 * @param queues  The collection of the queues collecting results from each search query.
+	 * @param runControl  The collection of boolean values indicating the status of each thread.
 	 * @param topk  The count of ranked aggregated results to collect, i.e., those with the top-k (highest) aggregated similarity scores.
 	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
@@ -135,7 +139,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		checkedItems = new CheckedItems();
 		
 		// Array of collection of final ranked results; one collection (list) per combination of weights
-		results = new RankedResultCollection[weightCombinations];
+		results = new ResultCollection[weightCombinations];
 		
 		// Keeps the lowest scores observed per priority queue
 		lowestScores = new HashMap<String, Double>();
@@ -149,7 +153,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 			mapUpperBounds[w] = new AggregateScoreQueue(topk+1);
 			mapAverageBounds[w] = new AggregateScoreQueue(topk+1);
 			curResults[w] = new AggregateResultCollection();
-			results[w] = new RankedResultCollection();
+			results[w] = new ResultCollection();
 		}
 	}
 	
@@ -256,7 +260,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	 * Implements the logic of the Partial Random Access algorithm.
 	 */
 	@Override
-	public RankedResult[][] proc() {
+	public IResult[][] proc() {
 		
 		Double mb, lb, ub = null;
 		boolean running = true;
@@ -267,6 +271,15 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		try {
 			numTasks = tasks.size();
 			BitSet probed = new BitSet(numTasks);
+			
+			// Calculate the sum of weights for each combination
+			sumWeights = new double[weightCombinations];
+			Arrays.fill(sumWeights, 0.0);
+			for (int w = 0; w < weightCombinations; w++) {
+				for (String taskKey : tasks.keySet()) {
+					sumWeights[w] += this.weights.get(taskKey)[w];
+				}
+			}
 			
 			// LOOK-UP PHASE
 			// Wait until all similarity search queries are concluded ...
@@ -416,9 +429,12 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		this.log.writeln("Last upper bound examined: " + ub);
 		
 		// Array of final results		
-		RankedResult[][] allResults = new RankedResult[weightCombinations][topk];
+		IResult[][] allResults = new IResult[weightCombinations][topk];
 		for (int w = 0; w < weightCombinations; w++) {
 			allResults[w] = results[w].toArray();
+//			this.log.writeln("LOWER BOUND queue -> insertions: " + mapLowerBounds[w].getNumInserts() + " deletions: " + mapLowerBounds[w].getNumDeletes() + " current size: " + mapLowerBounds[w].size());
+//			this.log.writeln("UPPER BOUND queue -> insertions: " + mapUpperBounds[w].getNumInserts() + " deletions: " + mapUpperBounds[w].getNumDeletes() + " current size: " + mapUpperBounds[w].size());
+//			this.log.writeln("AVERAGE BOUND queue -> insertions: " + mapAverageBounds[w].getNumInserts() + " deletions: " + mapAverageBounds[w].getNumDeletes() + " current size: " + mapAverageBounds[w].size());
 		}	
 		
 		return allResults;
@@ -426,7 +442,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 
 	
 	/** 
-	 * Complement top-k final results by picking extra items with descending UPPER bounds on their aggregate scores.
+	 * Complement top-k final results approximately by picking extra items with descending UPPER bounds on their aggregate scores.
 	 */
 	private void reportExtraResultsUB() {
 		
@@ -451,7 +467,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	
 
 	/** 
-	 * Complement top-k final results by picking extra items with descending LOWER bounds on their aggregate scores.
+	 * Complement top-k final results approximately by picking extra items with descending LOWER bounds on their aggregate scores.
 	 */
 	private void reportExtraResultsLB() {
 		
@@ -476,7 +492,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 
 
 	/** 
-	 * Complement top-k final results by picking extra items with descending AVERAGE bounds on their aggregate scores.
+	 * Complement top-k final results approximately by picking extra items with descending AVERAGE bounds on their aggregate scores.
 	 */
 	private void reportExtraResultsMB() {
 		
@@ -510,6 +526,10 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 	 */
 	private boolean issueRankedResult(int i, int w, String item, double score, boolean exact) {
 		
+		// Skip any already reported entity for this weight combination
+		if (results[w].contains(item))
+			return true;
+		
 		i++;   // Showing rank as 1,2,3,... instead of 0,1,2,...
 		// Stop once topk results have been issued, even though there might be ties having the same score as the topk result
 		if (i > topk)
@@ -524,7 +544,7 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 		// ... also its original values at the searched attributes and the calculated similarity scores
 		int j = 0;
 		for (String task : tasks.keySet()) {
-			Attribute attr = new Attribute();
+			ResultFacet attr = new ResultFacet();
 			attr.setName(this.datasetIdentifiers.get(task).getValueAttribute());
 			if (this.lookups.get(task).get(item) == null) {   	 // By default, assign zero similarity for NULL values in this attribute							
 				attr.setValue("");   // Use blank string instead of NULL
@@ -542,8 +562,8 @@ public class PartialRandomAccessRanking<K,V> implements IRankAggregator {
 			j++;
 		}
 		// Its aggregated score is the lower bound
-		res.setScore(score / tasks.size());  // Aggregate score over all running tasks (one per queried attribute)
-		
+		res.setScore(score / sumWeights[w]);   // Weighted aggregate score over all running tasks (one per queried attribute)
+	
 		// Indicate whether this ranking should be considered exact or not
 		res.setExact(exact);
 		

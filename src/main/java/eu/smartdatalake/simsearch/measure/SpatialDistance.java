@@ -2,6 +2,8 @@ package eu.smartdatalake.simsearch.measure;
 
 import org.locationtech.jts.geom.Geometry;
 
+import eu.smartdatalake.simsearch.engine.IDistance;
+
 /**
  * Implements a spatial distance measure based on the Haversine distance.
  * FIXME: This class assumes that all locations always have a common CRS (i.e., WGS84).
@@ -51,4 +53,15 @@ public class SpatialDistance<V> implements IDistance<V> {
 			return ((Geometry) v1).distance((Geometry) v2);
 	}
 
+	@Override
+	// Measure the absolute difference between two spatial distances
+	public double diff(double a, double b) {
+		return Math.abs(a - b);
+	}
+
+	@Override
+	public void setNaNdistance(double d) {
+		// TODO Auto-generated method stub
+	}
+	
 }

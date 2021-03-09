@@ -9,9 +9,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 
-import eu.smartdatalake.simsearch.ISimSearch;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
+import eu.smartdatalake.simsearch.engine.ISimSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 

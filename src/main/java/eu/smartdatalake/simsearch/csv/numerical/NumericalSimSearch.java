@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 //import java.util.concurrent.TimeUnit;
 
-import eu.smartdatalake.simsearch.ISimSearch;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
+import eu.smartdatalake.simsearch.engine.ISimSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**

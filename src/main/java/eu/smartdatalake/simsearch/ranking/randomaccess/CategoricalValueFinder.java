@@ -5,12 +5,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 import org.postgresql.util.PGobject;
 
-import eu.smartdatalake.simsearch.IDataConnector;
-import eu.smartdatalake.simsearch.IValueFinder;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
+import eu.smartdatalake.simsearch.engine.IValueFinder;
+import eu.smartdatalake.simsearch.manager.IDataConnector;
 
 /**
  * Updates the in-memory lookup with CATEGORICAL values used in random access operations during rank aggregation.
@@ -35,7 +36,7 @@ public class CategoricalValueFinder<K,V> implements IValueFinder<K,V> {
 	}
 	
 	@Override
-	public TokenSet find(HashMap<K,V> dataset, K k) {
+	public TokenSet find(Map<K,V> dataset, K k) {
 
 //		System.out.println("VALUE RETRIEVAL QUERY: " + sqlTemplate);
 		
@@ -89,5 +90,6 @@ public class CategoricalValueFinder<K,V> implements IValueFinder<K,V> {
 		
 		return set;
 	}
+
 	
 }

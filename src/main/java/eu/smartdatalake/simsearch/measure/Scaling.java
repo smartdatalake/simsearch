@@ -11,7 +11,7 @@ public class Scaling {
 	public Scaling(double scale) {
 		
 		this.scale = scale;
-		this.flag = false;
+		this.flag = (scale > 0.0) ? true : false;
 	}
 
 	/**

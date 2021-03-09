@@ -6,14 +6,15 @@ import gnu.trove.list.array.TDoubleArrayList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
-import eu.smartdatalake.simsearch.ISimSearch;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
+import eu.smartdatalake.simsearch.engine.ISimSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 
@@ -85,7 +86,7 @@ public class CategoricalSimSearch<K extends Comparable<? super K>, V> implements
 	 * @param partialResults  Queue to collect query results.
 	 * @return  The number of collected results.
 	 */
-	public int compute(IntSetCollection queryCollection, IntSetCollection targetCollection, HashMap<?, ?> origTokenSetCollection, int k, ConcurrentLinkedQueue<PartialResult> partialResults) {  //OutputHandler oh
+	public int compute(IntSetCollection queryCollection, IntSetCollection targetCollection, Map<?, ?> origTokenSetCollection, int k, ConcurrentLinkedQueue<PartialResult> partialResults) {  //OutputHandler oh
 
 		num = -1;    //no matches found yet
 		matchKeys = new ArrayList<String>();

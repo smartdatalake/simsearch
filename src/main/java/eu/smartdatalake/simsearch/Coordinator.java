@@ -9,10 +9,15 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.Map.Entry;
 
 import org.json.simple.JSONObject;
@@ -23,8 +28,18 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import eu.smartdatalake.simsearch.csv.numerical.INormal;
+import eu.smartdatalake.simsearch.engine.Response;
+import eu.smartdatalake.simsearch.engine.SearchHandler;
+import eu.smartdatalake.simsearch.engine.SearchResponse;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnectionPool;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
+import eu.smartdatalake.simsearch.manager.AttributeInfo;
+import eu.smartdatalake.simsearch.manager.DataSource;
+import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
+import eu.smartdatalake.simsearch.manager.TransformedDatasetIdentifier;
+import eu.smartdatalake.simsearch.pivoting.MetricReferences;
+import eu.smartdatalake.simsearch.pivoting.PivotManager;
+import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 import eu.smartdatalake.simsearch.request.CatalogRequest;
 import eu.smartdatalake.simsearch.request.MountRequest;
 import eu.smartdatalake.simsearch.request.MountSource;
@@ -33,15 +48,16 @@ import eu.smartdatalake.simsearch.request.RemoveRequest;
 import eu.smartdatalake.simsearch.request.SearchRequest;
 import eu.smartdatalake.simsearch.restapi.HttpConnector;
 import eu.smartdatalake.simsearch.csv.Index;
-import eu.smartdatalake.simsearch.csv.IndexBuilder;
+import eu.smartdatalake.simsearch.csv.lookup.Word2VectorTransformer;
+import eu.smartdatalake.simsearch.csv.DataIngestor;
 
 /**
  * Orchestrates multi-attribute similarity search and issues progressively ranked aggregated top-k results.
- * Available ranking methods: Threshold, No Random Access, Partial Random Access.
- * Provides four basic functionalities:	(1) Mounting: establishes data connections and prepares indices for the specified attribute data;
+ * Available search algorithms: Threshold, No Random Access, Partial Random Access, Pivot-based.
+ * Provides four basic functionalities:	(1) Mount: establishes data connections and prepares indices for the specified attribute data;
  * 										(2) Catalog: lists all attributes available for similarity search queries;
  * 										(3) Delete: removes attribute data source(s) from those available for similarity search;
- * 										(4) Search: handles multi-facet similarity search requests.
+ * 										(4) Search: handles multi-attribute similarity search requests.
  * Extra data connections (along with possible indexing) can be established even in case queries have been previously submitted against other attributes.
  */
 public class Coordinator {
@@ -50,14 +66,18 @@ public class Coordinator {
 	
 	// Constructs required for mounting the available data sources
 	Map<String, INormal> normalizations;
-	Map<String, HashMap<?,?>> datasets;
+	Map<String, Map<?,?>> datasets;
 	Map<String, DataSource> dataSources;
 	Map<String, Index> indices;
 	Map<String, DatasetIdentifier> datasetIdentifiers;
 	
-	IndexBuilder idxBuilder;
+	DataIngestor dataIngestor;
 	
 	Assistant myAssistant;
+	
+	PivotManager pivotManager;
+	
+	private boolean collectQueryStats;
 	
 	/**
 	 * Constructor
@@ -65,13 +85,17 @@ public class Coordinator {
 	public Coordinator() {
 		
 		normalizations = new HashMap<String, INormal>();
-		datasets = new HashMap<String, HashMap<?,?>>();
+		datasets = new HashMap<String, Map<?,?>>();
 		dataSources = new HashMap<String, DataSource>();
-		indices = null;
+		indices = new HashMap<String, Index>();
 		datasetIdentifiers = new HashMap<String, DatasetIdentifier>();
-		idxBuilder = null;
+		dataIngestor = null;
 		log = null;
 		myAssistant = new Assistant();
+		pivotManager = null;
+		
+		// By default, not collecting detailed statistics per query in normal execution
+		this.collectQueryStats = false;
 	}
 	
 
@@ -93,14 +117,15 @@ public class Coordinator {
 
 
 	/**
-	 * Finds the internal identifier used for the data of a given attribute.
+	 * Finds the internal identifier used for the data of a given attribute and its supported operation.
 	 * @param column  The name of the attribute.
+	 * @param operation  The name of the operation supported for this attribute.
 	 * @return  The internal dataset identifier.
 	 */
-	private DatasetIdentifier findIdentifier(String column) {
+	private DatasetIdentifier findIdentifier(String column, String operation) {
 		
 		for (Entry<String, DatasetIdentifier> entry : datasetIdentifiers.entrySet()) {
-            if (entry.getValue().getValueAttribute().equals(column)) {
+            if (entry.getValue().getValueAttribute().equals(column) && operation.equals(myAssistant.decodeOperation(entry.getValue().getOperation()))) {
             	return entry.getValue();
             }
         }
@@ -108,6 +133,22 @@ public class Coordinator {
 		return null;
 	}
 	
+	/**
+	 * Finds the internal identifier used for the data of a given attribute and its supported operation.
+	 * @param column  The name of the attribute.
+	 * @param operation  The identifier of the operation (defined in class Constants) supported for this attribute.
+	 * @return  The internal dataset identifier.
+	 */
+	private DatasetIdentifier findIdentifier(String column, int operation) {
+		
+		for (Entry<String, DatasetIdentifier> entry : datasetIdentifiers.entrySet()) {
+            if (entry.getValue().getValueAttribute().equals(column) && entry.getValue().getOperation() == operation) {
+            	return entry.getValue();
+            }
+        }
+	
+		return null;
+	}
 	
 	/**
 	 * Parses a user-specified configuration for indexing or searching.
@@ -269,8 +310,11 @@ public class Coordinator {
 								dataSource = new DataSource(sourceConfig.name, httpConn);
 								
 								// Include type specification for safe discrimination between REST API services
-								if (sourceConfig.url.contains("simsearch"))
+								if (sourceConfig.url.contains("simsearch")) {
+									// Specify the maximum number of results for individual (single-attribute) queries returned by another REST SimSearch service
+									dataSource.getHttpConn().setMaxResultCount(Constants.K_MAX * Constants.INFLATION_FACTOR);
 									dataSource.setSimSearchService(true);
+								}
 								
 								dataSources.put(dataSource.getKey(), dataSource);
 							}
@@ -285,13 +329,22 @@ public class Coordinator {
 		// Array of available search operations	
 		MountSpecs[] searchSpecs = params.search;
 		
+		// Keep the metrics specified per attribute for pivot-based search 
+		Map<String, String> pivotMetrics = new HashMap<String, String>();
+		
 		// Create the dictionary of data sources (i.e., queryable attributes) available for search
 		if (searchSpecs != null) {
 
 			for (MountSpecs searchConfig: searchSpecs) {
 
 				// operation
-				String operation = searchConfig.operation;
+				String operation = searchConfig.operation;				
+				
+				// Check if this dataset should be transformed
+				boolean transform = (searchConfig.transform_by != null) && (!searchConfig.transform_by.isEmpty());
+				
+				// Check if this dataset was the result of a transformation (performed offline)
+				boolean transformed = (searchConfig.transformed_to != null) && (!searchConfig.transformed_to.isEmpty());
 				
 				// Path to directory or name of JDBC connection
 				String sourceId = searchConfig.source;
@@ -317,7 +370,7 @@ public class Coordinator {
 					log.writeln("Established connection to " + dataSources.get(sourceId).getJdbcConnPool().getDbSystem() + " for data column " + colValueName);
 				}
 				else if (dataSources.get(sourceId).getHttpConn() != null) {   // Querying a REST API 
-					log.writeln("Connections to REST API " + dataSources.get(sourceId).getHttpConn().toString() + " will be used for queries.");
+					log.writeln("Connections to REST API " + dataSources.get(sourceId).getHttpConn().toString() + " available for queries. Max number of results per request: " + dataSources.get(sourceId).getHttpConn().getMaxResultCount());
 				}
 				else if (dataSources.get(sourceId).getPathDir() != null) {   // Otherwise, querying a CSV file
 					// File may reside either at the local file system or at a remote HTTP/FTP server
@@ -366,7 +419,7 @@ public class Coordinator {
 				}					
 
 				// DatasetIdentifier to be used for all constructs built for this attribute
-				DatasetIdentifier id = new DatasetIdentifier(dataSources.get(sourceId), dataset, colValueName);
+				DatasetIdentifier id = new DatasetIdentifier(dataSources.get(sourceId), dataset, colValueName, operation, transform);
 			
 				// Specify whether this dataset can be involved in similarity search queries
 				if (searchConfig.queryable != null)
@@ -403,6 +456,19 @@ public class Coordinator {
 				case "spatial_knn":
 					id.setOperation(Constants.SPATIAL_KNN);
 					break;
+				case "name_dictionary":
+					id.setOperation(Constants.NAME_DICTIONARY);
+					break;
+				case "keyword_dictionary":
+					id.setOperation(Constants.KEYWORD_DICTIONARY);
+					break;
+				case "vector_dictionary":
+					id.setOperation(Constants.VECTOR_DICTIONARY);
+					break;
+				case "pivot_based":
+					id.setOperation(Constants.PIVOT_BASED);	
+					pivotMetrics.put(colValueName, searchConfig.metric);
+					break;
 		        default:
 		        	mountResponse.appendNotification("Unknown operation specified: " + operation);
 		        	log.writeln("Unknown operation specified: " + operation);
@@ -433,21 +499,175 @@ public class Coordinator {
 					id.setDataSource(dataSources.get("Ingested-data-from-JDBC"));
 				}
 				
+				
+				// In case a transformation is required, apply it on the original data and keep the transformed values as a separate (yet associated) dataset
+				// Specify the optional vocabulary dataset to be used for transformation (e.g., a set of keywords to a vector of numerical values)
+				if (transform) {
+					
+					long duration = System.nanoTime();
+					
+					// The vocabulary in the previously defined dictionary
+					DatasetIdentifier dictID = findIdentifier(searchConfig.transform_by, Constants.VECTOR_DICTIONARY);
+					Map<String, double[]> dictData = (Map<String, double[]>) datasets.get(dictID.getHashKey());
+					
+					// Define a transformer based on this dictionary
+					Word2VectorTransformer transformer = new Word2VectorTransformer(dictData, dictData.values().stream().findFirst().get().length);
+					
+					// Create a new dataset identifier for the transformed data
+					TransformedDatasetIdentifier tranformedID = new TransformedDatasetIdentifier(dataSources.get(sourceId), dataset, colValueName, operation, false);
+					tranformedID.setTransformer(transformer);
+					tranformedID.setOriginal(id);
+					
+					// CAUTION! Use the transformed dataset in query evaluation; the original data is only used as a dictionary
+					tranformedID.setOperation(id.getOperation());
+					id.setOperation(Constants.KEYWORD_DICTIONARY);
+				
+					// Apply the transformation and keep the transformed data in memory for use in similarity search
+					// FIXME: Assuming that only attributes with keywords are involved in such transformations
+					datasets.put(tranformedID.getHashKey(), transformer.apply((Map<String, String[]>) datasets.get(id.getHashKey())));
+					
+					// Keep a reference to the attribute identifier of the transformed data
+					datasetIdentifiers.put(tranformedID.getHashKey(), tranformedID);			
+					
+					duration = System.nanoTime() - duration;
+					log.writeln("Transformed to vector in " + duration / 1000000000.0 + " sec. In total, " + transformer.numMissingKeywords + " keyword appearances could not be found in the vocabulary.");
+
+					// Associate the transformed dataset with the original one
+					id.setTransformed(tranformedID);
+				}
+				
+				// In case this attribute data has been already been transformed offline, associate it with its transformed dataset
+				// FIXME: This transformed dataset must be explicitly defined in the config
+				if (transformed) {
+					// Find the transformed dataset, assuming this is used in PIVOT-based similarity search
+					DatasetIdentifier datasetID = findIdentifier(searchConfig.transformed_to, Constants.PIVOT_BASED);
+					if (datasetID != null) {
+						int op = datasetID.getOperation();
+
+						// Recreate it as a transformed dataset, according to the config
+						TransformedDatasetIdentifier tranformedID = new TransformedDatasetIdentifier(datasetID.getDataSource(), datasetID.getDatasetName(), datasetID.getValueAttribute(), myAssistant.decodeOperation(op), false);
+						// Associate the transformed dataset with the original one
+						id.setTransformed(tranformedID);
+						tranformedID.setOperation(op);
+						tranformedID.setOriginal(id);
+						
+						// However, no transformer is known, since transformation has been performed offline
+						tranformedID.setTransformer(null);
+	
+						// Keep the original hashkey, but ...
+						// ... replace the reference to the attribute identifier of the transformed data
+						datasetIdentifiers.put(datasetID.getHashKey(), tranformedID);
+					}
+					else
+						log.writeln("Transformed dataset " + searchConfig.transformed_to + " was not found.");
+				}
+				
 				// Keep a reference to the attribute identifier
 				datasetIdentifiers.put(id.getHashKey(), id);
 	        }	        
+		}
+		
+		// If pivot-based search has been specified, create a multi-dimensional RR*-tree for the concerned attributes
+		if (!pivotMetrics.isEmpty()) {
+		
+			log.writeln("**************Reading data to be used in RR*-tree construction****************");
+			
+			// Data identifiers specifically used in pivot-based search
+			Map<String, DatasetIdentifier> pivotDataIdentifiers = new HashMap<String, DatasetIdentifier>();
+
+		    // Collect a separate dictionary of point values per attribute
+		    Map<String, Map<String, Point>> records = new TreeMap<String, Map<String, Point>>();
+		    
+		    // List of unique identifiers of input entities
+		    Set<String> objIdentifiers = new TreeSet<String>();
+			for (String key:datasetIdentifiers.keySet()) {
+				if (datasetIdentifiers.get(key).getOperation() == Constants.PIVOT_BASED) {
+					objIdentifiers.addAll((Collection<? extends String>) datasets.get(key).keySet());
+				}
+			}
+			
+			// Number of ordinates in the point representation per attribute
+			Map<String, Integer> dimensions = new HashMap<String, Integer>();
+			
+		    // Collect all attribute data required for the construction of pivot-based RR*-tree
+		    // CAUTION! If data per attribute comes from different files, must merge all object identifiers and collect their corresponding values 
+			for (String key:datasetIdentifiers.keySet()) {
+				if (datasetIdentifiers.get(key).getOperation() == Constants.PIVOT_BASED) {
+					
+					// Identifier of the dataset to be used in pivot-based indexing
+					// If this dataset has been transformed, it must use the transformed representation 
+					final String datasetId = (datasetIdentifiers.get(key).getTransformed() != null) ? datasetIdentifiers.get(key).getTransformed().getHashKey() : key;
+
+					// Keep this identifier for reference
+					pivotDataIdentifiers.put(datasetId, datasetIdentifiers.get(datasetId));
+					
+					// Number of ordinates per point for this attribute in the original dataset
+					int d = ((TreeMap<String, Point>) datasets.get(datasetId)).firstEntry().getValue().dimensions();
+					dimensions.put(datasetIdentifiers.get(datasetId).getValueAttribute(), d);
+			
+					// FIXME: All NULL values for missing identifiers, are represented with NaN-valued points
+					// Find the identifiers of the missing objects
+					Set<String> missingKeys = new TreeSet<String>(objIdentifiers);
+					missingKeys.removeAll(datasets.get(datasetId).keySet());
+					// Create extra dataset with NaN-valued points for the missing identifiers
+					if (missingKeys.size() > 0) {
+						log.writeln(missingKeys.size() + " object identifiers missing in data for attribute " + datasetIdentifiers.get(datasetId).getValueAttribute() + ". Their value will be filled with points having NaN ordinates.");
+	
+						TreeMap<String, Point> extra = new TreeMap<String, Point>();
+						// Point with NaN values in all ordinates for this attribute
+						Point p = myAssistant.createNaNPoint(d);
+						for (String missKey: missingKeys) {
+							extra.put(missKey, p);
+						}
+						// Merge the extra dataset to the original
+						extra.forEach((k, v) -> ((TreeMap<String, Point>) datasets.get(datasetId)).merge(k, v, (v1, v2) -> Point.create()));
+					}
+										
+					// The merged dataset is used for pivot-based indexing
+					records.put(datasetIdentifiers.get(datasetId).getValueAttribute(), (TreeMap<String, Point>) datasets.get(datasetId));
+				}
+			}			
+	
+			// Total number of pivot values can be user-specified --> dimensionality of RR*-tree
+			int N = Constants.NUM_PIVOTS;   
+			if ((params.numPivots != null) && (params.numPivots instanceof Integer)) {
+				// RR*-tree must index at least 1-dimensional points 
+				N = (params.numPivots < 1) ? Constants.NUM_PIVOTS : params.numPivots;
+			}
+			
+			// Instantiate a pivot manager that will be used to create an RR*-tree and support multi-metric similarity search queries
+			pivotManager = new PivotManager(N, pivotDataIdentifiers, datasetIdentifiers, datasets, log);				
+			
+		    // FIXME: Use names instead of ordinal number of attributes involved in pivot-based search
+		    MetricReferences ref = new MetricReferences(dataIngestor.getPivotAttrs().size());
+			// CAUTION! Metric references MUST have the same ordering as the attribute names!
+			int i = 0;
+			for (String attr: records.keySet()) {			
+				ref.setAttribute(i, attr);  				// Attribute name
+				ref.setDimension(i, dimensions.get(attr));  // Dimensionality of point representation per attribute
+				ref.setMetric(i, pivotMetrics.get(attr));  	// Metric to be applied on values of this attribute
+				i++;
+			}
+
+			// FIXME: Should token delimiter be specific per attribute?
+			pivotManager.index(ref, Constants.TOKEN_DELIMITER, records);		
 		}
 		
 		// Close any database connections no longer required during the mounting stage
 		for (JdbcConnector jdbcConn: openJdbcConnections)
 			jdbcConn.closeConnection();
 		
+		// In case of no errors, notify accordingly
+		if (mountResponse.getNotification() == null) {
+			mountResponse.appendNotification("Specified data source(s) have been mounted successfully and are available for similarity search queries.");
+		}
+		
 		return mountResponse;
 	}
 
 	
 	/**
-	 * Indexing stage: Build all indices and keep in-memory arrays of (key,value) pairs for all indexed attributes.
+	 * Indexing stage: Ingest data, build all indices and keep in-memory arrays of (key,value) pairs for all indexed attributes.
 	 * This method accepts a configuration formatted as a JSON object.
 	 * @param attrConfig  Specifications for reading attribute values and creating indices to be used in subsequent search requests.
 	 * @param id  Identifier of the dataset containing attribute values.
@@ -455,24 +675,24 @@ public class Coordinator {
 	 */
 	public void index(MountSpecs attrConfig, DatasetIdentifier id, JdbcConnector jdbcConn) {
 				
-		// Re-use existing index builder if additional indices need be constructed on-the-fly during query execution
-		if (idxBuilder == null)
-			idxBuilder = new IndexBuilder(log);
+		// Re-use existing data ingestor if additional indices need be constructed on-the-fly during query execution
+		if (dataIngestor == null)
+			dataIngestor = new DataIngestor(log);
 		
 		// If data comes from a REST API, no indexing is required
 		if (id.getDataSource().getHttpConn() != null)
 			return;
 		
-		idxBuilder.proc(attrConfig, id, jdbcConn);
+		dataIngestor.proc(attrConfig, id, jdbcConn);
 			
-		datasets = idxBuilder.getDatasets();
-		indices = idxBuilder.getIndices();
-		normalizations = idxBuilder.getNormalizations();			
+		datasets = dataIngestor.getDatasets();
+		indices = dataIngestor.getIndices();
+		normalizations = dataIngestor.getNormalizations();			
 	}
 	
 	
 	/**
-	 * Discard all structures (indices, in memory look-ups) created on the given attribute(s) according to user-specified configurations.
+	 * Discard all structures (indices, in-memory look-ups) created on the given attribute(s) according to user-specified configurations.
 	 * @param jsonFile   Path to the JSON configuration file of the attributes and operations to be removed.
 	 * @return  Notification regarding the removed attribute(s) or any issues occurred during their removal.
 	 */
@@ -484,7 +704,7 @@ public class Coordinator {
 	
 
 	/**
-	 * Discard all structures (indices, in memory look-ups) created on the given attribute(s) according to user-specified configurations.
+	 * Discard all structures (indices, in-memory look-ups) created on the given attribute(s) according to user-specified configurations.
 	 * @param removeConfig  JSON configuration for attributes and operations to be removed; these must have been previously specified in a mount request.
 	 * @return  Notification regarding the removed attribute(s) or any issues occurred during their removal.
 	 */
@@ -505,53 +725,85 @@ public class Coordinator {
 	
 	
 	/**
-	 * Discard all structures (indices, in memory look-ups) created on a given attribute according to user-specified parameters.
+	 * Discard all structures (indices, in-memory look-ups) created on a given attribute according to user-specified parameters.
 	 * @param params  Parameters specifying the attributes and operations to be removed; these must have been previously specified in a mount request.
 	 * @return  Notification regarding the removed attribute(s) or any issues occurred during their removal.
 	 */
 	public Response delete(RemoveRequest params) {
 		
 		Response delResponse = new Response();
+		boolean delPivot = false;
 		
 		// Array of specified data attributes and their supported operations to remove
 		AttributeInfo[] arrAttrs2Remove = params.remove;
-		
-		if (arrAttrs2Remove != null) {
-			for (AttributeInfo it: arrAttrs2Remove) {
-
-				// operation
-				String operation = it.getOperation();
-				
-				// attribute in an input dataset
-				String colValueName = it.getColumn();					
-				
-				//DatasetIdentifier used for all constructs built for this attribute
-				DatasetIdentifier id = findIdentifier(colValueName);				
-		
-				if (id == null) {
-					log.writeln("No dataset with attribute " + colValueName + " is available for search.");
-					delResponse.appendNotification("No dataset with attribute " + colValueName + " is available for search.");
-					throw new NullPointerException("No dataset with attribute " + colValueName + " is available for search.");
+		try {
+			if (arrAttrs2Remove != null) {
+				for (AttributeInfo it: arrAttrs2Remove) {
+	
+					// operation
+					String operation = it.getOperation();
+					
+					// attribute in an input dataset
+					String colValueName = it.getColumn();					
+					
+					//DatasetIdentifier used for all constructs built for this attribute
+					DatasetIdentifier id = findIdentifier(colValueName, operation);				
+			
+					if (id == null) {
+						log.writeln("No dataset with attribute " + colValueName + " is available for " + operation + " search.");
+						delResponse.appendNotification("No dataset with attribute " + colValueName + " is available for " + operation + " search.");
+						throw new NullPointerException("No dataset with attribute " + colValueName + " is available for " + operation + " search.");
+					}
+	
+					// If this operation is already supported on this attribute, then remove it
+					if (existsIdentifier(id) && (operation.equals(myAssistant.decodeOperation(id.getOperation())))) {
+						// Remove all references to constructs on this attribute data using its previously assigned hash key
+						removeAttribute(id.getHashKey());
+						datasetIdentifiers.remove(id.getHashKey());
+						delResponse.appendNotification("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " in " + operation + " operations.");
+						log.writeln("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " in " + operation + " operations.");
+						
+						// The pivot index should be dropped if at least one of the removed attributes is involved
+						delPivot = delPivot || (id.getOperation() == Constants.PIVOT_BASED);
+					}
+					else
+						continue;
+		        }
+			}
+		} catch (Exception e) {
+			delResponse.appendNotification("Attribute removal failed. Please check the specifications in your request.");
+			log.writeln("Attribute removal failed. Please check the specifications in your request.");				
+		} finally {
+			// Destroy pivot manager and all related dataset identifiers 
+			if (delPivot) {
+				// One instance of RR*-tree may exist, so all pivot-related attributes used in this index must be purged
+				for(Iterator<Map.Entry<String, DatasetIdentifier>> it = datasetIdentifiers.entrySet().iterator(); it.hasNext(); ) {
+				    Map.Entry<String, DatasetIdentifier> entry = it.next();
+				    if (entry.getValue().getOperation() == Constants.PIVOT_BASED) {
+				    	removeAttribute(entry.getValue().getHashKey());
+				    	it.remove();
+				    }
 				}
-
-				// If this operation is already supported on this attribute, then remove it
-				if (existsIdentifier(id) && (operation.equals(myAssistant.descOperation(id.operation)))) {
-					// Remove all references to constructs on this attribute data using its previously assigned hash key
-					datasetIdentifiers.remove(id.getHashKey());
-					datasets.remove(id.getHashKey());
-					indices.remove(id.getHashKey());
-					normalizations.remove(id.getHashKey());
-					delResponse.appendNotification("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " in " + operation + " operations.");
-					log.writeln("Removed support for attribute " + id.getValueAttribute() + " from dataset " + id.getDatasetName() + " in " + operation + " operations.");				
-				}
-				else
-					continue;
-	        }
+				
+				pivotManager = null;
+				this.dataIngestor.removeAllPivotAttrs();
+				delResponse.appendNotification("RR*-tree index will be no longer available for pivot-based similarity search. All related attribute data have been purged.");
+				log.writeln("RR*-tree index will be no longer available for pivot-based similarity search. All data in related attributes has been purged.");
+			}
 		}
 		
 		return delResponse;
 	}
 
+	/**
+	 * Remove all references to constructs on this attribute data identified by its hash key.
+	 * @param hashKey  The hash key internally assigned for an attribute dataset.
+	 */
+	private void removeAttribute(String hashKey) {
+		datasets.remove(hashKey);
+		indices.remove(hashKey);
+		normalizations.remove(hashKey);
+	}
 	
 	/**
 	 * Catalog with the collection of all attributes available for querying; each dataset is named after a particular attribute.
@@ -563,7 +815,7 @@ public class Coordinator {
 		int i = 0;
 		for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
 			if (id.isQueryable()) {
-				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.descOperation(id.getOperation()));
+				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()));
 				i++;
 			}
 		}
@@ -625,8 +877,8 @@ public class Coordinator {
 		// Otherwise, report only those attributes supporting the specified operation
 		List<AttributeInfo> dataSources = new ArrayList<AttributeInfo>();
 		for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
-			if (operation.equalsIgnoreCase(myAssistant.descOperation(id.getOperation()))) {
-				dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.descOperation(id.getOperation())));
+			if (operation.equalsIgnoreCase(myAssistant.decodeOperation(id.getOperation()))) {
+				dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation())));
 			}
 		}
 		
@@ -678,10 +930,27 @@ public class Coordinator {
 	 */
 	public SearchResponse[] search(SearchRequest params) {
 
-		// A new handler is created for each request
-		SearchHandler reqHandler = new SearchHandler(dataSources, datasetIdentifiers, datasets, indices, normalizations, log);
-		
-		return reqHandler.search(params);
+		try {
+			log.writeln("********************** New search request ... **********************");
+			// The same instance of pivot manager handles all incoming pivot-based similarity search requests
+			if ((params.algorithm != null) && (params.algorithm.equals("pivot_based") && (pivotManager != null))) {
+				pivotManager.setCollectQueryStats(this.isCollectQueryStats());	// Specify whether to collect detailed query statistics
+				return pivotManager.search(params);
+			}
+			else {		// A new handler is created for each request involving rank aggregation
+				SearchHandler reqHandler = new SearchHandler(dataSources, datasetIdentifiers, datasets, indices, normalizations, log);
+				reqHandler.setCollectQueryStats(this.isCollectQueryStats());	// Specify whether to collect detailed query statistics
+				return reqHandler.search(params);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			SearchResponse[] responses = new SearchResponse[1];
+			SearchResponse response = new SearchResponse();
+			log.writeln("Search request discarded due to illegal specification of query attributes or parameters.");
+			response.setNotification("Search request discarded due to illegal specification of query attributes or parameters. Please check your query specifications.");
+			responses[0] = response;
+			return responses;
+		}
 	}
 	
 	/**
@@ -692,6 +961,24 @@ public class Coordinator {
 		
 		if (this.log != null)
 			this.log.writeln(msg);
+	}
+
+
+	/**
+	 * Indicates whether the platform is empirically evaluated and collects execution statistics.
+	 * @return  True, if collecting execution statistics; otherwise, False.
+	 */
+	public boolean isCollectQueryStats() {
+		return collectQueryStats;
+	}
+
+
+	/**
+	 * Specifies whether the platform will be collecting execution statistics when running performance tests. 
+	 * @param collectQueryStats  True, if collecting execution statistics; otherwise, False.
+	 */
+	public void setCollectQueryStats(boolean collectQueryStats) {
+		this.collectQueryStats = collectQueryStats;
 	}
 	
 }

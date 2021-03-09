@@ -1,14 +1,14 @@
 package eu.smartdatalake.simsearch.ranking.randomaccess;
 
-import java.util.HashMap;
+import java.util.Map;
 
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.postgis.PGgeometry;
 
-import eu.smartdatalake.simsearch.IDataConnector;
-import eu.smartdatalake.simsearch.IValueFinder;
+import eu.smartdatalake.simsearch.engine.IValueFinder;
+import eu.smartdatalake.simsearch.manager.IDataConnector;
 
 /**
  * Updates an in-memory lookup with SPATIAL values used in random access operations during rank aggregation.
@@ -35,7 +35,7 @@ public class SpatialValueFinder<K,V> implements IValueFinder<K,V> {
 	}
 	
 	@Override
-	public Geometry find(HashMap<K,V> dataset, K k) {
+	public Geometry find(Map<K,V> dataset, K k) {
 		
 		// Replace identifier in the query template and execute
 		Object val = dataConnector.findSingletonValue(queryTemplate.replace("$id", k.toString()));

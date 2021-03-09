@@ -7,9 +7,11 @@ public class Constants {
 
 	public static final String LINE_SEPARATOR = "\n"; 
 	
-	public final static String TOKEN_DELIMITER = ",";
+	public final static String TOKEN_DELIMITER = ",";   // Default delimiter between keywords (tokens)
 	
-	public final static String COLUMN_SEPARATOR = ";";
+	public final static String WORD_DELIMITER = "+";	// Default delimiter between words in a composite keyword
+	
+	public final static String COLUMN_SEPARATOR = ";";	// Default separator between columns in a CSV file
 	
 	public final static int KEY_COLUMN = 0;         // By default, the 1st column in the input CSV specifies the keys
 	public final static int SEARCH_COLUMN = 1;		// By default, the 2nd column in the input CSV specifies the values to search against
@@ -23,8 +25,14 @@ public class Constants {
 	public final static int CATEGORICAL_TOPK = 0;   // categorical (set-valued) top-k similarity search
 	public final static int SPATIAL_KNN = 1;   		// k-NN spatial similarity search
 	public final static int NUMERICAL_TOPK = 2;  	// numerical top-k similarity search
-	
+	public final static int PIVOT_BASED = 3;  		// pivot-based, multi-metric top-k similarity search
+	public final static int NAME_DICTIONARY = 4;  	// dictionary of names, not queryable in similarity search
+	public final static int KEYWORD_DICTIONARY = 5; // dictionary of keywords, not queryable in similarity search
+	public final static int VECTOR_DICTIONARY = 6; 	// dictionary of arrays of values, to be used in PIVOT-based similarity search
+		
 	public final static double DECAY_FACTOR = 0.01;      // Default exponential decay constant lambda
+	
+	public final static int K_MAX = 50;		// Maximum allowable value for top-k most similar results to return per query
 	
 	public final static int INFLATION_FACTOR = 1000;     // Multiply the top-k with this value to specify the number of partial results to made available from each facet
 	
@@ -34,4 +42,10 @@ public class Constants {
 	  
 	public static final long RANKING_MAX_TIME = 60000;   // Time slot (in milliseconds) dedicated to ranking; otherwise, time out this process and issue all available results
 
+	public static final int NUM_PIVOTS = 8;   			// Total number of pivot values --> dimensionality of the RR*-tree ; This must be admin-specified
+	
+	public static final int NODE_FANOUT = 28; 			// Max number of children per node in the RR*-tree
+	
+	public static final int NUM_SAMPLES = 500;  	// Number of sample points used for estimating pruning potential per metric to be used in RR*-tree construction
+	
 }

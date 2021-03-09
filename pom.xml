@@ -12,7 +12,7 @@
 	
 	<groupId>eu.smartdatalake</groupId>
 	<artifactId>simsearch</artifactId>
-	<version>0.2.1-SNAPSHOT</version>
+	<version>0.3-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>simsearch</name>
@@ -60,7 +60,7 @@
 		<dependency>
 			<groupId>info.debatty</groupId>
 			<artifactId>java-string-similarity</artifactId>
-			<version>RELEASE</version>
+			<version>2.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.googlecode.json-simple</groupId>
@@ -85,7 +85,7 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
-			<version>2.10.3</version>
+			<version>2.10.5.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>

@@ -64,7 +64,7 @@ public class LocationReader {
 	 * @param log  Handle to the logger of statistics calculated over the data.
 	 * @return  The R-tree index created over the input geometries.
 	 */
-	public RTree<String, Location> buildIndex(HashMap<String, Geometry> targetData, Logger log) {
+	public RTree<String, Location> buildIndex(Map<String, Geometry> targetData, Logger log) {
 
 		RTree<String, Location> index = new RTree<String, Location>();
 		
@@ -131,7 +131,7 @@ public class LocationReader {
 				try {  // FIXME: Special handling when delimiter appears in an attribute value enclosed in quotes
 					columns = line.split(regex,-1);
 					if ((columns[colKey].isEmpty()) || (columns[colValue].isEmpty()))
-						throw new NullPointerException();;
+						throw new NullPointerException();
 					// Generate a geometry object from the input coordinates
 					g = WKT2Geometry(columns[colValue]);
 					dict.put(columns[colKey], g);

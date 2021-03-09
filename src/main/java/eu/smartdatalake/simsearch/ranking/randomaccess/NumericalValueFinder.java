@@ -1,9 +1,10 @@
 package eu.smartdatalake.simsearch.ranking.randomaccess;
 
 import java.util.HashMap;
+import java.util.Map;
 
-import eu.smartdatalake.simsearch.IDataConnector;
-import eu.smartdatalake.simsearch.IValueFinder;
+import eu.smartdatalake.simsearch.engine.IValueFinder;
+import eu.smartdatalake.simsearch.manager.IDataConnector;
 
 /**
  * Updates the in-memory lookup with NUMERICAL values used in random access operations during rank aggregation.
@@ -28,7 +29,7 @@ public class NumericalValueFinder<K,V> implements IValueFinder<K,V> {
 	}
 	
 	@Override
-	public V find(HashMap<K,V> dataset, K k) {
+	public V find(Map<K,V> dataset, K k) {
 
 		// Replace identifier in the query template and execute
 		V val = (V)dataConnector.findSingletonValue(queryTemplate.replace("$id", k.toString()));

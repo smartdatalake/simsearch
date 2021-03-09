@@ -25,10 +25,10 @@ import com.google.common.collect.Multimaps;
 
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.ISimSearch;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
-import eu.smartdatalake.simsearch.measure.IDistance;
+import eu.smartdatalake.simsearch.engine.IDistance;
+import eu.smartdatalake.simsearch.engine.ISimSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 
@@ -89,8 +89,12 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
 		this.simMeasure = simMeasure;
 		this.resultsQueue = resultsQueue;
 		this.datasets = datasets;
-		// TODO: By default setting for the max number of returned results
-		this.collectionSize = 10000; // collectionSize;  
+
+		// Limit results returned per request up to a certain number
+		// By default setting for the max number of returned results (if applied by the HTTP server)
+		int maxSize = httpConn.getMaxResultCount();
+		this.collectionSize = ((collectionSize > maxSize) ? maxSize : collectionSize); 
+		
 		this.httpConn = httpConn;
 		
     	// Construct similarity search request according to the type of the operation
@@ -226,7 +230,7 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
     	}
 */ 
     	duration = System.nanoTime() - duration;
-    	this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
+    	this.log.writeln("Query [" + myAssistant.decodeOperation(this.operation) + "] " + this.hashKey + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
     	
     	return numMatches;                      //Report how many records have been retrieved from the database
      }

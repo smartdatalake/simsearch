@@ -1,5 +1,7 @@
 package eu.smartdatalake.simsearch.measure;
 
+import eu.smartdatalake.simsearch.engine.IDistance;
+
 /**
  * Interface to various similarity measures
  * @param <V>  Type variable to represent the values involved in the similarity calculations (usually, double values).

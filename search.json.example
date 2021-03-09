@@ -1,5 +1,6 @@
 {
 	"k":"20",
+	"algorithm":"partial_random_access",
 	"queries":[    
 				{
 					"column":"keywords",

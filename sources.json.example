@@ -23,7 +23,8 @@
 
 				},
 			],
-	"search":[ {
+	"search":[ 
+				{
 					"operation":"spatial_knn",
 					"source":"localPath1",
 					"dataset":"dataset1.csv",

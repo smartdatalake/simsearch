@@ -1,7 +1,7 @@
 package eu.smartdatalake.simsearch.request;
 
-import eu.smartdatalake.simsearch.AttributeInfo;
-import eu.smartdatalake.simsearch.IRequest;
+import eu.smartdatalake.simsearch.engine.IRequest;
+import eu.smartdatalake.simsearch.manager.AttributeInfo;
 import io.swagger.annotations.ApiModelProperty;
 
 /**

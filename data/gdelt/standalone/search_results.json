@@ -1,0 +1,403 @@
+[ {
+  "notification" : "",
+  "weights" : [ 1.0, 1.0, 1.0 ],
+  "rankedResults" : [ {
+    "id" : "20191104154500-1733",
+    "score" : 0.9931115049261328,
+    "rank" : 1,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[bernie sanders, joe biden, donald trump, elizabeth warren]",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "timestamp",
+      "value" : "20191104154500",
+      "score" : 0.9992348472800621
+    } ]
+  }, {
+    "id" : "20191116000000-2019",
+    "score" : 0.9495869855636201,
+    "rank" : 2,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[kurt volker, mary ilyushina, jennifer williams, jim acosta, adam schiff, devin nunes, alex wong, yuri lutsenko, zach gibson getty, laura cooper, fiona hill, gordon sondland, marie yovanovitch, marie yovanovich, tim morrison, hogan gidley, paul manafort, rudy giuliani, jim jordan, nicholas kamm poolafp getty, mike pence, david hale, kaitlan collins, alexander vindman, joe biden, sean patrick maloney, elise stefanik, holmes lybrand]",
+      "score" : 0.9808749055485234
+    }, {
+      "name" : "timestamp",
+      "value" : "20191116000000",
+      "score" : 0.8778362173931689
+    } ]
+  }, {
+    "id" : "20191121070000-323",
+    "score" : 0.9341038052864481,
+    "rank" : 3,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[kamala harris, john dean, ben collins, devin nunes, sean hannity, gordon d sondland, andrew napolitano, amy klobuchar, julian zelizer, chris cuomo, donald trump, george conway, gordon sondland, richard nixon, elizabeth warren, peter baker, bernie sanders, jeffrey toobin, laura ingraham, joe biden, ryan broderick, pete buttigieg, tucker carlson, ted johnson, max boot]",
+      "score" : 0.9817682465077646
+    }, {
+      "name" : "timestamp",
+      "value" : "20191121070000",
+      "score" : 0.8304933356024117
+    } ]
+  }, {
+    "id" : "20191126211500-1320",
+    "score" : 0.9192639091285802,
+    "rank" : 4,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[mark penn, bill clinton, andrew stein, robert mueller, kellyanne conway, donald trump, mike pence]",
+      "score" : 0.9826522356650732
+    }, {
+      "name" : "timestamp",
+      "value" : "20191126211500",
+      "score" : 0.7850896579714993
+    } ]
+  }, {
+    "id" : "20191127010000-967",
+    "score" : 0.9183564822400977,
+    "rank" : 5,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[jeremy herb, mark sandy, volodymyr zelensky, joe biden, sara murray, donald trump]",
+      "score" : 0.9867551618071957
+    }, {
+      "name" : "timestamp",
+      "value" : "20191127010000",
+      "score" : 0.7782644511639293
+    } ]
+  } ],
+  "similarityMatrix" : [ {
+    "left" : "20191104154500-1733",
+    "right" : "20191104154500-1733",
+    "score" : 1.0
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191116000000-2019",
+    "score" : 0.9531132246933276
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191121070000-323",
+    "score" : 0.9381565364883041
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191126211500-1320",
+    "score" : 0.9226172879355042
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191127010000-967",
+    "score" : 0.9213241126397386
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191104154500-1733",
+    "score" : 0.9531132246933276
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191116000000-2019",
+    "score" : 1.0
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191121070000-323",
+    "score" : 0.9758147598974789
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191126211500-1320",
+    "score" : 0.9583739423800011
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191127010000-967",
+    "score" : 0.955788091833763
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191104154500-1733",
+    "score" : 0.9381565364883041
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191116000000-2019",
+    "score" : 0.9758147598974789
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191121070000-323",
+    "score" : 1.0
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191126211500-1320",
+    "score" : 0.9753868442426791
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191127010000-967",
+    "score" : 0.9728875391653933
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191104154500-1733",
+    "score" : 0.9226172879355042
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191116000000-2019",
+    "score" : 0.9583739423800011
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191121070000-323",
+    "score" : 0.9753868442426791
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191126211500-1320",
+    "score" : 1.0
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191127010000-967",
+    "score" : 0.9910467206214819
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191104154500-1733",
+    "score" : 0.9213241126397386
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191116000000-2019",
+    "score" : 0.955788091833763
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191121070000-323",
+    "score" : 0.9728875391653933
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191126211500-1320",
+    "score" : 0.9910467206214819
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191127010000-967",
+    "score" : 1.0
+  } ],
+  "timeInSeconds" : 0.18295023
+}, {
+  "notification" : "",
+  "weights" : [ 0.7, 0.8, 0.4 ],
+  "rankedResults" : [ {
+    "id" : "20191104154500-1733",
+    "score" : 0.9919835208083038,
+    "rank" : 1,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[bernie sanders, joe biden, donald trump, elizabeth warren]",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "timestamp",
+      "value" : "20191104154500",
+      "score" : 0.9992348472800621
+    } ]
+  }, {
+    "id" : "20191116000000-2019",
+    "score" : 0.962562786852897,
+    "rank" : 2,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[kurt volker, mary ilyushina, jennifer williams, jim acosta, adam schiff, devin nunes, alex wong, yuri lutsenko, zach gibson getty, laura cooper, fiona hill, gordon sondland, marie yovanovitch, marie yovanovich, tim morrison, hogan gidley, paul manafort, rudy giuliani, jim jordan, nicholas kamm poolafp getty, mike pence, david hale, kaitlan collins, alexander vindman, joe biden, sean patrick maloney, elise stefanik, holmes lybrand]",
+      "score" : 0.9808749055485234
+    }, {
+      "name" : "timestamp",
+      "value" : "20191116000000",
+      "score" : 0.8778362173931689
+    } ]
+  }, {
+    "id" : "20191121070000-323",
+    "score" : 0.9529720079324179,
+    "rank" : 3,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[kamala harris, john dean, ben collins, devin nunes, sean hannity, gordon d sondland, andrew napolitano, amy klobuchar, julian zelizer, chris cuomo, donald trump, george conway, gordon sondland, richard nixon, elizabeth warren, peter baker, bernie sanders, jeffrey toobin, laura ingraham, joe biden, ryan broderick, pete buttigieg, tucker carlson, ted johnson, max boot]",
+      "score" : 0.9817682465077646
+    }, {
+      "name" : "timestamp",
+      "value" : "20191121070000",
+      "score" : 0.8304933356024117
+    } ]
+  }, {
+    "id" : "20191127010000-967",
+    "score" : 0.9440762071240768,
+    "rank" : 4,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[jeremy herb, mark sandy, volodymyr zelensky, joe biden, sara murray, donald trump]",
+      "score" : 0.9867551618071957
+    }, {
+      "name" : "timestamp",
+      "value" : "20191127010000",
+      "score" : 0.7782644511639293
+    } ]
+  }, {
+    "id" : "20191126211500-1320",
+    "score" : 0.9437855449184612,
+    "rank" : 5,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "[longitude, latitude]",
+      "value" : "POINT (-74.9384 42.1497)",
+      "score" : 0.9900498337491681
+    }, {
+      "name" : "persons",
+      "value" : "[mark penn, bill clinton, andrew stein, robert mueller, kellyanne conway, donald trump, mike pence]",
+      "score" : 0.9826522356650732
+    }, {
+      "name" : "timestamp",
+      "value" : "20191126211500",
+      "score" : 0.7850896579714993
+    } ]
+  } ],
+  "similarityMatrix" : [ {
+    "left" : "20191104154500-1733",
+    "right" : "20191104154500-1733",
+    "score" : 1.0
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191116000000-2019",
+    "score" : 0.9663517763509516
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191121070000-323",
+    "score" : 0.9574336721054598
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191127010000-967",
+    "score" : 0.9471756373731113
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191126211500-1320",
+    "score" : 0.9473711360346976
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191104154500-1733",
+    "score" : 0.9663517763509516
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191116000000-2019",
+    "score" : 1.0
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191121070000-323",
+    "score" : 0.9808041889331762
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191127010000-967",
+    "score" : 0.9680330923504301
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191126211500-1320",
+    "score" : 0.9696625805304099
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191104154500-1733",
+    "score" : 0.9574336721054598
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191116000000-2019",
+    "score" : 0.9808041889331762
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191121070000-323",
+    "score" : 1.0
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191127010000-967",
+    "score" : 0.9789924677503974
+  }, {
+    "left" : "20191121070000-323",
+    "right" : "20191126211500-1320",
+    "score" : 0.9804193255400157
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191104154500-1733",
+    "score" : 0.9471756373731113
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191116000000-2019",
+    "score" : 0.9680330923504301
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191121070000-323",
+    "score" : 0.9789924677503974
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191127010000-967",
+    "score" : 1.0
+  }, {
+    "left" : "20191127010000-967",
+    "right" : "20191126211500-1320",
+    "score" : 0.9905208130042948
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191104154500-1733",
+    "score" : 0.9473711360346976
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191116000000-2019",
+    "score" : 0.9696625805304099
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191121070000-323",
+    "score" : 0.9804193255400157
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191127010000-967",
+    "score" : 0.9905208130042948
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191126211500-1320",
+    "score" : 1.0
+  } ],
+  "timeInSeconds" : 0.18295023
+} ]

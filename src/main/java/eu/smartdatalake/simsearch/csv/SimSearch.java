@@ -1,6 +1,7 @@
 package eu.smartdatalake.simsearch.csv;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -10,11 +11,11 @@ import eu.smartdatalake.simsearch.csv.numerical.NumericalSimSearch;
 import eu.smartdatalake.simsearch.csv.spatial.Location;
 import eu.smartdatalake.simsearch.csv.spatial.RTree;
 import eu.smartdatalake.simsearch.csv.spatial.kNNSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
 import eu.smartdatalake.simsearch.csv.categorical.CategoricalSimSearch;
 import eu.smartdatalake.simsearch.csv.categorical.InvertedIndex;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollection;
@@ -41,7 +42,7 @@ public class SimSearch implements Runnable {
 	
 	// Used in categorical similarity search only
 	TokenSetCollection queryCollection;
-	HashMap<?, ?> origTokenSetCollection;
+	Map<?, ?> origTokenSetCollection;
 
 	// Used in spatial similarity search only
 	Location searchLocation;
@@ -58,7 +59,7 @@ public class SimSearch implements Runnable {
 	 * @param operation  The type of the similarity search query (0: CATEGORICAL).
 	 * @param name  A user-specified name given to the running instance of similarity search.
 	 * @param idx  Handle to the inverted index already built over the input data tokens.
-	 * @param origTokenSetCollection  The original collection of tokens (i.e., keywords) specified in the query.
+	 * @param map  The original collection of tokens (i.e., keywords) specified in the query.
 	 * @param queryCollection  The query collection of tokens to search for similarity.
 	 * @param collectionSize  The count of results to fetch.
 	 * @param simMeasure  The similarity measure to be used in the search.
@@ -66,7 +67,7 @@ public class SimSearch implements Runnable {
 	 * @param hashKey  The unique hash key assigned to this search query.
 	 * @param log  Handle to the log file for keeping messages and statistics.
 	 */
-	public SimSearch(int operation, String name, Index<Object, Object> idx, HashMap<?, ?> origTokenSetCollection, TokenSetCollection queryCollection, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, String hashKey, Logger log) {
+	public SimSearch(int operation, String name, Index<Object, Object> idx, Map<?, ?> map, TokenSetCollection queryCollection, int collectionSize, ISimilarity simMeasure, ConcurrentLinkedQueue<PartialResult> resultsQueue, String hashKey, Logger log) {
 
 		super();
 		this.log = log;
@@ -74,7 +75,7 @@ public class SimSearch implements Runnable {
 		this.operation = operation;
 		this.name = name;
 		this.simMeasure = simMeasure;		
-		this.origTokenSetCollection = origTokenSetCollection;
+		this.origTokenSetCollection = map;
 		this.queryCollection = queryCollection;
 		this.collectionSize = collectionSize;
 		this.index = idx;
@@ -252,7 +253,7 @@ public class SimSearch implements Runnable {
 		
 		duration = System.nanoTime() - duration;
 		if (!running)
-			this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (ingested) returned " + this.numResults + " results in " + duration / 1000000000.0 + " sec.");
+			this.log.writeln("Query [" + myAssistant.decodeOperation(this.operation) + "] " + this.hashKey + " (ingested) returned " + this.numResults + " results in " + duration / 1000000000.0 + " sec.");
 	}
 	
 }

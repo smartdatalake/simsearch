@@ -19,10 +19,10 @@ import org.postgresql.util.PGobject;
 
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.ISimSearch;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
+import eu.smartdatalake.simsearch.engine.ISimSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**
@@ -225,7 +225,7 @@ public class SimSearchQuery<K extends Comparable<? super K>, V> implements ISimS
 			}
 		 }
 		 duration = System.nanoTime() - duration;
-		 this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
+		 this.log.writeln("Query [" + myAssistant.decodeOperation(this.operation) + "] " + this.hashKey + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
 		 
 		 return numMatches;                      //Report how many records have been retrieved from the database    
      }

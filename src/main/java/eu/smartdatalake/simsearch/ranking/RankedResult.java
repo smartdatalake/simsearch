@@ -1,31 +1,36 @@
 package eu.smartdatalake.simsearch.ranking;
 
+import eu.smartdatalake.simsearch.engine.IResult;
+
 /**
  * Auxiliary class that is used to collect the attribute values and their scores for a final result, along with its ranking and aggregate score.
  */
-public class RankedResult {
+public class RankedResult implements IResult {
 
 	private String id;
 	private double score;
 	private int rank;
 	private boolean exact;  // Indicates whether the ranking assigned to this result is exact or not (i.e., based on approximate bounds)
+	private String name;	// Only used in reporting names of entities
 	
-	Attribute[] attributes;
+	ResultFacet[] attributes;
 
 	/**
 	 * Constructor
-	 * @param size  The number of attributes involved in the search; their values will be listed in the final results.
+	 * @param cardinality  The number of attributes involved in the search; their values will be listed in the final results.
 	 */
-	public RankedResult(int size) {
+	public RankedResult(int cardinality) {
 		setExact(true);   	// By default, consider that the ranking for this result is exact
-		attributes = new Attribute[size];
+		attributes = new ResultFacet[cardinality];
 	}
 
 	/* GETTER methods */
+	@Override
 	public String getId() {
 		return id;
 	}
 	
+	@Override
 	public double getScore() {
 		return score;
 	}
@@ -34,7 +39,7 @@ public class RankedResult {
 		return rank;
 	}
 	
-	public Attribute[] getAttributes() {
+	public ResultFacet[] getAttributes() {
 		return this.attributes;
 	}
 	
@@ -43,6 +48,7 @@ public class RankedResult {
 		this.id = id;
 	}
 
+	@Override
 	public void setScore(double score) {
 		this.score = score;
 	}
@@ -51,7 +57,14 @@ public class RankedResult {
 		this.rank = rank;
 	}
 	
+	public String getName() {
+		return name;
+	}
 
+	public void setName(String name) {
+		this.name = name;
+	}
+	
 	public boolean isExact() {
 		return exact;
 	}
@@ -65,13 +78,14 @@ public class RankedResult {
 	 * @param delimiter  The delimiter character to separate values.
 	 * @return  A CSV string for reporting the contents of this search result.
 	 */
+	@Override
 	public String toString(String delimiter) {
 		
 		StringBuilder builder = new StringBuilder();
 		builder.append(this.rank + delimiter);
 		builder.append(this.id + delimiter);
 
-		for (Attribute col : this.attributes) {
+		for (ResultFacet col : this.attributes) {
 			builder.append(col.getValue() + delimiter);
 			builder.append(col.getScore() + delimiter);
 		}
@@ -87,13 +101,14 @@ public class RankedResult {
 	 * @param quote  The quote character to be used for string values in case they contain the delimiter character.
 	 * @return  A CSV string for reporting the contents of this search result.
 	 */
+	@Override
 	public String toString(String delimiter, String quote) {
 		
 		StringBuilder builder = new StringBuilder();
 		builder.append(this.rank + delimiter);
 		builder.append(this.id + delimiter);
 
-		for (Attribute col : this.attributes) {
+		for (ResultFacet col : this.attributes) {
 			if (col.getValue().contains(delimiter))
 				builder.append(quote + col.getValue() + quote + delimiter);
 			else
@@ -117,7 +132,7 @@ public class RankedResult {
 		builder.append("rank" + delimiter);
 		builder.append("id" + delimiter);
 		
-		for (Attribute col : this.attributes) {
+		for (ResultFacet col : this.attributes) {
 			builder.append(col.getName() + "Val" + delimiter);
 			builder.append(col.getName() + "Score" + delimiter);
 		}
@@ -126,5 +141,5 @@ public class RankedResult {
 	    
 		return builder.toString();
 	}
-	
+
 }

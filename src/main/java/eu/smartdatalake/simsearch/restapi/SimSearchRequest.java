@@ -20,9 +20,9 @@ import org.locationtech.jts.io.WKTReader;
 
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.ISimSearch;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
+import eu.smartdatalake.simsearch.engine.ISimSearch;
+import eu.smartdatalake.simsearch.engine.PartialResult;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 
@@ -83,12 +83,14 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
 		this.datasets = datasets;
 		this.httpConn = httpConn;
 		
-		// Limit results to a request up to a certain number
-		this.collectionSize = (collectionSize > 20000) ? 20000 : collectionSize;
+		// Limit results returned per request up to a certain number
+		// By default setting for the max number of returned results (if applied by the HTTP server)
+		int maxSize = httpConn.getMaxResultCount();
+		this.collectionSize = ((collectionSize > maxSize) ? maxSize : collectionSize);  
 		
-    	// Construct search request according to the specification of the REST API
+    	// Construct search request on a SINGLE attribute according to the specification of the REST API
 		// Only one weight (1.0) specified in the query, in order to fetch results with their scores as computed by the respective distance measure
-		query = "{\"k\":\"" + this.collectionSize + "\",\"queries\":[{\"operation\":\"" +  myAssistant.descOperation(operation) +  "\",  \"column\":" + (valColumnName.startsWith("[") ? valColumnName.replace(" ","").replace("[","[\"").replace("]","\"]").replace(",","\",\"") : "\"" + valColumnName + "\"") + ", \"value\":\"" + searchValue + "\", \"weights\": [\"1.0\"] }]}";
+		query = "{\"k\":\"" + this.collectionSize + "\",\"queries\":[{\"operation\":\"" +  myAssistant.decodeOperation(operation) +  "\",  \"column\":" + (valColumnName.startsWith("[") ? valColumnName.replace(" ","").replace("[","[\"").replace("]","\"]").replace(",","\",\"") : "\"" + valColumnName + "\"") + ", \"value\":\"" + searchValue + "\", \"weights\": [\"1.0\"] }]}";
 //		System.out.println("QUERY: " + query);		
 	}
 	
@@ -191,7 +193,7 @@ public class SimSearchRequest<K extends Comparable<? super K>, V> implements ISi
     	} 
 
     	duration = System.nanoTime() - duration;
-    	this.log.writeln("Query [" + myAssistant.descOperation(this.operation) + "] " + this.hashKey + " (SimSearch service) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
+    	this.log.writeln("Query [" + myAssistant.decodeOperation(this.operation) + "] " + this.hashKey + " (SimSearch service) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
     	
     	return numMatches;                      //Report how many records have been retrieved from the database
      }

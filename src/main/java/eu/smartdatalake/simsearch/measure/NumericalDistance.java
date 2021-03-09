@@ -1,5 +1,7 @@
 package eu.smartdatalake.simsearch.measure;
 
+import eu.smartdatalake.simsearch.engine.IDistance;
+
 /**
  * Implements a numerical distance measure based on difference of values.
  * @param <V>  Type variable to represent the values involved in the distance calculations (usually, double values).
@@ -39,6 +41,18 @@ public class NumericalDistance<V> implements IDistance<V> {
 		// No need to check again for NULL values; already handled by DecayedSimilarity class
 //		if ((v1 != null) && (v2 != null))
 		return (Math.abs(Double.parseDouble(v1.toString())- Double.parseDouble(v2.toString()))); 
+	}
+	
+	@Override
+	// Measure the absolute difference between two numerical distances
+	public double diff(double a, double b) {
+		return Math.abs(a - b);
+	}
+
+
+	@Override
+	public void setNaNdistance(double d) {
+		// TODO Auto-generated method stub
 	}
 	
 }

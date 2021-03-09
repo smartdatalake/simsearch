@@ -10,13 +10,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import eu.smartdatalake.simsearch.IValueFinder;
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.DatasetIdentifier;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.PartialResult;
 import eu.smartdatalake.simsearch.csv.numerical.INormal;
+import eu.smartdatalake.simsearch.engine.IResult;
+import eu.smartdatalake.simsearch.engine.IValueFinder;
+import eu.smartdatalake.simsearch.engine.PartialResult;
+import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.measure.ISimilarity;
 
 /**
@@ -34,7 +35,7 @@ public class ThresholdRanking implements IRankAggregator {
 	int topk;       // Number of ranked aggregated results to collect
 	double[] threshold;
 	long valueProbes;
-	long randomAccesses;
+	long randomAccesses;  
  
 	// Array of collections with ranked aggregated results at current iteration; one collection per weight combination
 	AggregateResultCollection[] curResults;
@@ -58,7 +59,7 @@ public class ThresholdRanking implements IRankAggregator {
 	
 	// Look-up tables built for the various datasets as needed in random access similarity calculations
 	// Using the dataset hash key as a reference to the collected values for each attribute
-	Map<String, HashMap<?, ?>> datasets;
+	Map<String, Map<?, ?>> datasets;
 	
 	// Collection of value finder instantiations for random access to the full data sources (DBMSs / REST APIs)
 	Map<String, IValueFinder> valueFinders;
@@ -73,29 +74,31 @@ public class ThresholdRanking implements IRankAggregator {
 	CheckedItems checkedItems;
 	
 	// Collection of the ranked results to be given as output per weight combination
-	RankedResultCollection[] results;
+	ResultCollection[] results;
 	
+	// Sum of weights per combination
+	double[] sumWeights; 
 	
 	/**
 	 * Constructor
 	 * @param datasetIdentifiers List of the attributes involved in similarity search queries.
-	 * @param datasets   Dictionary of the various data collections involved in the similarity search queries.
+	 * @param lookups   Dictionary of the various data collections involved in the similarity search queries.
 	 * @param similarities   Dictionary of the similarity measures applied in each search query.
-	 * @param weights  Dictionary of the weights to be applied in similarity scores returned by each search query.
+	 * @param weights  Dictionary of the (possibly multiple alternative) weights per attribute to be applied in scoring the final results. 
 	 * @param normalizations  Dictionary of normalization functions to be applied in data values during random access.
-	 * @param tasks  Dictionary of running threads; each one executes a query and it is associated with its respective queue that collects its results.
-	 * @param queues  Dictionary of the queues collecting results from each search query.
+	 * @param tasks  Collection of running threads; each one executes a query and it is associated with its respective queue that collects its results.
+	 * @param queues  Collection of the queues collecting results from each search query.
 	 * @param valueFinders  Dictionary of the random access operations available for the attributes involved in the similarity search.
-	 * @param runControl  Dictionary of boolean values indicating the status of each thread.
+	 * @param runControl  Collection of boolean values indicating the status of each thread.
 	 * @param topk  The count of ranked aggregated results to collect, i.e., those with the top-k (highest) aggregated similarity scores.
 	 * @param log  Handle to the log file for notifications and execution statistics.
 	 */
-	public ThresholdRanking(Map<String, DatasetIdentifier> datasetIdentifiers, Map<String, HashMap<?, ?>> datasets, Map<String, ISimilarity> similarities, Map<String, Double[]> weights, Map<String, INormal> normalizations, Map<String, Thread> tasks, Map<String, ConcurrentLinkedQueue<PartialResult>> queues, Map<String, IValueFinder> valueFinders, Map<String, AtomicBoolean> runControl, int topk, Logger log) {
+	public ThresholdRanking(Map<String, DatasetIdentifier> datasetIdentifiers, Map<String, Map<?, ?>> lookups, Map<String, ISimilarity> similarities, Map<String, Double[]> weights, Map<String, INormal> normalizations, Map<String, Thread> tasks, Map<String, ConcurrentLinkedQueue<PartialResult>> queues, Map<String, IValueFinder> valueFinders, Map<String, AtomicBoolean> runControl, int topk, Logger log) {
 		
 		myAssistant = new Assistant();
 		this.log = log;
 		this.datasetIdentifiers = datasetIdentifiers;
-		this.datasets = datasets;
+		this.datasets = lookups;
 		this.valueFinders = valueFinders;
 		this.similarities = similarities;
 		this.tasks = tasks;
@@ -127,12 +130,12 @@ public class ThresholdRanking implements IRankAggregator {
 		checkedItems = new CheckedItems();
 
 		// Array of collection of results; one collection (list) per combination of weights
-		results = new RankedResultCollection[weightCombinations];
+		results = new ResultCollection[weightCombinations];
 		
 		// Initialize all array structures
 		for (int w = 0; w < weightCombinations; w++) {
 			scoreQueues[w] = new AggregateScoreQueue(topk+1);
-			results[w] = new RankedResultCollection();
+			results[w] = new ResultCollection();
 		}
 	}
 
@@ -246,7 +249,7 @@ public class ThresholdRanking implements IRankAggregator {
 	 * Implements the processing logic of the threshold-based algorithm.
 	 */
 	@Override
-	public RankedResult[][] proc() {
+	public IResult[][] proc() {
 			
 		boolean running = true;
 		int n = 0;
@@ -257,6 +260,15 @@ public class ThresholdRanking implements IRankAggregator {
 			// Number of ranked aggregated results so far
 			int[] k = new int[weightCombinations];    // Each k is monitoring progress for each combination of weights
 			Arrays.fill(k, 0);
+			
+			// Calculate the sum of weights for each combination
+			sumWeights = new double[weightCombinations];
+			Arrays.fill(sumWeights, 0.0);
+			for (int w = 0; w < weightCombinations; w++) {
+				for (String taskKey : tasks.keySet()) {
+					sumWeights[w] += this.weights.get(taskKey)[w];
+				}
+			}		
 			
 			int i;
 			boolean allScalesSet = false;
@@ -373,9 +385,10 @@ public class ThresholdRanking implements IRankAggregator {
 		this.log.writeln("Random accesses to lookup values: " + randomAccesses + " (for all weight combinations). Extra values retrieved from original data sources: " + valueProbes);
 		
 		// Prepare array of final results
-		RankedResult[][] allResults = new RankedResult[weightCombinations][topk];
+		IResult[][] allResults = new IResult[weightCombinations][topk];
 		for (int w = 0; w < weightCombinations; w++) {
 			allResults[w] = results[w].toArray();
+//			this.log.writeln("SCORES queue -> insertions: " + scoreQueues[w].getNumInserts() + " deletions: " + scoreQueues[w].getNumDeletes() + " current size: " + scoreQueues[w].size());
 		}	
 		
 		return allResults;
@@ -383,16 +396,16 @@ public class ThresholdRanking implements IRankAggregator {
 
 	
 	/** 
-	 * Complement top-k final results by picking extra items with descending aggregate scores from the queue.
+	 * Complement top-k final results approximately by picking extra items with descending aggregate scores from the queue.
 	 */
 	private void reportExtraResults() {
-		
-		boolean keepReporting = true;
+	
 //		log.writeln("-----------Extra-results-by-largest-score-------------------");
 		// Examine current candidates for each combination of weights
 		for (int w = 0; w < weightCombinations; w++) {
+			boolean keepReporting = true;
 			if (results[w].size() >= topk)
-				continue;
+				continue;		
 			Iterator<Double> iterScore = scoreQueues[w].keys().iterator(); 
 			// Probe by descending aggregate scores
 			while (iterScore.hasNext() && keepReporting) {
@@ -411,9 +424,14 @@ public class ThresholdRanking implements IRankAggregator {
 	 * @return  A Boolean value: True, if extra result(s) have been issued; otherwise, False.
 	 */
 	private boolean issueRankedResult(int i, int w, boolean exact) {
+		
 		// Report the items listed with this score
 		List<String> items = scoreQueues[w].get(score);
 		for (String it: items) {
+
+			// Skip any already issued entity when reporting extra (approximately scored) results for this weight combination
+			if (results[w].contains(it))
+				continue;
 			
 			i++;  // Showing rank as 1,2,3,... instead of 0,1,2,...
 			// Stop once topk results have been issued, even though there might be ties having the same score as the topk result
@@ -428,7 +446,7 @@ public class ThresholdRanking implements IRankAggregator {
 			// ... also its original values at the searched attributes and the calculated similarity scores
 			int j = 0;
 			for (String task : tasks.keySet()) {
-				Attribute attr = new Attribute();
+				ResultFacet attr = new ResultFacet();
 				attr.setName(this.datasetIdentifiers.get(task).getValueAttribute());
 				if (this.datasets.get(task).get(it) == null) {   	 // By default, assign zero similarity for NULL values in this attribute							
 					attr.setValue("");   // Use blank string instead of NULL
@@ -446,7 +464,7 @@ public class ThresholdRanking implements IRankAggregator {
 				j++;
 			}
 			//... and its overall aggregated score
-			res.setScore(score / tasks.size());   // Aggregate score over all running tasks (one per queried attribute)
+			res.setScore(score / sumWeights[w]);   // Weighted aggregate score over all running tasks (one per queried attribute)
 		
 			// Indicate whether this ranking should be considered exact or not
 			res.setExact(exact);

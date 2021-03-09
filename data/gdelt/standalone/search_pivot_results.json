@@ -1,0 +1,403 @@
+[ {
+  "notification" : "",
+  "weights" : [ 1.0, 1.0, 1.0 ],
+  "rankedResults" : [ {
+    "id" : "20191104154500-1733",
+    "score" : 0.9999820394672089,
+    "rank" : 1,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01911041545E13",
+      "score" : 0.9999611582865349
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[siena college]",
+      "score" : 1.0
+    } ]
+  }, {
+    "id" : "20191122004500-42",
+    "score" : 0.9966968543988899,
+    "rank" : 2,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01911220045E13",
+      "score" : 0.9901056030815777
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[victoria secret, wexner foundation]",
+      "score" : 1.0
+    } ]
+  }, {
+    "id" : "20191116000000-2019",
+    "score" : 0.9865023110856583,
+    "rank" : 3,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.0191116E13",
+      "score" : 0.993409989627624
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[white house, european union, national security council, cnn, permanent select committee, united states]",
+      "score" : 0.9661119835142591
+    } ]
+  }, {
+    "id" : "20191126211500-1320",
+    "score" : 0.9846313026411808,
+    "rank" : 4,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01911262115E13",
+      "score" : 0.9877969642941913
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[new york times, washington post, white house, cnn, york city council, oval office]",
+      "score" : 0.9661119835142591
+    } ]
+  }, {
+    "id" : "20191011044500-86",
+    "score" : 0.983222604501317,
+    "rank" : 5,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01910110445E13",
+      "score" : 0.949682853388859
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[singapore airline, courtesy singapore airlines, delta air lines, turkish airlines, newark-liberty international airport singapore airlines, singapore airlines, singapore airline boyd, singapore airline mcneil]",
+      "score" : 1.0
+    } ]
+  } ],
+  "similarityMatrix" : [ {
+    "left" : "20191104154500-1733",
+    "right" : "20191104154500-1733",
+    "score" : 1.0
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191122004500-42",
+    "score" : 0.9967146873245074
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191116000000-2019",
+    "score" : 0.986520186795616
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191126211500-1320",
+    "score" : 0.9846491056751417
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191011044500-86",
+    "score" : 0.9832153220265284
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191104154500-1733",
+    "score" : 0.9967146873245074
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191122004500-42",
+    "score" : 1.0
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191116000000-2019",
+    "score" : 0.9875952255236515
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191126211500-1320",
+    "score" : 0.9879267579553718
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191011044500-86",
+    "score" : 0.9800954380969366
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191104154500-1733",
+    "score" : 0.986520186795616
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191122004500-42",
+    "score" : 0.9875952255236515
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191116000000-2019",
+    "score" : 1.0
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191126211500-1320",
+    "score" : 0.9981165797968482
+  }, {
+    "left" : "20191116000000-2019",
+    "right" : "20191011044500-86",
+    "score" : 0.9698454723496059
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191104154500-1733",
+    "score" : 0.9846491056751417
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191122004500-42",
+    "score" : 0.9879267579553718
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191116000000-2019",
+    "score" : 0.9981165797968482
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191126211500-1320",
+    "score" : 1.0
+  }, {
+    "left" : "20191126211500-1320",
+    "right" : "20191011044500-86",
+    "score" : 0.96806860771134
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191104154500-1733",
+    "score" : 0.9832153220265284
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191122004500-42",
+    "score" : 0.9800954380969366
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191116000000-2019",
+    "score" : 0.9698454723496059
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191126211500-1320",
+    "score" : 0.96806860771134
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191011044500-86",
+    "score" : 1.0
+  } ],
+  "timeInSeconds" : 0.034083832
+}, {
+  "notification" : "",
+  "weights" : [ 0.8, 0.4, 0.7 ],
+  "rankedResults" : [ {
+    "id" : "20191104154500-1733",
+    "score" : 0.999986281786936,
+    "rank" : 1,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01911041545E13",
+      "score" : 0.9999611582865349
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[siena college]",
+      "score" : 1.0
+    } ]
+  }, {
+    "id" : "20191122004500-42",
+    "score" : 0.9979114280595767,
+    "rank" : 2,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01911220045E13",
+      "score" : 0.9901056030815777
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[victoria secret, wexner foundation]",
+      "score" : 1.0
+    } ]
+  }, {
+    "id" : "20191011044500-86",
+    "score" : 0.9894013754926885,
+    "rank" : 3,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01910110445E13",
+      "score" : 0.949682853388859
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[singapore airline, courtesy singapore airlines, delta air lines, turkish airlines, newark-liberty international airport singapore airlines, singapore airlines, singapore airline boyd, singapore airline mcneil]",
+      "score" : 1.0
+    } ]
+  }, {
+    "id" : "20191203153000-2047",
+    "score" : 0.988733682473859,
+    "rank" : 4,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.0191203153E13",
+      "score" : 0.9465113115494187
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[united states]",
+      "score" : 1.0
+    } ]
+  }, {
+    "id" : "20191203224500-1078",
+    "score" : 0.988725776808991,
+    "rank" : 5,
+    "exact" : true,
+    "name" : null,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "2.01912032245E13",
+      "score" : 0.9464737596412957
+    }, {
+      "name" : "[longitude, latitude]",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.999984960115092
+    }, {
+      "name" : "organizations",
+      "value" : "[york city human resources administration, coalition for the homeless, department of social services]",
+      "score" : 1.0
+    } ]
+  } ],
+  "similarityMatrix" : [ {
+    "left" : "20191104154500-1733",
+    "right" : "20191104154500-1733",
+    "score" : 1.0000000000000002
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191122004500-42",
+    "score" : 0.9979250656786363
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191011044500-86",
+    "score" : 0.9893991507535969
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191203153000-2047",
+    "score" : 0.9887469635997076
+  }, {
+    "left" : "20191104154500-1733",
+    "right" : "20191203224500-1078",
+    "score" : 0.9887390576277579
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191104154500-1733",
+    "score" : 0.9979250656786363
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191122004500-42",
+    "score" : 1.0000000000000002
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191011044500-86",
+    "score" : 0.9874286977454336
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191203153000-2047",
+    "score" : 0.9907305386848099
+  }, {
+    "left" : "20191122004500-42",
+    "right" : "20191203224500-1078",
+    "score" : 0.990722554016464
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191104154500-1733",
+    "score" : 0.9893991507535969
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191122004500-42",
+    "score" : 0.9874286977454336
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191011044500-86",
+    "score" : 1.0000000000000002
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191203153000-2047",
+    "score" : 0.9787127501299123
+  }, {
+    "left" : "20191011044500-86",
+    "right" : "20191203224500-1078",
+    "score" : 0.9787052422555426
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191104154500-1733",
+    "score" : 0.9887469635997076
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191122004500-42",
+    "score" : 0.9907305386848099
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191011044500-86",
+    "score" : 0.9787127501299123
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191203153000-2047",
+    "score" : 1.0000000000000002
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191203224500-1078",
+    "score" : 0.9999916475748662
+  }, {
+    "left" : "20191203224500-1078",
+    "right" : "20191104154500-1733",
+    "score" : 0.9887390576277579
+  }, {
+    "left" : "20191203224500-1078",
+    "right" : "20191122004500-42",
+    "score" : 0.990722554016464
+  }, {
+    "left" : "20191203224500-1078",
+    "right" : "20191011044500-86",
+    "score" : 0.9787052422555426
+  }, {
+    "left" : "20191203224500-1078",
+    "right" : "20191203153000-2047",
+    "score" : 0.9999916475748662
+  }, {
+    "left" : "20191203224500-1078",
+    "right" : "20191203224500-1078",
+    "score" : 1.0000000000000002
+  } ],
+  "timeInSeconds" : 0.034083832
+} ]

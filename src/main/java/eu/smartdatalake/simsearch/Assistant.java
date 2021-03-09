@@ -6,12 +6,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.function.DoubleBinaryOperator;
+import java.util.function.DoubleUnaryOperator;
+import java.util.stream.IntStream;
 
 import org.json.simple.JSONArray;
 
 import eu.smartdatalake.simsearch.csv.DataFileReader;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
+import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 
 /**
  * Auxiliary class that provides various helper methods.
@@ -28,10 +32,10 @@ public class Assistant {
 	
 	/**
 	 * Provides the textual description of the type of operation with the given number.
-	 * @param op  The numeric identifier of the requested operation (0: CATEGORICAL_TOPK; 1:SPATIAL_KNN ; 2:NUMERICAL_TOPK).
+	 * @param op  The numeric identifier of the requested operation (e.g., 0: CATEGORICAL_TOPK; 1:SPATIAL_KNN ; 2:NUMERICAL_TOPK).
 	 * @return  A string describing the type of the operation.
 	 */
-	public String descOperation(int op) {
+	public String decodeOperation(int op) {
 		
 		switch(op) {
 		case Constants.CATEGORICAL_TOPK:
@@ -40,6 +44,14 @@ public class Assistant {
 			return "spatial_knn";
 		case Constants.NUMERICAL_TOPK:   
 			return "numerical_topk";
+		case Constants.PIVOT_BASED:   
+			return "pivot_based";
+		case Constants.NAME_DICTIONARY:   
+			return "name_dictionary";
+		case Constants.KEYWORD_DICTIONARY:   
+			return "keyword_dictionary";
+		case Constants.VECTOR_DICTIONARY:   
+			return "vector_dictionary";
 		default:
 			return "unknown operation";
 		}
@@ -255,5 +267,60 @@ public class Assistant {
 		
 		return set;
 	}
+
+	
+	/**
+	 * Creates a d-dimensional point with zero values in all coordinates
+	 * @param d  The dimensionality of the point.
+	 * @return  A d-dimensional point with zero values in all coordinates.
+	 */
+	public Point createZeroPoint(int d) {
+		double [] coords = new double[d];
+		Arrays.fill(coords, 0.0);
+		Point p = Point.create(coords);  
+		return p;
+	}
+	
+	
+	/**
+	 * Creates a d-dimensional point with NaN values in all coordinates
+	 * @param d  The dimensionality of the point.
+	 * @return  A d-dimensional point with NaN values in all coordinates.
+	 */
+	public Point createNaNPoint(int d) {
+		double [] coords = new double[d];
+		Arrays.fill(coords, Double.NaN);
+		Point p = Point.create(coords);  
+		return p;
+	}
+	
+
+	/**
+	 * Applies a given operation (e.g., SUM) over two input arrays of double numbers value per value.
+	 * @param operator  The operator to apply over the two arrays element-wise.
+	 * @param a  The first array of double values.
+	 * @param b  The first array of double values.
+	 * @return  The resulting array of double values.
+	 */
+	public double[] applyOnDoubleArrays(DoubleBinaryOperator operator, double[] a, double b[]) {
+		
+		return IntStream.range(0, a.length)
+				.mapToDouble(index -> operator.applyAsDouble(a[index], b[index]))
+                .toArray();
+    }
+
+	
+	/**
+	 * Applies a given operation (e.g., division by a number) over each value of an input array of double numbers.
+	 * @param operator  The operator to apply over the elements of this array.
+	 * @param a  The input array of double values.
+	 * @return  The resulting array of double values.
+	 */
+	public double[] applyOnDoubleArray(DoubleUnaryOperator operator, double[] a) {
+		
+		return IntStream.range(0, a.length)
+				.mapToDouble(index -> operator.applyAsDouble(a[index]))
+                .toArray();
+    }
 	
 }

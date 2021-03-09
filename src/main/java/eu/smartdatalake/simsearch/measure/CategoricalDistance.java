@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
+import eu.smartdatalake.simsearch.engine.IDistance;
 
 /**
  * Implements a categorical (textual) distance measure.
@@ -64,6 +65,19 @@ public class CategoricalDistance<V> implements IDistance<V> {
 	
 		// Jaccard distance value
 		return (1.0 - (((double) intersection.size()) / ((double) union.size())));
+	}
+
+
+	@Override
+	// Measure the absolute difference between two categorical distances
+	public double diff(double a, double b) {
+		return Math.abs(a - b);
+	}
+
+
+	@Override
+	public void setNaNdistance(double d) {
+		// TODO Auto-generated method stub	
 	}
 
 }
