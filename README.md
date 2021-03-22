@@ -45,7 +45,7 @@ $ mvn clean package spring-boot:repackage
 
 To invoke SimSearch in standalone mode as a Java application, run the executable:
 ```sh
-$ java -jar target/simsearch-0.3-SNAPSHOT.jar
+$ java -jar target/simsearch-0.3.1-SNAPSHOT.jar
 ```
 
 Next, choose a number corresponding to a functionality you want to apply:
@@ -62,7 +62,7 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 SimSearch also integrates a REST API and can be deployed as a web service application at a specific port (e.g., 8090) as follows:
 ```sh
-$ java -Dserver.port=8090 -jar target/simsearch-0.3-SNAPSHOT.jar --service
+$ java -Dserver.port=8090 -jar target/simsearch-0.3.1-SNAPSHOT.jar --service
 ```
 
 Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). Once the user wishes to make some data source(s) available for similarity search, a new instance of the service is created, which is associated with an auto-generated API key that is returned back to the user. All subsequent requests against this instance of the SimSearch service should specify this API key. Multiple SimSearch instances may be active in parallel but running in isolation, each one responding to requests that specify its own unique API key.
