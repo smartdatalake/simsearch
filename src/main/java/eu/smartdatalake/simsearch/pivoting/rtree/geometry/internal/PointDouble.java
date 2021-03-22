@@ -2,7 +2,6 @@ package eu.smartdatalake.simsearch.pivoting.rtree.geometry.internal;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Geometry;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
@@ -19,7 +18,17 @@ public final class PointDouble implements Point {
     public static PointDouble create(double x[]) {
         return new PointDouble(x);
     }
-
+/*
+    private boolean containsNaN() {
+    	
+    	for (int i = 0; i < x.length; i++) {
+    		if (Double.isNaN(x[i])) 
+    			return true;
+    	}
+    	
+    	return false;
+    }
+*/    
     @Override
     public Rectangle mbr() {
         return this;
@@ -41,9 +50,21 @@ public final class PointDouble implements Point {
     }
 
     @Override
+    public String toText() {
+    	if (containsNaN())
+    		return "";
+    	else // WKT-like representation
+    		return "Point (" + Arrays.stream(mins()).mapToObj(String::valueOf).collect(Collectors.joining(" ")) + ")"; 
+    }
+    
+    @Override
     public String toString() {
-    	if (dimensions() > 1)
-    		return "Point (" + Arrays.stream(mins()).mapToObj(String::valueOf).collect(Collectors.joining(" ")) + ")"; //Arrays.toString(mins());
+    	if (dimensions() > 1) {
+    		// Alternative textual representations
+    		return toText();
+//    		return Arrays.stream(mins()).mapToObj(String::valueOf).collect(Collectors.joining(","));
+//    		return Arrays.toString(mins());
+    	}
     	else
     		return "" + mins()[0];
     }

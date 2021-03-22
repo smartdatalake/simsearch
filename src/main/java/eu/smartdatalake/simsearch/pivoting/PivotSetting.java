@@ -220,7 +220,7 @@ public class PivotSetting {
 			// Potential based on the updated pivots for this distance
 			curPotentials.set(i, epsPruningPotential(i, pivots.get(i)));
 			
-			log.writeln("Picked random pivot: " + c.toString() + " for " + i + "-th distance " + distances[i].getClass().getSimpleName());
+			log.writeln("Picked random pivot: " + c.toString() + " for " + i + "-th attribute using " + distances[i].getClass().getSimpleName());
 		}
 		
 		// Return the count of pivots per distance

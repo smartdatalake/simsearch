@@ -41,4 +41,10 @@ public interface Geometry {
     
     int dimensions();
 
+    /**
+     * Provides a Well-Known Text representation of the geometry.
+     * @return  A string with the WKT-like representation of the geometry.
+     */
+	String toText();
+
 }

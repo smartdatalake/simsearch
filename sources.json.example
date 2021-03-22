@@ -19,9 +19,8 @@
 					"type":"restapi",
 					"url":"http://localhost:9200/myIndexName/_search?pretty"
 					"username":"elasticName",
-					"password":"elasticPassword",
-
-				},
+					"password":"elasticPassword"
+				}
 			],
 	"search":[ 
 				{

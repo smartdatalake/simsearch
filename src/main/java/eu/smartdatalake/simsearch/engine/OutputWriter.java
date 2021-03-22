@@ -5,7 +5,6 @@ import java.io.PrintStream;
 import java.util.Arrays;
 
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.ranking.RankedResult;
 import eu.smartdatalake.simsearch.request.SearchOutput;
 
 /**

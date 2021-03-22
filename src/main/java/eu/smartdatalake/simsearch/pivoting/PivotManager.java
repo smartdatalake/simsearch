@@ -1,5 +1,6 @@
 package eu.smartdatalake.simsearch.pivoting;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
@@ -25,6 +27,7 @@ import eu.smartdatalake.simsearch.engine.OutputWriter;
 import eu.smartdatalake.simsearch.engine.QueryValueParser;
 import eu.smartdatalake.simsearch.engine.SearchResponse;
 import eu.smartdatalake.simsearch.engine.SearchResponseFormat;
+import eu.smartdatalake.simsearch.manager.DataType.Type;
 import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.manager.TransformedDatasetIdentifier;
 import eu.smartdatalake.simsearch.pivoting.rtree.Entry;
@@ -37,7 +40,7 @@ import eu.smartdatalake.simsearch.ranking.RankedResult;
 import eu.smartdatalake.simsearch.ranking.ResultFacet;
 
 /**
- * Creates a pivot-based multi-dimensional RR*-tree and then handles multi-attribute similarity search requests. 
+ * Creates a pivot-based, multi-dimensional RR*-tree and then handles multi-attribute similarity search requests. 
  * CAUTION! A single instance of this class is created by the coordinator.
  */
 public class PivotManager {
@@ -120,6 +123,31 @@ public class PivotManager {
 		return null;
 	}
 
+	/**
+	 * Exports the embeddings of input objects indexed in the RR*-tree into a CSV file.
+	 * @param csvFileName  The name of the output CSV file.
+	 * @param embeddings  The collection of the embeddings with an entry per input entity. Object: the identifier; Point: a multi-dimensional point with the embedded ordinate values.
+	 */
+	public void exportEmbeddings(String csvFileName, List<Entry<Object, Point>> embeddings) {
+		
+		// Use default column separator for output
+		String separator = Constants.COLUMN_SEPARATOR;
+		
+		PrintWriter writer = null;
+		try {
+			writer = new PrintWriter(csvFileName, "UTF-8");
+			for (Entry<Object, Point> entry: embeddings) {
+				// One row per embedded point using the default delimiter
+				writer.println(entry.value() + separator + entry.geometry().toString());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		finally {
+			writer.close();
+		}	
+	}
+	
 	
     /**
      * Only used for embedding query points before searching in the index.
@@ -162,6 +190,41 @@ public class PivotManager {
 	    return newCol.subList(0, n);
 	}
 
+	
+	/**
+	 * Constructs a (multi-dimensional) point from the query value specified for the given attribute. 
+	 * @param attr  The queried attribute.
+	 * @param datatype  The data type of the query value; should match that of the respective attribute.
+	 * @param val  The parsed query value.
+	 * @param transform  Boolean specifying whether the query value (set of keywords) should be transformed (into an array of doubles)
+	 * @return  A (multi-dimensional) point to be used in the search against the index.
+	 */
+	private Point constructQueryPoint(String attr, Type datatype, Object val, boolean transform) {
+		
+    	if (val != null) {
+    		if ((datatype == Type.KEYWORD_SET) && (transform)) {
+    			// Transform original query value into a vector representation according to the appointed transformer
+    			return Point.create(transformers.get(attr).getVector((String[]) val));
+    		}
+    		else if (datatype == Type.NUMBER_ARRAY) {
+    			// Handling array of double values in the query
+    			return Point.create(Stream.of((Double[]) val).mapToDouble(Double::doubleValue).toArray());
+    		}
+    		else if (datatype == Type.GEOLOCATION) {
+    			// Handling a query location
+    			return Point.create(Arrays.stream((String[]) val).mapToDouble(Double::parseDouble).toArray());
+    		}
+    		else {
+    			// Handling a numerical query value (CAUTION! This is parsed as a string)
+    			return Point.create(Arrays.stream((String[]) val).mapToDouble(Double::parseDouble).toArray());	
+    		}
+    	}
+
+		// If value is not specified, a NaN-valued point will be created for this attribute with a suitable number of ordinates
+		log.writeln("Created NaN point for query value at attribute " + attr + ".");
+		return myAssistant.createNaNPoint(ref.getDimension(attr));
+	
+	}
 	
 	/**
 	 * Indexing stage: Construct an RR*-tree index based on the input records, using the given distances and determining suitable reference points (i.e., pivots)
@@ -255,17 +318,19 @@ public class PivotManager {
 	    	double[][][] distances = new double[M][][];
 	    	for (String attr: records.keySet()) {
 	    		int m = ref.getAttributeOrder(attr);  // Metric reference corresponding to this attribute
-	    		
-	    		// FIXME: Substitute distance values for NaN ordinates with the scale factor used for this attribute
-	    		ref.getMetric(m).setNaNdistance(scaleFactors.scale[m]);
-	    		log.writeln("PIVOTS for attribute " + ref.getAttribute(m) + " using " + ref.getMetric(m).getClass().getSimpleName() + " distance:");
-	    		
-	    		// Pivot selection is only based on the values concerning a particular attribute and distance
-	    		PivotSelector selector = new PivotSelector(ref.getMetric(m), new ArrayList<Point>(records.get(attr).values()), log);
-	    		// Number of pivots to select for this attribute have been estimated
-	    		distances[m] = selector.embed(ref.countDimensionReferenceValues(m));   		
-	    		// Retain the selected pivots for subsequently embedding query points
-	    		pivots.get(m).addAll(selector.getPivots());
+	    		// If this metric has been assigned with pivots, choose them 
+	    		if (ref.countDimensionReferenceValues(m) > 0) {
+		    		// FIXME: Substitute distance values for NaN ordinates with the scale factor used for this attribute
+		    		ref.getMetric(m).setNaNdistance(scaleFactors.scale[m]);
+		    		log.writeln(ref.countDimensionReferenceValues(m) + " PIVOTS for attribute " + ref.getAttribute(m) + " using " + ref.getMetric(m).getClass().getSimpleName() + " :");
+	
+		    		// Pivot selection is only based on the values concerning a particular attribute and distance
+		    		PivotSelector selector = new PivotSelector(ref.getMetric(m), new ArrayList<Point>(records.get(attr).values()), log);
+		    		// Number of pivots to select for this attribute have been estimated
+		    		distances[m] = selector.embed(ref.countDimensionReferenceValues(m));   		
+		    		// Retain the selected pivots for subsequently embedding query points
+		    		pivots.get(m).addAll(selector.getPivots());
+	    		}
 	    	}
 	    	
 	    	// Construct array of embeddings per input object
@@ -273,12 +338,12 @@ public class PivotManager {
 	    	List<Entry<Object, Point>> points = new ArrayList<Entry<Object, Point>>();
 	    	Entry<Object, Point> entry = null; 
 	    	int c = 0;
-	    	double[] val;
+	    	double[] val;  // Array of embeddings for this object
 	    	// IMPORTANT! Assuming that entity identifiers are identical for all lists of input records
 	    	for (String key: records.get(ref.getAttribute(0)).keySet()) {
 	    		val = new double[R];
 	    		int n = 0;
-	    		for (int j = 0; j < M; j++) {   // For each attribute (distance)
+	    		for (int j = 0; j < M; j++) {   // For each attribute (distance metric)
 	    			// Number of pivots may differ per attribute
 	    			for (int l = 0; l < ref.countDimensionReferenceValues(j); l++) {
 	    				val[n] = distances[j][c][l];	// Embedded distance from pivot
@@ -287,15 +352,18 @@ public class PivotManager {
 	    		}
 	    		entry = Entry.entry(key, Point.create(val));
 	    		points.add(entry);
-	//	    	System.out.println(Arrays.toString(val));
+//		    	System.out.println(Arrays.toString(val));
 	    		c++;
 	    	}
 	    	
 	    	duration = System.nanoTime() - duration;
 	    	log.writeln("RR*-tree embedding cost: " + duration / 1000000000.0 + " sec.");
+	    	
+	    	// Optionally, export the embeddings into a CSV file
+//	    	exportEmbeddings("embeddings.csv", points);
 	    		    	
-	//		System.out.println("*****************R-tree construction using pivots **********************");
-			//Create the R*-tree
+	//		System.out.println("*****************RR*-tree construction using pivots **********************");
+			//Create the RR*-tree
 			duration = System.nanoTime();
 			tree = RTree.dimensions(R).maxChildren(Constants.NODE_FANOUT).star().<Object, Point>create(points);
 			
@@ -305,9 +373,9 @@ public class PivotManager {
 	    	log.writeln("Indexed objects: " + tree.size());
 	        log.writeln("RR*-tree dimensions: " + tree.dimensions());
 	          
-	        // MBR of the tree
+	        // Total extent of the entire tree (i.e., the MBR of its root) over all dimensions
 	        Optional<Rectangle> opt = tree.mbr();
-	        opt.ifPresent(mbr -> log.writeln("RR*-tree MBR: " + mbr.toString()));
+	        opt.ifPresent(mbr -> log.writeln("RR*-tree extent: " + mbr.toText()));
 	      
 	        // Report the fixed scaling factors to be used at query time
 	        for (String attr: records.keySet()) {
@@ -356,7 +424,7 @@ public class PivotManager {
 	public SearchResponse[] search(SearchRequest params) {
 		
 		SearchResponse[] responses;
-		String notification = "";  // Any extra notification for the final response
+		String notification = "";  // Any extra notification(s) to the final response
 
 		// Specifications for writing results into an output CSV file (if applicable)
 		OutputWriter outCSVWriter = new OutputWriter(params.output);
@@ -366,7 +434,7 @@ public class PivotManager {
 		SearchSpecs[] querySpecs = params.queries;
 		List<String> queryAttributes = new ArrayList<String>();
 		for (int i = 0 ; i < querySpecs.length; i++) {
-			// Check if attribute has specified more than once
+			// Check if attribute was specified more than once
 			if (queryAttributes.contains(querySpecs[i].column.toString()))
 				log.writeln("Attribute " + querySpecs[i].column + " has been specified more than once. Only the last specification was used in query evaluation.");
 			queryAttributes.add(querySpecs[i].column.toString());	
@@ -401,7 +469,7 @@ public class PivotManager {
 		if (topk > Constants.K_MAX) {
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
-			log.writeln("Search request discarded, because no more than top-" + Constants.K_MAX + " results can be returned per query..");
+			log.writeln("Search request discarded, because no more than top-" + Constants.K_MAX + " results can be returned per query.");
 			response.setNotification("Please specify a positive integer value up to " + Constants.K_MAX + " for k and submit your request again.");
 			responses[0] = response;
 			return responses;
@@ -432,31 +500,18 @@ public class PivotManager {
 			// TODO: Handle cases where an array of attributes is used (e.g., lon/lat coordinates for location)
 			datasetId = this.findIdentifier(colValueName);
 			if (datasetId == null) {
-				notification += " Attribute data on " + colValueName + " has not been specified for pivot-based similarity search.";
-				log.writeln("Attribute data on " + colValueName + " has not been specified for pivot-based similarity search.");
+				String msg = "Attribute data on " + colValueName + " has not been specified for pivot-based similarity search.";
+				notification.concat(msg + " ");
+				log.writeln(msg);
 				continue;
 			}
 		
-			// Parse query value for this attribute
-			qColumns[i] = datasetId.getValueAttribute();	
-			String[] ordinates = valParser.parseCoordinates(querySpecs[i].value);
-			qValues[i] = String.join(",", ordinates);
-        	if (ordinates.length > 0) {
-        		if (datasetId.needsTransform()) {
-        			// Transform original query value into a vector representation according to the appointed transformer
-        			p = Point.create(transformers.get(qColumns[i]).getVector(ordinates));
-        		}
-        		else {
-        			// Handling original numerical values in queried attributes
-        			p = Point.create(Arrays.stream(ordinates).mapToDouble(Double::parseDouble).toArray());	
-        		}
-        	}
-        	else {
-        		// If value is not specified, a NaN-valued point will be created for this attribute with a suitable number of ordinates
-        		p = myAssistant.createNaNPoint(ref.getDimension(qColumns[i]));
-        		log.writeln("Created NaN point for query value at attribute " + qColumns[i] + ".");
-        	}
+			// Parse query value for this attribute and create a (multi-dimensional) point
+			qColumns[i] = datasetId.getValueAttribute();
+			Object val = valParser.parse(querySpecs[i].value);
+			p = constructQueryPoint(qColumns[i], valParser.getDataType(), val, datasetId.needsTransform());
         	qPoint.put(qColumns[i], p);
+        	qValues[i] = (querySpecs[i].value != null) ? querySpecs[i].value.toString() : "null";
         	
         	// Retain the weights associated with this attribute
         	attrWeights.put(qColumns[i], querySpecs[i].weights);
@@ -478,8 +533,9 @@ public class PivotManager {
 		if (metricSimilarities.values().contains(null)) {
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
-			log.writeln("Query value is missing in at least one attribute. Please check your query specification." );
-			response.setNotification("Query value is missing in at least one attribute. Please check your query specification." + notification);
+			String msg = "Query value is missing in at least one attribute. Please check your query specification.";
+			log.writeln(msg);
+			response.setNotification(msg.concat(notification));
 			responses[0] = response;
 			return responses;		
 		}
@@ -578,10 +634,8 @@ public class PivotManager {
 		// Assign the new rankings to the results
 		int rank = 1;
 		for (Map.Entry<Double, Integer> entry : mapScores.entries()) {
-//			System.out.print("OLD rank: " + entry.getValue());
 			sortedResults[rank-1] = (RankedResult) results[entry.getValue()-1];
 			sortedResults[rank-1].setRank(rank);
-//			System.out.println(" NEW rank: " + rank);
 			rank++;	
 		}
 		

@@ -1,6 +1,7 @@
 package eu.smartdatalake.simsearch.manager;
 
 import eu.smartdatalake.simsearch.csv.lookup.Word2VectorTransformer;
+import eu.smartdatalake.simsearch.manager.DataType.Type;
 
 /**
  * Provides identification of a transformed dataset, i.e., sets of keywords converted to a vector of double values according to a given dictionary of words.  
@@ -67,6 +68,8 @@ public class TransformedDatasetIdentifier extends DatasetIdentifier {
 	 * @param original  The dataset identifier of the original attribute data.
 	 */
 	public void setOriginal(DatasetIdentifier original) {
+		// FIXME: Assuming that the original attribute always represents sets of keywords  
+		setDatatype(Type.KEYWORD_SET);
 		this.original = original;
 	}
 	

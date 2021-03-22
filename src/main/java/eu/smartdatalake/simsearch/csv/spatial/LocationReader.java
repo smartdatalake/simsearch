@@ -32,7 +32,8 @@ public class LocationReader {
         try {
         	g = wktReader.read(wkt);
 		} catch (Exception e) {
-			e.printStackTrace();
+//			e.printStackTrace();
+			return null;
 		}
     
         return g;     //Return geometry
@@ -51,7 +52,8 @@ public class LocationReader {
         try {
         	g = wktReader.read("POINT (" + lon + " " + lat + ")");
 		} catch (Exception e) {
-			e.printStackTrace();
+//			e.printStackTrace();
+			return null;
 		}
     
         return g;     //Return geometry

@@ -14,7 +14,6 @@ import org.json.simple.JSONArray;
 
 import eu.smartdatalake.simsearch.csv.DataFileReader;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
-import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 
 /**
@@ -99,79 +98,7 @@ public class Assistant {
 		return index;
 	}
 
-	
-	/**
-	 * Identifies which column in the database table corresponds to the given attribute name.
-	 * @param dataSource   The database table.
-	 * @param colName  The attribute name.
-	 * @param jdbcConnector  A connection instance to the database.
-	 * @return  A positive integer representing the ordering of the column in the table; -1, if this attribute name is not found.
-	 */
-	public int getColumnNumber(String dataSource, String colName, JdbcConnector jdbcConnector) {
 
-		int index = -1;
-		String col = colName;
-		try {	
-			// In case multiple columns are specified (e.g., lon/lat coordinates), the first column is used for identification
-			if (colName.startsWith("[") && colName.endsWith("]")) {
-				String[] columns = colName.substring(1, colName.length()-1).replace("\"", "").split(",");
-				col = columns[0];
-			}
-			
-			// Check if column is available according to DBMS specifications
-			String sql = null;		
-			switch(jdbcConnector.getDbSystem()) {
-			case "POSTGRESQL":   	// Connected to PostgreSQL
-				sql = "SELECT ordinal_position FROM information_schema.columns WHERE table_name ='" + dataSource + "' AND column_name = '" +  col + "'";
-				index = (int) jdbcConnector.findSingletonValue(sql);
-				break;
-			case "AVATICA":   		// Connected to Avatica JDBC (Proteus)
-				// FIXME: Any alternative to examine existence of a specific column in Proteus?
-				sql = "SELECT count(*) FROM (SELECT " + col + " FROM " + dataSource + " WHERE " + col + " IS NOT NULL LIMIT 1) test";
-				index = Integer.parseInt((String) jdbcConnector.findSingletonValue(sql));
-				break;
-	        default:
-	        	sql = null;
-	        } 
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return index;
-	}
-
-	
-	/**
-	 * Identifies whether the given column in the database table has an associated index (numerical, spatial, textual).
-	 * @param dataSource   The database table.
-	 * @param colName  The attribute name.
-	 * @param jdbcConnector  A connection instance to the database.
-	 * @return  A Boolean value: True, if an index exists in this column; otherwise, False.
-	 */
-	public boolean isJDBCColumnIndexed(String dataSource, String colName, JdbcConnector jdbcConnector) {
-
-		Object indexName = null;
-		try {		
-			// Check if column is available according to DBMS specifications
-			String sql = null;		
-			switch(jdbcConnector.getDbSystem()) {
-			case "POSTGRESQL":  // Connected to PostgreSQL
-				sql = "SELECT i.relname AS index_name FROM pg_class t, pg_class i, pg_index ix, pg_attribute a WHERE t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) AND t.relkind = 'r' AND t.relname LIKE '" + dataSource + "%' AND a.attname LIKE '" + colName + "%' ORDER BY t.relname, i.relname;";
-				break;
-			case "AVATICA":   // FIXME: Any alternative to examine if a specific column is indexed in Avatica JDBC connections (Proteus)?
-				sql = "SELECT TRY_CAST(" + colName + " AS double) FROM " + dataSource + " WHERE " + colName + " IS NOT NULL LIMIT 1";   // Work-around to identify queryable numerical attributes
-				break;
-	        default:
-	        	sql = null;
-	        } 
-			if (sql != null)
-				indexName = jdbcConnector.findSingletonValue(sql);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return (indexName != null);
-	}
-	
 	/**
 	 * Converts a JSONArray object into an array of strings.
 	 * @param jsonArray  Input JSON array.
@@ -322,5 +249,23 @@ public class Assistant {
 				.mapToDouble(index -> operator.applyAsDouble(a[index]))
                 .toArray();
     }
+	
+	
+	/**
+	 * Checks whether the given string value represents a number.
+	 * @param str  The string value to check.
+	 * @return  True, if the string represents a number; otherwise, False.
+	 */
+	public boolean isNumeric(String str) {
+	    if (str == null) {
+	        return false;
+	    }
+	    try {
+	        double d = Double.parseDouble(str);
+	    } catch (NumberFormatException e) {
+	        return false;
+	    }
+	    return true;
+	}
 	
 }

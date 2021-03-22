@@ -21,4 +21,5 @@ public interface IResult {
 	
 	public void setName(String name);
 	
+	public boolean isExact();
 }

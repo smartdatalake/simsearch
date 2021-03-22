@@ -9,6 +9,6 @@ import io.swagger.annotations.ApiModelProperty;
  */
 public class RemoveRequest implements IRequest {
 
-	@ApiModelProperty(required = true, notes = "Array of attribute names and their supported similarity search operations to be removed.")
+	@ApiModelProperty(required = true, value = "Array of attribute names and their supported similarity search operations to be removed.")
 	public AttributeInfo[] remove;
 }

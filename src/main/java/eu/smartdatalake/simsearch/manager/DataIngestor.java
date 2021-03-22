@@ -1,4 +1,4 @@
-package eu.smartdatalake.simsearch.csv;
+package eu.smartdatalake.simsearch.manager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,6 +12,8 @@ import com.google.common.base.Joiner;
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.Logger;
+import eu.smartdatalake.simsearch.csv.Index;
+import eu.smartdatalake.simsearch.csv.MetricDataReader;
 import eu.smartdatalake.simsearch.csv.categorical.InvertedIndex;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollection;
 import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollectionReader;
@@ -25,7 +27,6 @@ import eu.smartdatalake.simsearch.csv.spatial.Location;
 import eu.smartdatalake.simsearch.csv.spatial.LocationReader;
 import eu.smartdatalake.simsearch.csv.spatial.RTree;
 import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
-import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 import eu.smartdatalake.simsearch.request.MountSpecs;
 
@@ -99,7 +100,7 @@ public class DataIngestor {
 		if (mountConfig.key_column != null) {
 			colKeyName = mountConfig.key_column;
 			if (jdbcConn != null)   						// JDBC source
-				colKey = myAssistant.getColumnNumber(dataset, colKeyName, jdbcConn);
+				colKey = jdbcConn.getColumnNumber(dataset, colKeyName);
 			else if (id.getDataSource().getHttpConn() == null) 	// CSV source
 				colKey = myAssistant.getColumnNumber(dataset, colKeyName, columnSeparator);
 			if (colKey < 0) {

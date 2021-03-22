@@ -1,6 +1,7 @@
 package eu.smartdatalake.simsearch.pivoting;
 
 import eu.smartdatalake.simsearch.engine.IDistance;
+import eu.smartdatalake.simsearch.pivoting.metrics.ChebyshevDistance;
 import eu.smartdatalake.simsearch.pivoting.metrics.EuclideanDistance;
 import eu.smartdatalake.simsearch.pivoting.metrics.HaversineDistance;
 import eu.smartdatalake.simsearch.pivoting.metrics.JaccardDistance;
@@ -103,17 +104,20 @@ public class MetricReferences {
 	public void setMetric(int m, String metricName) {
 		
 		IDistance distance = null;
-		switch (metricName) {
-        case "Manhattan":
+		switch (metricName.toLowerCase()) {
+        case "manhattan":
         	distance = new ManhattanDistance();
             break;
-        case "Euclidean":
+        case "euclidean":
         	distance = new EuclideanDistance();
             break;
-        case "Haversine":
+        case "chebyshev":
+        	distance = new ChebyshevDistance();
+            break;
+        case "haversine":
         	distance = new HaversineDistance();
             break;
-        case "Jaccard":
+        case "jaccard":
         	distance = new JaccardDistance();
             break;
         // TODO: Handle other metrics ...

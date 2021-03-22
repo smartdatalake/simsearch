@@ -8,7 +8,7 @@ import io.swagger.annotations.ApiModelProperty;
  */
 public class CatalogRequest implements IRequest {
 	
-	@ApiModelProperty(required = false, allowableValues = "spatial_knn, categorical_topk, numerical_topk", notes = "Specify the similarity search operation and identify the attributes supporting it")
+	@ApiModelProperty(required = false, allowableValues = "spatial_knn, categorical_topk, numerical_topk, pivot_based", value = "Specify the similarity search operation and identify the attributes supporting it")
 	public String operation;
 	
 }

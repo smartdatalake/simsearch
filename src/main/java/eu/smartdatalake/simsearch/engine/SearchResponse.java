@@ -11,7 +11,7 @@ public class SearchResponse extends Response {
 	private IResult[] rankedResults;
 	private ResultPair[] similarityMatrix;
 	private double timeInSeconds;
-	
+
 	/**
 	 * Sets the final ranked results for the specified search request.
 	 * @param results  Array of the top-k ranked results.

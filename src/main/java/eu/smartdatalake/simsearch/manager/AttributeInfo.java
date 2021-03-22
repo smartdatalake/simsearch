@@ -2,33 +2,53 @@ package eu.smartdatalake.simsearch.manager;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import eu.smartdatalake.simsearch.manager.DataType.Type;
+
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
 /**
- * Auxiliary class that provides information about the data sources (each named with their queryable column) available for similarity search operations.
+ * Auxiliary class that provides information about the attribute data sources (each named with their queryable column) available for similarity search operations.
  */
+@JsonInclude(Include.NON_NULL)    // Ignore NULL values when issuing the response
 public class AttributeInfo {
 
-	public List<String> column;    		// The column(s) (one or multiple attributes) that provide the data is the identifier for this data source
-	public String operation;			// The type of search operation (categorical_topk, numerical_topk, spatial_knn, pivot_based) supported by this data source
+	private List<String> column;    	// The column(s) (one or multiple attributes) that provide the data is the identifier for this data source
+	private String operation;			// The type of search operation (categorical_topk, numerical_topk, spatial_knn, pivot_based) supported by this data source
+	private Optional<Type> datatype = Optional.empty();
 	
 	/**
-	 * Default constructor
+	 * Constructor #1 (default)
 	 */
 	public AttributeInfo() {	
 	}
 	
 	/**
-	 * Constructor
-	 * @param column  The attribute name that contains the data.
-	 * @param operation  The similarity search operation supported on this data.
+	 * Constructor #2
+	 * @param column  The attribute name(s) containing the data.
+	 * @param operation  The similarity search operation supported on this attribute data.
 	 */
 	public AttributeInfo(String column, String operation) {
 		this.column = Arrays.asList(column);
 		this.operation = operation;
 	}
 
+	/**
+	 * Constructor #3
+	 * @param column  The attribute name(s) containing the data.
+	 * @param operation  The similarity search operation supported on this attribute data.
+	 * @param datatype  The data type of this queryable attribute.
+	 */
+	public AttributeInfo(String column, String operation, Type datatype) {
+		this.column = Arrays.asList(column);
+		this.operation = operation;
+		this.datatype = Optional.ofNullable(datatype);
+	}
+	
 	// GETTER and SETTER methods
 	public String getColumn() {
 		if (column.size() == 1)
@@ -44,11 +64,32 @@ public class AttributeInfo {
 	public void setColumns(List<String> columns) {
 		this.column = columns;
 	}
+	
 	public String getOperation() {
 		return operation;
 	}
 	public void setOperation(String operation) {
 		this.operation = operation;
+	}
+	
+	/**
+	 * Provides the data type of the attribute values.
+	 * @return  One of the queryable data types.
+	 */
+	public Type getDatatype() {
+		// Return the data type, if specified
+		if (datatype.isPresent())
+            return datatype.get();
+		
+		return null;
+	}
+
+	/**
+	 * Specifies the data type of this (queryable) attribute. 
+	 * @param datatype  One of queryable data types.
+	 */
+	public void setDatatype(Type datatype) {
+		this.datatype = Optional.ofNullable(datatype);
 	}
 	
 }

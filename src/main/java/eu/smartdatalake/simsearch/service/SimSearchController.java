@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.StringTokenizer;
 
 import javax.xml.bind.DatatypeConverter;
@@ -137,6 +138,7 @@ public class SimSearchController {
 			// ... that must be used in all subsequent requests against these data sources
 			dictCoordinators.put(apiKey, myCoordinator);
 			mountResponse.appendNotification("Mounting of data sources completed successfully. ***IMPORTANT*** In all subsequent requests regarding this data, you must specify this API key: " + apiKey);
+			mountResponse.setApiKey(apiKey);
 			myCoordinator.log("Newly created data sources have been associated with this API key: " + apiKey);
 			System.out.println("Mounting of data sources completed!");			
 		}
@@ -187,6 +189,7 @@ public class SimSearchController {
 			// Invoke mounting step
 			appendResponse = myCoordinator.mount(params);
 			appendResponse.appendNotification("Appended data sources are now available for queries and are associated with this API key: " + apiKey);
+			appendResponse.setApiKey(apiKey);
 			myCoordinator.log("Appended data sources are now available for queries and are associated with this API key: " + apiKey);
 			System.out.println("Mounting of data sources completed!");			
 		}

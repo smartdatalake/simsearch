@@ -148,7 +148,7 @@ public class ElasticSearchRequest<K extends Comparable<? super K>, V> implements
     		// Execute the query against the REST API and receive its response
     		CloseableHttpResponse response = httpConn.executeQuery(query);
     		
-    		if (response != null) {								// Response is valid
+    		if ((response != null) && (response.getStatusLine().getStatusCode() == 200)) {	// Response is valid
     			
     			HttpEntity entity = response.getEntity();
 				if (entity != null) {

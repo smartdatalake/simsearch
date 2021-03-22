@@ -84,6 +84,26 @@ Thus, users are able to issue requests to an instance of the SimSearch service v
 In case all data is available in *ElasticSearch*, these [`example scripts`](data/elastic/) demonstrate how to specify a SimSearch instance against various types of ES-indexed atributes and interact with it with top-k similarity search queries. 
 
 
+### Value specification in search requests
+
+SimSearch supports several options in specifying query values in *search requests*. The following examples indicate these alternative specifications for the various types of attributes involved in SimSearch queries:
+
+- *GEOLOCATION*. Currently, this applies only to 2-dimensional point locations with long/lat coordinates:
+	1) _Well-Known Text representation_: "POINT (11.256 43.774)"
+	2) _String of comma-separated coordinates_: "11.256, 43.774"
+	3) _Array of numerical coordinates_: [11.256, 43.774]
+	4) _Array of string values representing coordinates_: ["11.256", "43.774"]
+
+- *NUMBER*. This data type concerns numerical values specified as:
+	1) An integer value: 5
+	2) A double value: 124.68
+	3) A string containing a numerical value: "124.68"
+
+- *KEYWORD_SET*. Such values typically represent sets of keywords used in categorical (set-valued) search and can be specified as:
+	1) Array of strings: ["Computer+science", "Electronics", "Software", "E-commerce"]
+	2) String of comma-separated keywords: "Computer+science, Electronics, Software, E-commerce"
+
+
 ## Interactive Data Exploration with the SimSearch REST API and Jupyter notebooks
 
 This [`Jupyter notebook`](data/notebooks/SimSearch_API_demo.ipynb) demonstrates how to interact with a deployed SimSearch service and specify requests.
@@ -114,6 +134,9 @@ We have made available two videos demonstrating the current functionality provid
 - A [presentation](https://www.youtube.com/watch?v=18ltkd76B7k) of our paper [Similarity Search over Enriched Geospatial Data](https://dl.acm.org/doi/abs/10.1145/3403896.3403967) accepted in [GeoRich 2020 workshop](https://georich2020.github.io/). This video explains the motivation, outlines the processing flow, and presents results from an experimental validation of this framework.
 
 - Our [demonstration](https://www.youtube.com/watch?v=DDjmYQdxyUc) of the SimSearch functionality as of September 2020, as presented during the mid-term review of the SmartDataLake project.
+
+- Our [demonstration](https://www.youtube.com/watch?v=aj_RNiIPF8w) of the SimSearch UI as presented at the [SIMPLIFY Workshop](https://simplify2021.imsi.athenarc.gr/) in March 2021. This demo exemplifies [Multi-Attribute Similarity Search for Interactive Data Exploration](https://simplify2021.imsi.athenarc.gr/papers/SIMPLIFY_2021_paper_11.pdf) through a web interface. It shows how users can specify parameters and their preferences for similarity search, and also how they can visually inspect and compare the results through appropriate visualizations for the different types of attributes involved.
+
 
 
 ## Note on R-tree implementation

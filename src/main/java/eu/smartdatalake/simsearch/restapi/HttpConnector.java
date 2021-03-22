@@ -84,6 +84,9 @@ public class HttpConnector implements IDataConnector {
 	 */
 	public HttpConnector(URI uri) {
 		this.uri = uri;
+		
+		// Keep track of the max number of results per request (if applicable)
+		this.maxResultCount = findMaxResultCount();
 	}
 	
 	
@@ -171,7 +174,7 @@ public class HttpConnector implements IDataConnector {
 	 		CloseableHttpResponse response = executeQuery(query);
 	 		JSONParser jsonParser = new JSONParser();
 	
-	 		if (response != null) {	
+	 		if ((response != null) && (response.getStatusLine().getStatusCode() == 200)) {	
 				HttpEntity entity = response.getEntity();
 
 				if (entity != null) {
@@ -188,7 +191,7 @@ public class HttpConnector implements IDataConnector {
 						Iterator<Object> iterator = arrItems.iterator();
 						while (iterator.hasNext()) {
 							JSONObject item = (JSONObject) iterator.next();
-							if(item instanceof JSONObject) {
+							if (item instanceof JSONObject) {
 								val = ((JSONObject)item.get("_source")).values().iterator().next();
 							}
 						}
@@ -256,25 +259,41 @@ public class HttpConnector implements IDataConnector {
 	   	}
 	}
 	
+	/**
+	 * Checks whether the given attribute name is available for queries.
+	 * FIXME: This is currently implemented for Elasticsearch only.
+	 * @param fieldName  The attribute name.
+	 * @return  True, if the attribute exists and contains at least one NOT NULL value; otherwise, False.
+	 */
+	public boolean fieldExists(String fieldName) {
+		
+		// Check if this field contains at least one value 
+		Object val = findSingletonValue("{\"_source\": [\"" + fieldName + "\"], \"query\": {\"exists\": {\"field\": \"" +  fieldName + "\"}}}");
+		if (val != null)
+			return true;
+		
+		return false;
+	}
 	
 	/**
 	 * Finds out the maximum number of results returned by an HTTP request.
-	 * @return  An integer value respresenting the maximum number of results per HTTP request.
+	 * FIXME: This method currently handles only ElasticSearch indices.
+	 * @return  An integer value representing the maximum number of results per HTTP request.
 	 */
 	private int findMaxResultCount() {
 		
-		int maxSize = Constants.INFLATION_FACTOR;
+		int maxSize = 0;
 		
 	 	try { 		
 	 		String origURI = this.uri.toString();
 	 		
 	 		// SimSearch REST API does not specify this value
 	 		if (origURI.contains("simsearch"))
-	 			return maxSize;
+	 			return Constants.INFLATION_FACTOR;
 	 		
 	 		// FIXME: This URI specifically targeting ElasticSearch indices
 	 		String settingsURI = origURI.substring(0, origURI.indexOf("/_")) + "/_settings";
-	 		System.out.println("URI:" + new URI(settingsURI));
+//	 		System.out.println("URI:" + new URI(settingsURI));
 	 		
 	 		// Create a new HTTP client to get the settings
 	 		this.httpClient = HttpClients.createDefault();
@@ -291,7 +310,7 @@ public class HttpConnector implements IDataConnector {
 
 				// Execute the request and get the response
 				response = httpClient.execute(request);
-		 		if (response != null) {	
+		 		if ((response != null) && (response.getStatusLine().getStatusCode() == 200)) {	
 					HttpEntity entity = response.getEntity();
 					
 					if (entity != null) {
@@ -306,7 +325,10 @@ public class HttpConnector implements IDataConnector {
 							String key = (String) items.keySet().iterator().next(); 
 							Object value = items.get(key);
 							// FIXME: Value extracted according to the JSON response by ElasticSearch
-							maxSize = Integer.parseInt((String) getJSONValue(getJSONValue(getJSONValue(value, "settings"), "index"),"max_result_window"));
+							int size = Integer.parseInt((String) getJSONValue(getJSONValue(getJSONValue(value, "settings"), "index"),"max_result_window"));
+							// Precaution just in case ES returns a zero value
+							if (size > maxSize)
+								maxSize = size;
 						} catch (Exception e) {  
 							e.printStackTrace(); 
 						}

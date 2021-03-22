@@ -3,6 +3,7 @@ package eu.smartdatalake.simsearch.manager;
 import java.util.UUID;
 
 import eu.smartdatalake.simsearch.Constants;
+import eu.smartdatalake.simsearch.manager.DataType.Type;
 
 /**
  * Provides identification for the data regarding a specific attribute available from a data source.
@@ -17,6 +18,7 @@ public class DatasetIdentifier {
 	String attrKey = null;
 	private boolean queryable = true;   // Unless explicitly specified in the config, a dataset can be involved in similarity search queries 
 	private String prefixURL = null;    // URL prefix to be combined with the values in attrKey (assuming this yields resolvable URLs)
+	private Type datatype = null;		// Specifies the data type of the queryable attribute values
 	
 	// Associate this dataset with its transformed one
 	private TransformedDatasetIdentifier transformed = null; // Unless explicitly specified in the config, a dataset is not transformed
@@ -143,6 +145,14 @@ public class DatasetIdentifier {
 		return prefixURL;
 	}
 
+	public Type getDatatype() {
+		return datatype;
+	}
+
+	public void setDatatype(Type datatype) {
+		this.datatype = datatype;
+	}
+	
 	/**
 	 * Indicates whether this dataset is only used as a dictionary of names.
 	 * @return  True, if the data serves as a dictionary of names; otherwise, False.
@@ -196,6 +206,8 @@ public class DatasetIdentifier {
 	 * @param transformed  The associated transformed dataset (e.g., a vector representation of keywords).
 	 */
 	public void setTransformed(TransformedDatasetIdentifier transformed) {
+		// FIXME: Assuming that the original attribute always represents sets of keywords 
+		this.setDatatype(Type.KEYWORD_SET);
 		this.transformed = transformed;
 	}
 

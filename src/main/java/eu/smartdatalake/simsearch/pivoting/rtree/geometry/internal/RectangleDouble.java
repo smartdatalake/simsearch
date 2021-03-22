@@ -1,6 +1,7 @@
 package eu.smartdatalake.simsearch.pivoting.rtree.geometry.internal;
 
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 //import com.github.davidmoten.guavamini.Preconditions;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Geometry;
@@ -76,6 +77,12 @@ public final class RectangleDouble implements Rectangle {
         return "Rectangle [mins=" + Arrays.toString(mins) + ", maxes=" + Arrays.toString(maxes) + "]";
     }
 
+	@Override
+	public String toText() {
+		// WKT-like representation
+		return "BBOX (" + Arrays.stream(mins).mapToObj(String::valueOf).collect(Collectors.joining(" ")) + ", " + Arrays.stream(maxes).mapToObj(String::valueOf).collect(Collectors.joining(" ")) + ")";
+	}
+	
     @Override
     public int hashCode() {
         int result = 1;

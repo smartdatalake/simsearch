@@ -99,17 +99,21 @@ public class SearchResponseFormat {
 			// Populate overall response to this multi-attribute search query
 			response.setRankedResults(results[w]);
 	
+			int numApproxResults = 0;
 			// Extra manipulation to replace identifiers with their respective URLs in the search results
 			// Also include entity names, if available
 			if ((luNames != null) && (prefixURL != null) && (results[w].length <= 1000)) {
 				IResult[] curResults = response.getRankedResults();
+				
 				for (int i = 0; i < curResults.length; i++) { 
 					String name = "";    // Default name
 					// Names are actually kept in a dictionary
 					if (luNames.get(curResults[i].getId()) != null)
 						name = luNames.get(curResults[i].getId()).toString();
 					curResults[i].setName(name);
-
+					// Check if at least some results are approximate due to time out
+					if (!curResults[i].isExact())
+						numApproxResults++;
 					// Set the URL as the identifier to be reported
 					curResults[i].setId(myAssistant.formatURL(prefixURL, curResults[i].getId()));	
 				}
@@ -118,8 +122,13 @@ public class SearchResponseFormat {
 			// Notifications
 			if (results[w].length < topk)
 				response.setNotification("Search inconclusive because at least one query facet failed to provide a sufficient number of candidates.");
-			else
+			else 
 				response.setNotification("");
+			
+			if (numApproxResults == response.getRankedResults().length)
+				response.appendNotification("All results have been ranked approximately because search timed out.");
+			else if (numApproxResults > 0)
+				response.appendNotification("The last " + numApproxResults + " results have been ranked approximately because search timed out.");
 			
 			responses[w] = response;	
 			

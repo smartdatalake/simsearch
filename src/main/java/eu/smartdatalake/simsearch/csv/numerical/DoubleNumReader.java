@@ -301,7 +301,7 @@ public class DoubleNumReader {
 
 		// Report statistics
 		calculateAlgebraicStats(dict.values());
-		log.writeln("Statistics: count: " + count + ", min: " + minVal + ", max: " + maxVal + ", avg: " + avgVal + " , stdev: " + stDev + ".");
+		log.writeln("Statistics: count: " + count + ", min: " + minVal + ", max: " + maxVal + ", avg: " + avgVal + ", stdev: " + stDev + ".");
 		
 		return dict;
 	}

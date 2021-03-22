@@ -326,7 +326,7 @@ public class SearchHandler {
 					
 					// QUERY SPECIFICATION
 					// Search keywords can be specified either as a JSON array of string values or a concatenated string using the default delimiter
-					String[] searchKeywords = valParser.parseStringArray(queryConfig.value);
+					String[] searchKeywords = (String[]) valParser.parse(queryConfig.value);
 					if (searchKeywords == null) {
 						log.writeln("Operation " + operation + " using a NULL or invalid search value is not supported! This query facet will be ignored.");
 						continue;
@@ -391,6 +391,8 @@ public class SearchHandler {
 						log.writeln("Operation " + operation + " using a NULL or invalid search value is not supported! This query facet will be ignored.");
 						continue;
 					}
+					
+//					System.out.println("Numerical value: " + searchingKey);
 					
 					// Check whether data has been normalized during indexing
 					INormal normal = normalizations.get(id.getHashKey());

@@ -90,7 +90,79 @@ public class JdbcConnector implements IDataConnector {
 	else   // TODO: Handle other JDBC sources
 		return null;
   }
-  
+ 
+	
+	/**
+	 * Identifies which column in the DBMS table corresponds to the given attribute name.
+	 * @param dataSource   The database table.
+	 * @param colName  The attribute name.
+	 * @return  A positive integer representing the ordering of the column in the table; -1, if this attribute name is not found.
+	 */
+	public int getColumnNumber(String dataSource, String colName) {
+
+		int index = -1;
+		String col = colName;
+		try {	
+			// In case multiple columns are specified (e.g., lon/lat coordinates), the first column is used for identification
+			if (colName.startsWith("[") && colName.endsWith("]")) {
+				String[] columns = colName.substring(1, colName.length()-1).replace("\"", "").split(",");
+				col = columns[0];
+			}
+			
+			// Check if column is available according to DBMS specifications
+			String sql = null;		
+			switch(this.getDbSystem()) {
+			case "POSTGRESQL":   	// Connected to PostgreSQL
+				sql = "SELECT ordinal_position FROM information_schema.columns WHERE table_name ='" + dataSource + "' AND column_name = '" +  col + "'";
+				index = (int) findSingletonValue(sql);
+				break;
+			case "AVATICA":   		// Connected to Avatica JDBC (Proteus)
+				// FIXME: Any alternative to examine existence of a specific column in Proteus?
+				sql = "SELECT count(*) FROM (SELECT " + col + " FROM " + dataSource + " WHERE " + col + " IS NOT NULL LIMIT 1) test";
+				index = Integer.parseInt((String) findSingletonValue(sql));
+				break;
+	        default:
+	        	sql = null;
+	        } 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return index;
+	}
+
+	
+	/**
+	 * Identifies whether the given column in the database table has an associated index (numerical, spatial, textual).
+	 * @param dataSource   The database table.
+	 * @param colName  The attribute name.
+	 * @return  A Boolean value: True, if an index exists in this column; otherwise, False.
+	 */
+	public boolean isJDBCColumnIndexed(String dataSource, String colName) {
+
+		Object indexName = null;
+		try {		
+			// Check if column is available according to DBMS specifications
+			String sql = null;		
+			switch(this.getDbSystem()) {
+			case "POSTGRESQL":  // Connected to PostgreSQL
+				sql = "SELECT i.relname AS index_name FROM pg_class t, pg_class i, pg_index ix, pg_attribute a WHERE t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) AND t.relkind = 'r' AND t.relname LIKE '" + dataSource + "%' AND a.attname LIKE '" + colName + "%' ORDER BY t.relname, i.relname;";
+				break;
+			case "AVATICA":   // FIXME: Any alternative to examine if a specific column is indexed in Avatica JDBC connections (Proteus)?
+				sql = "SELECT TRY_CAST(" + colName + " AS double) FROM " + dataSource + " WHERE " + colName + " IS NOT NULL LIMIT 1";   // Work-around to identify queryable numerical attributes
+				break;
+	        default:
+	        	sql = null;
+	        } 
+			if (sql != null)
+				indexName = findSingletonValue(sql);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return (indexName != null);
+	}
+
+	
   /** 
    * Establishes a new connection taken from the pool.
    * @param connPool  The pool offering available JDBC connections to the database.

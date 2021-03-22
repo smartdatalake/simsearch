@@ -65,6 +65,7 @@ public class RankedResult implements IResult {
 		this.name = name;
 	}
 	
+	@Override
 	public boolean isExact() {
 		return exact;
 	}
