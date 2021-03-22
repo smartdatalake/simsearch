@@ -86,7 +86,7 @@ In case all data is available in *ElasticSearch*, these [`example scripts`](data
 
 ### Value specification in search requests
 
-SimSearch supports several options in specifying query values in *search requests*. The following examples indicate these alternative specifications for the various types of attributes involved in SimSearch queries:
+SimSearch supports several options in specifying query values in *search requests*. The following _examples_ indicate these alternative specifications for the various types of attributes involved in SimSearch queries:
 
 - *GEOLOCATION*. Currently, this applies only to 2-dimensional point locations with long/lat coordinates:
 	1) _Well-Known Text representation_: "POINT (11.256 43.774)"
@@ -95,13 +95,13 @@ SimSearch supports several options in specifying query values in *search request
 	4) _Array of string values representing coordinates_: ["11.256", "43.774"]
 
 - *NUMBER*. This data type concerns numerical values specified as:
-	1) An integer value: 5
-	2) A double value: 124.68
-	3) A string containing a numerical value: "124.68"
+	1) An _integer_ value: 5
+	2) A _double_ value: 124.68
+	3) A _string containing a numerical value_: "124.68"
 
 - *KEYWORD_SET*. Such values typically represent sets of keywords used in categorical (set-valued) search and can be specified as:
-	1) Array of strings: ["Computer+science", "Electronics", "Software", "E-commerce"]
-	2) String of comma-separated keywords: "Computer+science, Electronics, Software, E-commerce"
+	1) _Array of strings_: ["Computer+science", "Electronics", "Software", "E-commerce"]
+	2) String of _comma-separated keywords_: "Computer+science, Electronics, Software, E-commerce"
 
 
 ## Interactive Data Exploration with the SimSearch REST API and Jupyter notebooks
