@@ -58,7 +58,7 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 (3): CATALOG -> Returns a list of the currently queryable attributes and the operation (categorical, numerical, spatial, or pivot-based) supported for each one.
 
-(4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file containing the query specification (as in [`search.json.example`](search.json.example) file or [`data/gdelt/standalone/search.json`](data/gdelt/standalone/search.json) for a search request using rank aggregation). Configuration for search requests using pivot-based SimSearch must specifically define *pivot_based* as the algorithm to be used, as in this [`example`](data/gdelt/standalone/search_pivot.json) of a *pivot-based search request*. In all cases, once evaluation is complete, results will be available in JSON format (as in [`data/gdelt/standalone/search_results.json`](data/gdelt/search_results.json)).
+(4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file containing the query specification (as in [`search.json.example`](search.json.example) file or [`data/gdelt/standalone/search.json`](data/gdelt/standalone/search.json) for a search request using rank aggregation). Configuration for search requests using pivot-based SimSearch must specifically define *pivot_based* as the algorithm to be used, as in this [`example`](data/gdelt/standalone/search_pivot.json) of a *pivot-based search request*. In all cases, once evaluation is complete, results will be available in JSON format (as in [`data/gdelt/standalone/search_results.json`](data/gdelt/standalone/search_results.json)).
 
 ## Launching SimSearch as web service
 
