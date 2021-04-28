@@ -16,7 +16,8 @@ public class DataType {
         NUMBER,
         GEOLOCATION,
         KEYWORD_SET,
-        NUMBER_ARRAY;
+        NUMBER_ARRAY,
+        DATE_TIME;
     }
 
     /**
@@ -57,6 +58,10 @@ public class DataType {
         return (getType() == Type.KEYWORD_SET) ? true : false;
     }
        
+    public boolean isDateDate() {
+        return (getType() == Type.DATE_TIME) ? true : false;
+    }
+    
 	public Type getType() {
 		return type;
 	}

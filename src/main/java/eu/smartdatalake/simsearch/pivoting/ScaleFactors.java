@@ -28,11 +28,11 @@ public class ScaleFactors {
 		ref = R;
 		M = m;
 		scale = new double[M];	
-		Arrays.fill(scale, 1.0);
+		Arrays.fill(scale, 1.0);  // Initialization
 	}
 	
 	/**
-	 * Calculates the scale factors to normalize distance values for the various distances. 
+	 * Calculates the scale factors used in normalizing distance values for the various metrics.
 	 * This method calculates the distance of k-nearest neighbor separately per query attribute value (ignoring the values in the rest).
 	 * @param datasets  Dictionary of input datasets used in creating the underlying index.
 	 * @param attrIdentifiers  Attribute identifiers per distance metric, each corresponding to the input datasets.
@@ -61,7 +61,7 @@ public class ScaleFactors {
 	}
 	
 	/**
-	 * Calculates the scale factors to normalize distance values for the various distances.
+	 * Calculates the scale factors used in normalizing distance values for the various metrics.
 	 * This method uses the range of values per attribute in the data for the normalization.
 	 * @param mins  R-dimensional point having as ordinates the minimum values per embedding among all indexed data points.
 	 * @param maxes R-dimensional point having as ordinates the maximum values per embedding among all indexed data points.

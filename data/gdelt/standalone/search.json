@@ -9,11 +9,11 @@
 				},
 				{
 					"column":"timestamp",
-					"value":"20191104084500",
+					"value":"2019-11-04 08:45:00",
 					"weights":["1.0","0.4"]
 				},
 				{
-					"column":["longitude","latitude"],
+					"column":"position",
 					"value":"POINT(-74.94 42.15)",
 					"weights":["1.0","0.7"]
 				}

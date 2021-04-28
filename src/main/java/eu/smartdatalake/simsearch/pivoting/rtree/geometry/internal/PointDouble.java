@@ -65,6 +65,8 @@ public final class PointDouble implements Point {
 //    		return Arrays.stream(mins()).mapToObj(String::valueOf).collect(Collectors.joining(","));
 //    		return Arrays.toString(mins());
     	}
+    	else if (containsNaN())
+    		return "";
     	else
     		return "" + mins()[0];
     }

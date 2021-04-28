@@ -1,8 +1,8 @@
 package eu.smartdatalake.simsearch.pivoting;
 
 import eu.smartdatalake.simsearch.engine.IDistance;
-import eu.smartdatalake.simsearch.measure.DecayedSimilarity;
-import eu.smartdatalake.simsearch.measure.Scaling;
+import eu.smartdatalake.simsearch.engine.measure.DecayedSimilarity;
+import eu.smartdatalake.simsearch.engine.measure.Scaling;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 
 /**

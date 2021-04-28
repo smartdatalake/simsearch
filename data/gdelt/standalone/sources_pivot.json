@@ -25,7 +25,8 @@
 					"header":"true",
 					"separator":",",
 					"key_column":"article_id",
-					"search_column":["longitude","latitude"]
+					"search_column":["longitude","latitude"],
+					"alias_column":"position"
 				}, 
 				{
 					"operation":"pivot_based",
@@ -48,6 +49,26 @@
 					"header":"true",
 					"key_column":"article_id",
 					"search_column":"timestamp"
+				},
+				{
+					"operation":"pivot_based",
+					"metric":"Manhattan",
+					"source":"localPath1",
+					"dataset":"sample.csv",
+					"separator":",",
+					"header":"true",
+					"key_column":"article_id",
+					"search_column":"positive_sentiment"
+				},
+				{
+					"operation":"pivot_based",
+					"metric":"Manhattan",
+					"source":"localPath1",
+					"dataset":"sample.csv",
+					"separator":",",
+					"header":"true",
+					"key_column":"article_id",
+					"search_column":"negative_sentiment"
 				}
 			]
 }

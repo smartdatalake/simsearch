@@ -19,6 +19,8 @@ public class DatasetIdentifier {
 	private boolean queryable = true;   // Unless explicitly specified in the config, a dataset can be involved in similarity search queries 
 	private String prefixURL = null;    // URL prefix to be combined with the values in attrKey (assuming this yields resolvable URLs)
 	private Type datatype = null;		// Specifies the data type of the queryable attribute values
+	private String sample = null;		// A sample value extracted from the attribute data
+	
 	
 	// Associate this dataset with its transformed one
 	private TransformedDatasetIdentifier transformed = null; // Unless explicitly specified in the config, a dataset is not transformed
@@ -209,6 +211,22 @@ public class DatasetIdentifier {
 		// FIXME: Assuming that the original attribute always represents sets of keywords 
 		this.setDatatype(Type.KEYWORD_SET);
 		this.transformed = transformed;
+	}
+
+	/**
+	 * Provides an indicative value for this attribute.
+	 * @return  A randomly chosen value extracted from the attribute data.
+	 */
+	public String getSampleValue() {
+		return sample;
+	}
+
+	/**
+	 * Retains a sample value as indicative for this dataset.
+	 * @param sample  A randomly chosen value extracted from the attribute data.
+	 */
+	public void setSampleValue(String sample) {
+		this.sample = sample;
 	}
 
 }

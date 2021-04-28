@@ -21,13 +21,18 @@ import eu.smartdatalake.simsearch.request.SearchSpecs;
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.csv.lookup.Word2VectorTransformer;
 import eu.smartdatalake.simsearch.engine.IResult;
 import eu.smartdatalake.simsearch.engine.OutputWriter;
 import eu.smartdatalake.simsearch.engine.QueryValueParser;
 import eu.smartdatalake.simsearch.engine.SearchResponse;
 import eu.smartdatalake.simsearch.engine.SearchResponseFormat;
+import eu.smartdatalake.simsearch.engine.processor.RankedResult;
+import eu.smartdatalake.simsearch.engine.processor.ResultFacet;
+import eu.smartdatalake.simsearch.engine.weights.Estimator;
+import eu.smartdatalake.simsearch.engine.weights.Validator;
 import eu.smartdatalake.simsearch.manager.DataType.Type;
+import eu.smartdatalake.simsearch.manager.ingested.lookup.Word2VectorTransformer;
+import eu.smartdatalake.simsearch.manager.DataType;
 import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.manager.TransformedDatasetIdentifier;
 import eu.smartdatalake.simsearch.pivoting.rtree.Entry;
@@ -36,8 +41,6 @@ import eu.smartdatalake.simsearch.pivoting.rtree.NearestEntry;
 import eu.smartdatalake.simsearch.pivoting.rtree.RTree;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Rectangle;
-import eu.smartdatalake.simsearch.ranking.RankedResult;
-import eu.smartdatalake.simsearch.ranking.ResultFacet;
 
 /**
  * Creates a pivot-based, multi-dimensional RR*-tree and then handles multi-attribute similarity search requests. 
@@ -66,8 +69,14 @@ public class PivotManager {
 	// Dictionary holding information per attribute used in estimating similarity scores with exponential decay function
 	Map<String, MetricSimilarity> metricSimilarities;
 	
+	// Sample values per attribute collected for estimations
+	Map<String, List<Point>> samples;
+	
 	// Fixed scaling factors determined during tree construction; alternatively, they can be computed dynamically at query time
 	ScaleFactors scaleFactors;
+	
+	// Estimator to auto-configure weights for attribute(s) in case of no user-specified values 
+	Estimator estimator;
 	
 	long duration;
 
@@ -76,6 +85,7 @@ public class PivotManager {
 	// Keep track of any word2vec transformers associated with particular attributes
 	Map<String, Word2VectorTransformer> transformers;
 
+	
 	/**
 	 * Constructor
 	 * @param r  Total number of reference values (pivots).
@@ -210,6 +220,10 @@ public class PivotManager {
     			// Handling array of double values in the query
     			return Point.create(Stream.of((Double[]) val).mapToDouble(Double::doubleValue).toArray());
     		}
+    		else if (datatype == Type.DATE_TIME) {
+    			// Handling a date/time value has been already converted to epoch (a double number)
+    			return Point.create(new double[]{Double.parseDouble(val.toString())});
+    		}
     		else if (datatype == Type.GEOLOCATION) {
     			// Handling a query location
     			return Point.create(Arrays.stream((String[]) val).mapToDouble(Double::parseDouble).toArray());
@@ -225,6 +239,7 @@ public class PivotManager {
 		return myAssistant.createNaNPoint(ref.getDimension(attr));
 	
 	}
+	
 	
 	/**
 	 * Indexing stage: Construct an RR*-tree index based on the input records, using the given distances and determining suitable reference points (i.e., pivots)
@@ -246,6 +261,9 @@ public class PivotManager {
 		// Fixed scaling factors determined during tree construction
 		scaleFactors = new ScaleFactors(ref, M);
 		
+		// Samples to be populated from the records
+		samples = new HashMap<String,List<Point>>();
+		
 		try {
 			log.writeln("**************RR*-tree: Estimating number of pivots per distance****************");
 	    	duration = System.nanoTime();
@@ -266,23 +284,25 @@ public class PivotManager {
 		    		numRounds--;
 	    		}
 	    		// ... and finally get the final sample	   
-	    		sample.add(randomSample(nonNullSubset, Constants.NUM_SAMPLES));
-	/*	    		
-		    		for (Point p: randomSet) {
-		    			System.out.println(p.toString());
-		    		}
-		    		System.out.println("*************Chosen " + randomSet.size() + " objects for " + m + "-th distance.**********************");
-	*/	    		
-	    	}
+	    		List<Point> subset = randomSample(nonNullSubset, Constants.NUM_SAMPLES);
+	    		samples.put(attr, subset);
+	    		sample.add(subset);
+/*	    		
+	    		for (Point p: randomSet) {
+	    			System.out.println(p.toString());
+	    		}
+	    		System.out.println("*************Chosen " + randomSet.size() + " objects for " + m + "-th distance.**********************");
+*/	    		
+	    	}    	
 	    	
 	    	// This process does NOT choose the actual pivots, but only a suitable number of pivots per distance
-	    	PivotSetting setting = new PivotSetting(M, R, ref.metrics, sample, log);
+	    	PivotAllocation setting = new PivotAllocation(M, R, ref.metrics, sample, log);
 	    	int[] pivotsPerMetric = setting.greedyMaximization();
 	    	
 	    	// FIXME: Assign the average NN distances per distance as the respective scale factors
 	    	scaleFactors.scale = setting.getEpsilonThresholds();
 	    	
-	    	// Select number of pivots per attribute (distance)
+	    	// Select number of pivots per attribute (distance metric)
 	    	int cntPivots = 0;
 	    	for (String attr: records.keySet()) {
 	    		int m = ref.getAttributeOrder(attr);   // Metric reference corresponding to this attribute
@@ -291,12 +311,12 @@ public class PivotManager {
 	    		ref.setEndReference(m, cntPivots - 1);
 	    	}		
 
-	    	// For each attribute (distance) involved in the index (and the queries), identify its respective data source
+	    	// For each attribute (distance metric) involved in the index (and the queries), identify its respective data source
 	    	attrIdentifiers = new String[ref.countMetrics()];
 			for (Map.Entry<String, DatasetIdentifier> id: pivotDataIdentifiers.entrySet()) {
 				// Attribute name
 				String attr = id.getValue().getValueAttribute();
-				// The internal hashkey of each dataset is assigned per distance
+				// The internal hashkey of each dataset is assigned per distance metric
 				attrIdentifiers[ref.getAttributeOrder(attr)] = id.getValue().getHashKey();
 			}
 			
@@ -306,7 +326,7 @@ public class PivotManager {
 	    	log.writeln("**************RR*-tree: Pivot selection & embedding****************");
 	    	duration = System.nanoTime();
 	    	
-			// Initialize list for pivot values to be determined per distance
+			// Initialize list for pivot values to be determined per attribute (distance metric)
 			// CAUTION! Points for different distances may have differing number of ordinates
 			pivots = new ArrayList<List<Point>>(M);		
 	     	for (int m = 0; m < M; m++) {
@@ -340,17 +360,17 @@ public class PivotManager {
 	    	int c = 0;
 	    	double[] val;  // Array of embeddings for this object
 	    	// IMPORTANT! Assuming that entity identifiers are identical for all lists of input records
-	    	for (String key: records.get(ref.getAttribute(0)).keySet()) {
+	    	for (String entityId: records.get(ref.getAttribute(0)).keySet()) {
 	    		val = new double[R];
-	    		int n = 0;
+	    		int r = 0;
 	    		for (int j = 0; j < M; j++) {   // For each attribute (distance metric)
 	    			// Number of pivots may differ per attribute
 	    			for (int l = 0; l < ref.countDimensionReferenceValues(j); l++) {
-	    				val[n] = distances[j][c][l];	// Embedded distance from pivot
-	    				n++;
+	    				val[r] = distances[j][c][l];	// Embedded distance from pivot
+	    				r++;
 	    			}
 	    		}
-	    		entry = Entry.entry(key, Point.create(val));
+	    		entry = Entry.entry(entityId, Point.create(val));
 	    		points.add(entry);
 //		    	System.out.println(Arrays.toString(val));
 	    		c++;
@@ -392,6 +412,7 @@ public class PivotManager {
 		return true;
 	}
 
+	
 	/**
 	 * Adding specification for an attribute used in the index, but not specified in the use query.
 	 * @param attrName  The name of the missing attribute.
@@ -409,19 +430,90 @@ public class PivotManager {
 		Arrays.fill(weights, 0.0);
 		extraSpecs.weights = weights;
 		
-		log.writeln("Attribute " + attrName + " was not included in the query specification. A NULL value has been specified with zero zeights.");
+		log.writeln("Attribute " + attrName + " was not included in the query specification. A NULL value has been specified with zero weights.");
 		
 		return extraSpecs;
+	}
+
+	
+	/**
+	 * Constructs a multi-dimensional point per attribute from the user-specified query values.
+	 * @param querySpecs  The query specifications per attribute.
+	 * @param scale  The scale factors to be applied; user-specified values may be set.
+	 * @param attrWeights  The weight combinations per attribute.
+	 * @param notification  Message notification to be returned in case of errors.
+	 * @return  The query object to be used in searching the index. 
+	 */
+	private Map<String, Point> setQueryValues(SearchSpecs[] querySpecs, double[] scale, Map<String, Double[]> attrWeights, String notification) {
+			
+        // CAUTION! Query: a multi-dimensional point must be constructed per attribute
+        Map<String, Point> qPoint = new TreeMap<String, Point>();
+        
+		// Instantiate a parser for the various types of query values
+		QueryValueParser valParser = new QueryValueParser(delimiter);
+
+		// Attribute names are associated with their respective values 
+		String[] qValues = new String[querySpecs.length];
+		String[] qColumns = new String[querySpecs.length];
+		DatasetIdentifier datasetId;
+		// Multi-dimensional query point as an array of attribute values (one per queried attribute)
+		for (int i = 0 ; i < querySpecs.length; i++) {
+			// Search column; Multiple attributes (e.g., lon, lat) will be combined into a virtual column [lon, lat] for searching
+			String colValueName = querySpecs[i].column.toString();
+			// Identify the corresponding dataset
+			// Also handles cases where an array of attributes is used (e.g., lon/lat coordinates for location)
+			datasetId = this.findIdentifier(colValueName);
+			if (datasetId == null) {
+				String msg = "Attribute data on " + colValueName + " has not been specified for pivot-based similarity search.";
+				notification.concat(msg + " ");
+				log.writeln(msg);
+				continue;
+			}
+			
+			// Parse user-specified query value for this attribute and 
+			qColumns[i] = datasetId.getValueAttribute();
+			Object val = null;
+			if (datasetId.getDatatype() == Type.DATE_TIME)  // Special handling of date/time values
+				val = valParser.parseDate(querySpecs[i].value);
+			if (val == null)   // Other data types
+				val = valParser.parse(querySpecs[i].value);
+			
+			// Create a (multi-dimensional) query point
+			Point p = constructQueryPoint(qColumns[i], valParser.getDataType(), val, datasetId.needsTransform());
+        	qPoint.put(qColumns[i], p);
+        	qValues[i] = (querySpecs[i].value != null) ? querySpecs[i].value.toString() : "null";
+        	
+        	// Check compatibility of data types
+        	if (datasetId.getDatatype() != valParser.getDataType())
+        		notification.concat("" + "Query value " + String.valueOf(querySpecs[i].value) + " is not of type " + datasetId.getDatatype() + " as the attribute data.");
+        	
+        	// Retain the weights associated with this attribute
+        	attrWeights.put(qColumns[i], querySpecs[i].weights);
+        	
+        	// Specify the distance similarity to be used for this attribute (distance)
+        	int m = ref.getAttributeOrder(qColumns[i]);   // The distance (attribute) involved
+        	// Apply the user-specified scale factor for distances on this attribute
+        	if (querySpecs[i].scale != null)
+    			scale[m] = querySpecs[i].scale;
+        	// Also keep a decay factor if specified by the user for this attribute
+        	MetricSimilarity metricSimilarity = new MetricSimilarity(p, ref.getMetric(m), ((querySpecs[i].decay != null) ? querySpecs[i].decay : Constants.DECAY_FACTOR), scale[m], m);
+        	// As key employ the same hashkey used for the respecive attribute dataset
+        	metricSimilarities.put(datasetId.getHashKey(), metricSimilarity);
+		}
+
+		return qPoint;
 	}
 	
 	
 	/**
 	 * Searching stage: Given a user-specified configuration, execute the pivot-based similarity search and issue the ranked top-k results.
 	 * This method accepts an instance of SearchRequest class.
-	 * @param params   An instance of SearchRequest class with the multi-facet search query specifications.
+	 * @param params   An instance of SearchRequest class with the multi-attribute search query specifications.
 	 * @return  A JSON-formatted response with the ranked results.
 	 */
 	public SearchResponse[] search(SearchRequest params) {
+		
+		duration = System.nanoTime();  
 		
 		SearchResponse[] responses;
 		String notification = "";  // Any extra notification(s) to the final response
@@ -429,6 +521,9 @@ public class PivotManager {
 		// Specifications for writing results into an output CSV file (if applicable)
 		OutputWriter outCSVWriter = new OutputWriter(params.output);
 		
+		// Construct for validating weights
+		Validator weightValidator = new Validator();
+				
 		// Query specifications
 		// NOTE: Query may not specify all indexed attributes
 		SearchSpecs[] querySpecs = params.queries;
@@ -440,9 +535,39 @@ public class PivotManager {
 			queryAttributes.add(querySpecs[i].column.toString());	
 		}
 		
-		// Number of weight combinations
-        int weightCombinations = querySpecs[0].weights.length;
+		// Initialize number of combinations of weights
+        int weightCombinations = 1;
 		
+		// In case of non-specified weights, create estimators so that they can be assigned dynamically later
+		estimator = new Estimator();
+		boolean missingWeights = false;   // By default, assume that all weights are specified 		
+		for (SearchSpecs queryConfig: querySpecs) {
+			if ((queryConfig.weights != null) && (queryConfig.weights.length == 0)) {  // Empty array of weights
+				queryConfig.weights = null;
+			}
+			// Missing weights should be automatically determined from statistical analysis
+			if (queryConfig.weights == null) {
+				estimator.setMissingWeight(queryConfig.column.toString());
+				missingWeights = true;
+			}
+			else {
+				// Validate user-specified weights
+				if (!weightValidator.check(String.valueOf(queryConfig.column), queryConfig.weights)) {
+					responses = new SearchResponse[1];
+					SearchResponse response = new SearchResponse();
+					String msg = "Request aborted because at least one weight value for attribute " + String.valueOf(queryConfig.column) + " is invalid.";
+					log.writeln(msg);
+					response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
+					responses[0] = response;
+					return responses;
+				}
+				// Find combination of weights with max cardinality
+				if (queryConfig.weights.length > weightCombinations)
+					weightCombinations = queryConfig.weights.length;	
+			}
+		}
+		
+		// Keep track of any attributes not involved in the query
         List<String> missingAttributes = new ArrayList<String>();
         
 		// Initialize the distance similarity to be used per attribute (metric)
@@ -480,55 +605,10 @@ public class PivotManager {
     	
     	// Scale factors to be used in this search
     	double[] scale = scaleFactors.getAll();   // Default values to apply if not specified in the query configuration
- 	
-        // CAUTION! Query: a multi-dimensional point must be constructed per attribute
-        Map<String, Point> qPoint = new TreeMap<String, Point>();   // Original values per attribute
-        Point p;
-        
-		// Instantiate a parser for the various types of query values
-		QueryValueParser valParser = new QueryValueParser(delimiter);
-
-		// Attribute names are associated with their respective values 
-		String[] qValues = new String[querySpecs.length];
-		String[] qColumns = new String[querySpecs.length];
-		DatasetIdentifier datasetId;
-		// Multi-dimensional query point as an array of attribute values (one per queried attribute)
-		for (int i = 0 ; i < querySpecs.length; i++) {
-			// Search column; Multiple attributes (e.g., lon, lat) will be combined into a virtual column [lon, lat] for searching
-			String colValueName = querySpecs[i].column.toString();
-			// Identify the corresponding dataset
-			// TODO: Handle cases where an array of attributes is used (e.g., lon/lat coordinates for location)
-			datasetId = this.findIdentifier(colValueName);
-			if (datasetId == null) {
-				String msg = "Attribute data on " + colValueName + " has not been specified for pivot-based similarity search.";
-				notification.concat(msg + " ");
-				log.writeln(msg);
-				continue;
-			}
-		
-			// Parse query value for this attribute and create a (multi-dimensional) point
-			qColumns[i] = datasetId.getValueAttribute();
-			Object val = valParser.parse(querySpecs[i].value);
-			p = constructQueryPoint(qColumns[i], valParser.getDataType(), val, datasetId.needsTransform());
-        	qPoint.put(qColumns[i], p);
-        	qValues[i] = (querySpecs[i].value != null) ? querySpecs[i].value.toString() : "null";
-        	
-        	// Retain the weights associated with this attribute
-        	attrWeights.put(qColumns[i], querySpecs[i].weights);
-        	
-        	// Specify the distance similarity to be used for this attribute (distance)
-        	int m = ref.getAttributeOrder(qColumns[i]);   // The distance (attribute) involved
-        	// Apply the user-specified scale factor for distances on this attribute
-        	if (querySpecs[i].scale != null)
-    			scale[m] = querySpecs[i].scale;
-        	// Also keep a decay factor if specified by the user for this attribute
-        	MetricSimilarity metricSimilarity = new MetricSimilarity(p, ref.getMetric(m), ((querySpecs[i].decay != null) ? querySpecs[i].decay : Constants.DECAY_FACTOR), scale[m], m);
-        	// As key employ the same hashkey used for datasets
-        	metricSimilarities.put(datasetId.getHashKey(), metricSimilarity);
-		}
- 	
-		log.writeln("Query: " + Arrays.toString(qValues));
-		
+	
+        // Query specification: a multi-dimensional point must be constructed per attribute
+    	Map<String, Point> qPoint = setQueryValues(querySpecs, scale, attrWeights, notification);
+    			
 		// Check whether values have been specified for all queryable attributes
 		if (metricSimilarities.values().contains(null)) {
 			responses = new SearchResponse[1];
@@ -540,14 +620,31 @@ public class PivotManager {
 			return responses;		
 		}
 		
-        // Embedded query point using the same pivots in order to be used during tree traversal
+        // Embedded query point with the same pivots in order to be used during tree traversal
         Point q = Point.create(embed(qPoint));
         log.writeln("Query embedding: " + Arrays.toString(q.mins()));
-
+        
+        // WEIGHT ESTIMATION
+		// Invoke estimation of weight(s) if not specified for some attributes
+		if (missingWeights) {
+			// Calculate indicative similarity scores based on the sample points
+			for (String attr : attrWeights.keySet()) {
+				if (estimator.hasMissingWeight(attr)) {
+					estimator.setInput(attr, findScoresFromSample(this.findIdentifier(attr).getHashKey(), qPoint.get(attr), samples.get(attr)));
+				}
+			}
+			//estimator.proc();		// Estimate based on standard deviation of scores
+			estimator.proc(topk);	// ALTERNATIVE: Estimate derived from percentiles and depends on the top-k parameter
+			attrWeights.putAll(estimator.getWeights(weightCombinations));
+			// Log estimated weights
+			String msg = "Weights assigned: ";
+			for (String attr : estimator.getAttributesWithoutWeight())
+				msg += attr + " -> " +  estimator.getWeight(attr) + "; ";
+			log.writeln(msg);
+		}
+		
         /********************QUERY EVALUATION ******************/
-        
-        duration = System.nanoTime();  
-        
+         
 		/********CAUTION! Skipping estimation of scale factors per query at runtime;******** 
 		 ********scale factors are assigned during pivot setting in tree construction*******/
 /*
@@ -577,8 +674,7 @@ public class PivotManager {
 	        // Perform a top-k similarity search query with these weights against the multi-dimensional RR*-tree
 	        simQuery = new MultiMetricSimilaritySearch(datasets, attrIdentifiers, ref, w, scaleFactors.getAll(), this.log);
 	        Iterable<NearestEntry<Object, Point, Double>> simResults = simQuery.search(tree.root().get(), q, qPoint, topk);
-//			System.out.println("Top-k similarity search results using pivots:");
-			int rank = 1;   // ranking of issued results
+			int rank = 1;   // ranking order of issued results
 			// Report each result 
 			for (NearestEntry<Object, Point, Double> r : simResults) {
 				// CAUTION! The RR*-tree returns distance values, not similarity scores
@@ -593,10 +689,9 @@ public class PivotManager {
         
 		duration = System.nanoTime() - duration;   
     	
-		// Format response
-    	// FIXME: No similarity matrix calculated for these results
+		// Format response, including similarity matrix of results pairwise
 		SearchResponseFormat responseFormat = new SearchResponseFormat();
-		responses = responseFormat.proc(allResults, attrWeights, datasetIdentifiers, datasets, datasets, null, null, metricSimilarities, topk, this.isCollectQueryStats(), outCSVWriter);
+		responses = responseFormat.proc(allResults, attrWeights, datasetIdentifiers, datasets, datasets, null, null, metricSimilarities, topk, this.isCollectQueryStats(), notification, outCSVWriter);
 
 		double execTime = duration / 1000000000.0;
 		log.writeln("SimSearch [pivot-based] issued " + responses[0].getRankedResults().length + " results. Processing time: " + execTime + " sec.");
@@ -771,12 +866,15 @@ public class PivotManager {
 			TransformedDatasetIdentifier id = (TransformedDatasetIdentifier)datasetId;
 			val = datasets.get(id.getOriginal().getHashKey()).get(oid);
 		}
+		// Temporal data has been ingested as numerical, so conversion to date/time must be applied
+		else if (datasetId.getDatatype() == DataType.Type.DATE_TIME)
+			val = myAssistant.formatDateValue(datasets.get(datasetId.getHashKey()).get(oid));
 		else   // Non-transformed dataset
-			val = datasets.get(datasetId.getHashKey()).get(oid);
-
+			val = myAssistant.formatAttrValue(datasets.get(datasetId.getHashKey()).get(oid));
+		
 		// Handle NULL in attribute values
-		attr.setValue(((val != null) ? ((val.getClass().isArray()) ? Arrays.toString((String[]) val) : val.toString()) : ""));
-	
+		attr.setValue(((val != null) ? ((val.getClass().isArray()) ? Arrays.toString((String[]) val) : String.valueOf(val)) : ""));
+		
 		return attr;
 	}
 	
@@ -798,6 +896,30 @@ public class PivotManager {
 	public void setCollectQueryStats(boolean collectQueryStats) {
 		
 		this.collectQueryStats = collectQueryStats;
+	}
+	
+	
+	/**
+	 * Provides the similarity scores between a query point (on a specific attribute) and a sample collection.
+	 * @param task  Identifier (hash key) of the attribute dataset, in order to apply the relevant distance metric.
+	 * @param qPoint  A multi-dimensional (embedded) query point created from the original value on a single attribute.
+	 * @param sample  A sample collection of (embedded) points randomly extracted from the original dataset.
+	 * @return  A list of top-k similarity scores from the sample w.r.t. query point.
+	 */
+	private List<Double> findScoresFromSample(String task, Point qPoint, List<Point> sample) {   //, int k
+		
+		List<Double> scores = new ArrayList<Double>();	
+		for (Point p: sample) {
+//			double d = metricSimilarities.get(task).calc(qPoint, p);
+//			System.out.println(qPoint.toString() + " <-> " + p.toString() + " : " + d);
+			scores.add(metricSimilarities.get(task).calc(qPoint, p));
+		}
+/*		
+		// Keep only the top-k similarity scores
+		scores.sort(Comparator.reverseOrder());
+		return scores.subList(0, k);   // k  is the number of highest similarity scores to keep.
+*/		
+		return scores;
 	}
 	
 }

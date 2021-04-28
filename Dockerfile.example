@@ -1,5 +1,5 @@
 FROM openjdk:8-jdk-alpine
-ARG JAR_FILE=target/simsearch-0.3-SNAPSHOT.jar
+ARG JAR_FILE=target/simsearch-0.4-SNAPSHOT.jar
 COPY ${JAR_FILE} app.jar
 ENTRYPOINT ["java","-jar","/app.jar"]
 CMD ["--service"]

@@ -9,7 +9,7 @@ Specifically, this notebook shows how to specify SimSearch requests with Python:
 
 - Mount data sources to become available for similarity search;
 
-- List the queryable attributes and the supported operations;
+- List the queryable attributes, their data types, and the supported operations;
 
 - Submit a top-*k* similarity search query involving multiple attributes and several combinations of weights.
 
@@ -26,3 +26,5 @@ Furthermore, results of multi-attribute SimSearch queries may be visualized in v
 - If a textual attribute with *keywords* is involved in the SimSearch query, plot a keyword cloud or a histogram of the most frequent ones;
 
 - If a *numerical* is involved in the SimSearch query, create histograms and boxblots to inspect the distribution of the returned values on this attribute.
+
+- If a *temporal* is involved in the SimSearch query, create histograms to inspect the distribution of the returned attribute values (original dates or aggregated, e.g., by year).

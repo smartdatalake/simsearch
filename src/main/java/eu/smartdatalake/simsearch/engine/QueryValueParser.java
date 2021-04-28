@@ -8,9 +8,9 @@ import org.locationtech.jts.geom.Geometry;
 
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
-import eu.smartdatalake.simsearch.csv.spatial.LocationReader;
 import eu.smartdatalake.simsearch.manager.DataType;
 import eu.smartdatalake.simsearch.manager.DataType.Type;
+import eu.smartdatalake.simsearch.manager.ingested.spatial.LocationReader;
 
 /**
  * Parser for the various types of query values specified for the attributes in similarity search queries.
@@ -33,7 +33,7 @@ public class QueryValueParser {
 
 	/**
 	 * Constructor #2
-	 * @param tokenDelimiter  The delimiter to be used in splitting string values.
+	 * @param tokenDelimiter  The user-specified delimiter to be applied in splitting string values.
 	 */
 	public QueryValueParser(String tokenDelimiter) {
 		
@@ -51,6 +51,9 @@ public class QueryValueParser {
 		
 		dtype = DataType.Type.GEOLOCATION;
 		String queryWKT = String.valueOf(val);
+		// Check for empty input string
+		if ((queryWKT == null) || (queryWKT.trim().isEmpty()))
+			return null;
 		LocationReader locReader = new LocationReader();
 		Geometry g = locReader.WKT2Geometry(queryWKT);
 		// If query location is not in WKT, then try to parse it as an array or string
@@ -68,6 +71,26 @@ public class QueryValueParser {
 	}
 	
 
+
+	/**
+	 * Custom parsing of date/time values into epoch (double) values.
+	 * @param val  The input date/time value.
+	 * @return  A double representing the epoch (milliseconds in the decimal part).
+	 */
+	public Double parseDate(Object val) {
+		
+		dtype = DataType.Type.UNKNOWN;
+		Double d = null;
+
+		if ((d = myAssistant.getEpoch("" + val)) != null) {
+			dtype = DataType.Type.DATE_TIME;  
+		}
+	
+		return d;  // CAUTION! a numerical epoch value to be used in query evaluation	
+	}
+
+	
+
 	/**
 	 * Generic parser for various types of query values: sets of keywords, sets of coordinates, numbers, or strings.
 	 * Also used in parsing the sequence of coordinates of a possibly multi-dimensional point (used in PIVOT-based search).
@@ -78,6 +101,8 @@ public class QueryValueParser {
 
 		dtype = DataType.Type.UNKNOWN;
 		String q;
+		Double d;
+		
 		if (val == null)  {
 			// Handle NULL values (i.e., missing query values in attributes)
 			return null;
@@ -102,11 +127,11 @@ public class QueryValueParser {
 			// This is a single numerical value
 			q = "" + val;
 			dtype = DataType.Type.NUMBER;
-			// TODO: Return numeric value to be used
-//			return val;
+			//TODO: Return numeric value to be used?
+			//return val;
 		}
 		else {  // Parse incoming value as a string without white space
-			q = String.valueOf(val).replaceAll("\\s{2,}", " ").trim();
+			q = String.valueOf(val).replaceAll("\\s{2,}", " ").trim();		
 			if (q.isEmpty())
 				return null;
 			// Handle cases of WKT-like representations of multi-dimensional points
@@ -114,14 +139,21 @@ public class QueryValueParser {
 				// Keep only coordinate values 
 				q = q.toUpperCase().replace("POINT", "").replace("(", "").replace(")", "").trim().replace(" ", delimiter);
 				dtype = DataType.Type.GEOLOCATION;
-			}
+			}	
 			else if (myAssistant.isNumeric(q)) {
 				dtype = DataType.Type.NUMBER;
-				// TODO: Return numeric value to be used
+				// TODO: Return numeric value to be used?
 //				return Double.parseDouble(q);
 			}
-			else
+			else if ((d = myAssistant.getEpoch(q)) != null) {   // Parse date/time into epoch
+				dtype = DataType.Type.DATE_TIME;
+				return d;   // CAUTION! a numerical value to be used in query evaluation
+			}
+			else {
 				dtype = DataType.Type.KEYWORD_SET;
+				if (q.startsWith("[") && q.endsWith("]")) // Expunge brackets
+					q = q.substring(1, q.length()-1);
+			}
 		}
 	
 		// Trim string values in the resulting array

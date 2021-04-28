@@ -22,6 +22,9 @@ public class MountSpecs {
 	@ApiModelProperty(required = true, value = "The queryable attribute in the specified dataset; for search on a composite attribute (e.g., location with lon/lat coordinates), specify an array of attribute names (e.g., ['lon','lat'])")
 	public Object search_column;
 	
+	@ApiModelProperty(required = false, value = "Optional alias for the queryable attribute, e.g., a composite attribute; applicable for ingested datasets only")
+	public String alias_column;	
+	
 	@ApiModelProperty(required = false, value = "The primary key attribute containing unique identifiers for entities in the specified dataset; required for CSV files")
 	public String key_column;		
 	
@@ -42,6 +45,9 @@ public class MountSpecs {
 	
 	@ApiModelProperty(required = false, value = "Maximum number or lines to be consumed; applicable for input CSV file only; omit if all data will used")
 	public Integer max_lines;
+	
+	@ApiModelProperty(required = false, value = "Maximum number or characters when extracting consecutive substrings as a signature of the entire input string; applicable for input CSV file only")
+	public Integer qgram;
 	
 	@ApiModelProperty(required = false, allowableValues = "z, unity", value = "Normalization method to be optionally applied over mumerical values; omit if no normalization should be applied")
 	public String normalized;

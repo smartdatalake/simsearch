@@ -2,18 +2,28 @@ package eu.smartdatalake.simsearch;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.time.Instant;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.DoubleUnaryOperator;
 import java.util.stream.IntStream;
 
+import org.apache.lucene.analysis.ngram.NGramTokenizer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.json.simple.JSONArray;
 
-import eu.smartdatalake.simsearch.csv.DataFileReader;
-import eu.smartdatalake.simsearch.csv.categorical.TokenSet;
+import eu.smartdatalake.simsearch.manager.DataType.Type;
+import eu.smartdatalake.simsearch.manager.ingested.DataFileReader;
+import eu.smartdatalake.simsearch.manager.ingested.categorical.TokenSet;
+import eu.smartdatalake.simsearch.manager.ingested.temporal.DateTimeParser;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 
 /**
@@ -43,6 +53,8 @@ public class Assistant {
 			return "spatial_knn";
 		case Constants.NUMERICAL_TOPK:   
 			return "numerical_topk";
+		case Constants.TEMPORAL_TOPK:   
+			return "temporal_topk";
 		case Constants.PIVOT_BASED:   
 			return "pivot_based";
 		case Constants.NAME_DICTIONARY:   
@@ -51,6 +63,8 @@ public class Assistant {
 			return "keyword_dictionary";
 		case Constants.VECTOR_DICTIONARY:   
 			return "vector_dictionary";
+		case Constants.TEXTUAL_TOPK:
+			return "textual_topk";
 		default:
 			return "unknown operation";
 		}
@@ -79,7 +93,7 @@ public class Assistant {
 			DataFileReader br = new DataFileReader(inputFile);
 			// This file has a header, so identify the names of the columns in its first line
 			String line = br.readLine();
-			// FIXME: Custom handling when delimiter appears in an attribute value enclosed in quotes
+			// FIXME: Custom handling when delimiter appears in an attribute name enclosed in quotes
 			String[] columns = line.split(columnDelimiter+"(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
 			for (int i=0; i< columns.length; i++) {
 			    if (columns[i].equals(col)) {
@@ -136,24 +150,41 @@ public class Assistant {
 		return doubleArray;
 	}
 
+	
 	/**
-	 * Formats attribute values to be issued in the reporting results
+	 * Formats attribute values to be issued in the reporting results.
 	 * @param val  The attribute value (numerical, textual, spatial) to be formatted.
 	 * @return  The formatted string.
 	 */
 	public String formatAttrValue(Object val) {
-		
+
 		// Special handling of numeric formats
-		if (val instanceof Double) {
-			double num = (double) val;
-		    if ((long) num == num) 
-		    	return Long.toString((long) num);
-		    return String.valueOf(num);
+		if (isNumeric(val.toString())) {
+			double num = Double.parseDouble(val.toString());
+			if (num == Math.rint(num))   	// integer
+				return Long.toString((long) num);
+		    return String.valueOf(num); 	// double 
 		}
-		else
+		else if (val instanceof String[])
+			return Arrays.toString((String[]) val);
+		else	// other data type
 			return val.toString();
 	}
 
+	
+	/**
+	 * Formats date/time values to be issued in the reporting results.
+	 * @param epoch  The attribute value expressed as a double number (epoch).
+	 * @return  The formatted date/time.
+	 */
+	public String formatDateValue(Object epoch) {
+		
+		Long millis = (long) (Double.valueOf(epoch.toString())*1000);
+		// FIXME: If no time zone is set in the data, it return times in UTC
+		Instant instant = Instant.ofEpochMilli(millis);   
+		
+		return instant.toString();
+	}
 	
 	/**
 	 * Format entity identifiers as URL for the final results
@@ -195,6 +226,42 @@ public class Assistant {
 		return set;
 	}
 
+	
+	/**
+	 * Tokenizes the given string value using qgrams.	
+	 * @param id   Identifier of this collection of tokens.
+	 * @param value   A string value.
+	 * @param qgram  The qgram used (if applicable for string similarity).
+	 * @return  A set of tokens derived from the original string.
+	 */
+	public TokenSet tokenize(String id, String value, int qgram) {
+		
+		TokenSet set = null;
+		try {
+			if (value != null) {
+				set = new TokenSet();
+				set.id = id; 
+				set.tokens = new ArrayList<String>();
+				if (qgram > 0) {  // Creates qgrams from a single input value
+					set.originalString = value;
+					Reader reader = new StringReader(value);
+					NGramTokenizer gramTokenizer = new NGramTokenizer(reader, qgram, qgram);
+					CharTermAttribute charTermAttribute = gramTokenizer.addAttribute(CharTermAttribute.class);
+					while (gramTokenizer.incrementToken()) {
+						set.tokens.add(charTermAttribute.toString());
+					}
+					gramTokenizer.end();
+					gramTokenizer.close();
+				}
+//				tokens.forEach(System.out::println);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return set;
+	}
+	
 	
 	/**
 	 * Creates a d-dimensional point with zero values in all coordinates
@@ -252,14 +319,15 @@ public class Assistant {
 	
 	
 	/**
-	 * Checks whether the given string value represents a number.
+	 * Checks whether the given string value represents a valid number.
 	 * @param str  The string value to check.
-	 * @return  True, if the string represents a number; otherwise, False.
+	 * @return  True, if the string represents a valid number; otherwise, False.
 	 */
 	public boolean isNumeric(String str) {
-	    if (str == null) {
+	    if (str == null) 
 	        return false;
-	    }
+
+	    // Validate number
 	    try {
 	        double d = Double.parseDouble(str);
 	    } catch (NumberFormatException e) {
@@ -268,4 +336,64 @@ public class Assistant {
 	    return true;
 	}
 	
+	
+	/**
+	 * Checks whether the given string value represents a valid date/time.
+	 * @param str  The string value to check.
+	 * @return  True, if the string represents a valid date/time; otherwise, False.
+	 */
+	public boolean isDateTime(String str) {
+		return getEpoch(str) != null;
+	}
+	
+	
+	/**
+	 * Checks whether the given string value represents a valid year.
+	 * @param str  The string value to check.
+	 * @return  True, if the string represents a valid year; otherwise, False.
+	 */
+	public boolean isYear(String str) {
+		try {
+			// Check if this is a year value
+			Year year = Year.of(Integer.parseInt(str));		
+		} catch (Exception e) {
+			return false;
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * Parses the given string to extract a date/time value.
+	 * @param str  A string containing a date/time value.
+	 * @return  A double number representing the equivalent UNIX epoch (milliseconds in the decimal part).
+	 */
+	public Double getEpoch(String str) {
+	    if (str == null)
+	        return null;
+
+    	// Validate date/time
+    	DateTimeParser parser = new DateTimeParser();
+    	Double d = parser.parseDateTimeToEpoch(str);
+
+	    return d;
+	}
+	
+	/**
+	 * Randomly pick a value from a dataset of (key, value) pairs.
+	 * @param targetData  The dataset, typically retaining attribute values.
+	 * @param dtype  The data type of the values.
+	 * @return  A randomly chosen value from the dataset.
+	 */
+	public String pickRandomValue(Map<String,?> targetData, Type dtype) {
+		Random random = new Random();
+		List<String> keys = new ArrayList<String>(targetData.keySet());
+		if (keys.size() == 0)   // No data available
+			return null;
+		String randomKey = keys.get(random.nextInt(keys.size()));
+		if (dtype == Type.DATE_TIME)
+			return formatDateValue(targetData.get(randomKey));
+		else
+			return formatAttrValue(targetData.get(randomKey));
+	}
 }

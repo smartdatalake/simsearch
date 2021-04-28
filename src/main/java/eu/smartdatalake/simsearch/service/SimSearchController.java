@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.StringTokenizer;
 
 import javax.xml.bind.DatatypeConverter;
@@ -223,8 +222,6 @@ public class SimSearchController {
 
 		// Identify the coordinator that handles data sources for the specified API key
 		Coordinator myCoordinator = dictCoordinators.get(apiKey);
-		
-		System.out.println("Listing available data sources...");
 
 		// CATALOG OF DATA SOURCES
 		try {				

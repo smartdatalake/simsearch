@@ -14,7 +14,8 @@
 					"header":"true",
 					"separator":",",
 					"key_column":"article_id",
-					"search_column":["longitude","latitude"]
+					"search_column":["longitude","latitude"],
+					"alias_column":"position"
 				}, 
 				{
 					"operation":"categorical_topk",
@@ -27,13 +28,31 @@
 					"search_column":"persons"
 				},
 				{
-					"operation":"numerical_topk",
+					"operation":"temporal_topk",
 					"source":"localPath1",
 					"dataset":"sample.csv",
 					"separator":",",
 					"header":"true",
 					"key_column":"article_id",
 					"search_column":"timestamp"
+				},
+				{
+					"operation":"numerical_topk",
+					"source":"localPath1",
+					"dataset":"sample.csv",
+					"separator":",",
+					"header":"true",
+					"key_column":"article_id",
+					"search_column":"positive_sentiment"
+				},
+				{
+					"operation":"numerical_topk",
+					"source":"localPath1",
+					"dataset":"sample.csv",
+					"separator":",",
+					"header":"true",
+					"key_column":"article_id",
+					"search_column":"negative_sentiment"
 				}
 			]
 }

@@ -1,7 +1,7 @@
 package eu.smartdatalake.simsearch;
 
 /**
- * Auxiliary class that defines basic default parameters.
+ * Auxiliary class that defines basic parameters and their default values.
  */
 public class Constants {
 
@@ -21,7 +21,7 @@ public class Constants {
 	public final static String OUTPUT_COLUMN_SEPARATOR = ";";   // Only in case of CSV output files
 	public final static String OUTPUT_QUOTE = "\"";   			// Only in case of CSV output files
 	
-	//FIXME: Specific types of distance measures apply to each facet of similarity search
+	//FIXME: Specific types of distance measures apply to each attribute involved in similarity search
 	public final static int CATEGORICAL_TOPK = 0;   // categorical (set-valued) top-k similarity search
 	public final static int SPATIAL_KNN = 1;   		// k-NN spatial similarity search
 	public final static int NUMERICAL_TOPK = 2;  	// numerical top-k similarity search
@@ -29,8 +29,12 @@ public class Constants {
 	public final static int NAME_DICTIONARY = 4;  	// dictionary of names, not queryable in similarity search
 	public final static int KEYWORD_DICTIONARY = 5; // dictionary of keywords, not queryable in similarity search
 	public final static int VECTOR_DICTIONARY = 6; 	// dictionary of arrays of values, to be used in PIVOT-based similarity search
-		
+	public final static int TEMPORAL_TOPK = 7;  	// temporal top-k similarity search
+	public final static int TEXTUAL_TOPK = 8;  		// textual (string) top-k similarity search
+	
 	public final static double DECAY_FACTOR = 0.01;      // Default exponential decay constant lambda
+	
+	public final static int QGRAM = 3;		// Default value for q-grams (i.e., trigrams)
 	
 	public final static int K_MAX = 50;		// Maximum allowable value for top-k most similar results to return per query
 	

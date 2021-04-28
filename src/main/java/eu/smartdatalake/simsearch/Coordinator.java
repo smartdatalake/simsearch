@@ -27,18 +27,21 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import eu.smartdatalake.simsearch.csv.numerical.INormal;
 import eu.smartdatalake.simsearch.engine.QueryValueParser;
 import eu.smartdatalake.simsearch.engine.Response;
 import eu.smartdatalake.simsearch.engine.SearchHandler;
 import eu.smartdatalake.simsearch.engine.SearchResponse;
-import eu.smartdatalake.simsearch.jdbc.JdbcConnectionPool;
-import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
 import eu.smartdatalake.simsearch.manager.AttributeInfo;
-import eu.smartdatalake.simsearch.manager.DataIngestor;
 import eu.smartdatalake.simsearch.manager.DataSource;
 import eu.smartdatalake.simsearch.manager.DataType;
 import eu.smartdatalake.simsearch.manager.DataType.Type;
+import eu.smartdatalake.simsearch.manager.ingested.DataIngestor;
+import eu.smartdatalake.simsearch.manager.ingested.Index;
+import eu.smartdatalake.simsearch.manager.ingested.lookup.Word2VectorTransformer;
+import eu.smartdatalake.simsearch.manager.ingested.numerical.INormal;
+import eu.smartdatalake.simsearch.manager.insitu.HttpRestConnector;
+import eu.smartdatalake.simsearch.manager.insitu.JdbcConnectionPool;
+import eu.smartdatalake.simsearch.manager.insitu.JdbcConnector;
 import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
 import eu.smartdatalake.simsearch.manager.TransformedDatasetIdentifier;
 import eu.smartdatalake.simsearch.pivoting.MetricReferences;
@@ -50,12 +53,9 @@ import eu.smartdatalake.simsearch.request.MountSource;
 import eu.smartdatalake.simsearch.request.MountSpecs;
 import eu.smartdatalake.simsearch.request.RemoveRequest;
 import eu.smartdatalake.simsearch.request.SearchRequest;
-import eu.smartdatalake.simsearch.restapi.HttpConnector;
-import eu.smartdatalake.simsearch.csv.Index;
-import eu.smartdatalake.simsearch.csv.lookup.Word2VectorTransformer;
 
 /**
- * Orchestrates multi-attribute similarity search and issues progressively ranked aggregated top-k results.
+ * Orchestrates multi-attribute similarity search and issues ranked top-k results.
  * Available search algorithms: Threshold, No Random Access, Partial Random Access, Pivot-based.
  * Provides four basic functionalities:	(1) Mount: establishes data connections and prepares indices for the specified attribute data;
  * 										(2) Catalog: lists all attributes available for similarity search queries;
@@ -255,6 +255,8 @@ public class Coordinator {
 		List<JdbcConnector> openJdbcConnections = new ArrayList<JdbcConnector>();
 		
 		if (sources != null) {
+			
+			log.writeln("********************** Mounting data sources ... **********************");
 			// Iterate over the specified directories or JDBC connections or REST APIs
 			for (MountSource sourceConfig: sources) {
 
@@ -305,14 +307,14 @@ public class Coordinator {
 		        	}
 		        	else if (sourceConfig.type.equals("restapi")) {   // This is a REST API data source, e.g., Elasticsearch	        		
 		        		try {
-		        			HttpConnector httpConn = null;
+		        			HttpRestConnector httpConn = null;
 		        			// Instantiate a connection to the REST API depending on the type of authentication
 		        			if (sourceConfig.api_key != null)  // If authorization (API KEY) is specified by the user, then use it 'as is' in the header of requests
-		        				httpConn = new HttpConnector(new URI(sourceConfig.url), sourceConfig.api_key);
+		        				httpConn = new HttpRestConnector(new URI(sourceConfig.url), sourceConfig.api_key);
 		        			else if ((sourceConfig.username != null) && (sourceConfig.password != null))  // Basic authentication with username/password
-		        				httpConn = new HttpConnector(new URI(sourceConfig.url), sourceConfig.username, sourceConfig.password);
+		        				httpConn = new HttpRestConnector(new URI(sourceConfig.url), sourceConfig.username, sourceConfig.password);
 		        			else  // No authentication required
-		        				httpConn = new HttpConnector(new URI(sourceConfig.url));
+		        				httpConn = new HttpRestConnector(new URI(sourceConfig.url));
 			        			
 							// Remember this connection; this may be used for successive queries
 							if (httpConn != null) {	
@@ -382,8 +384,9 @@ public class Coordinator {
 					continue;
 				}
 
+				String sampleValue = null;
 				JdbcConnector jdbcConn = null;
-				HttpConnector httpConn = dataSources.get(sourceId).getHttpConn();
+				HttpRestConnector httpConn = dataSources.get(sourceId).getHttpConn();
 				if (dataSources.get(sourceId).getJdbcConnPool() != null) {   // Querying a DBMS
 					jdbcConn = dataSources.get(sourceId).getJdbcConnPool().initDbConnector();   // Required for identifying columns during the mounting phase
 					openJdbcConnections.add(jdbcConn); 
@@ -394,20 +397,41 @@ public class Coordinator {
 						log.writeln(msg);
 						continue;
 					}
-					else
+					else {
 						log.writeln("Established connection to " + dataSources.get(sourceId).getJdbcConnPool().getDbSystem() + " for data column " + colValueName);
+						sampleValue = jdbcConn.getSampleValue(dataset, colValueName).toString();
+					}
 				}
 				else if (httpConn != null) {   // Querying a REST API 
-					httpConn.openConnection();
+					httpConn.setSimSearchInstance(dataSources.get(sourceId).isSimSearchService());
+					URI origURI = httpConn.uri;	
+					// Open a connection
+					if (httpConn.isSimSearchInstance()) {  // Catalog request to SimSearch
+						try {
+							String uriCatalogRequest = origURI.toString().replace("/search", "/catalog");
+							httpConn.openConnection(new URI(uriCatalogRequest));
+						} catch (URISyntaxException e) {
+							e.printStackTrace();
+						}  
+					}
+					else
+						httpConn.openConnection();
+					// Check if attribute is available in the REST service
 					if (!httpConn.fieldExists(colValueName)) {
 						String msg = "Attribute name " + colValueName + " is not found in the input data! No queries can target this attribute.";
 						mountResponse.appendNotification(msg);
 						log.writeln(msg);
 						continue;
 					}
-					else
+					else {
 						log.writeln("Connections to REST API " + dataSources.get(sourceId).getKey() + " available for queries. Max number of results per request: " + dataSources.get(sourceId).getHttpConn().getMaxResultCount());
-					httpConn.closeConnection();
+						sampleValue = httpConn.getSampleValue(colValueName).toString();
+					}
+					// Close connection
+					if (httpConn.isSimSearchInstance())
+						httpConn.closeConnection(origURI);  // IMPORTANT! Restore URI to be used for search
+					else			
+					    httpConn.closeConnection();
 				}
 				else if (dataSources.get(sourceId).getPathDir() != null) {   // Otherwise, querying a CSV file
 					// File may reside either at the local file system or at a remote HTTP/FTP server
@@ -459,17 +483,24 @@ public class Coordinator {
 
 				// DatasetIdentifier to be used for all constructs built for this attribute
 				DatasetIdentifier id = new DatasetIdentifier(dataSources.get(sourceId), dataset, colValueName, operation, transform);
-			
+				
 				// Specify whether this dataset can be involved in similarity search queries
 				if (searchConfig.queryable != null)
 					id.setQueryable(searchConfig.queryable);
+
+				// Assign a sample value for in-situ datasets
+				if (sampleValue != null) 
+					id.setSampleValue(sampleValue);
 				
 				// Specify an optional prefix to be used for entity identifiers in the results
 				if (searchConfig.prefixURL != null)
 					id.setPrefixURL(searchConfig.prefixURL);
 				
-				// If specified, also keep the name of the search attribute in the identifier
-				id.setValueAttribute(colValueName);   
+				// If an ALIAS is specified for the quaryable attribute of an ingested dataset, keep it in the identifier instead of the original name(s)
+				if (!id.getDataSource().isInSitu() && (searchConfig.alias_column != null))
+					id.setValueAttribute(searchConfig.alias_column);   
+				else  // otherwise, use the original attribute name
+					id.setValueAttribute(colValueName);				
 				
 				// If specified, also keep the name of the key attribute in the identifier
 				String colKeyName = null;
@@ -499,6 +530,10 @@ public class Coordinator {
 					id.setOperation(Constants.SPATIAL_KNN);
 					id.setDatatype(DataType.Type.GEOLOCATION);  // Geolocation
 					break;
+				case "temporal_topk":
+					id.setOperation(Constants.TEMPORAL_TOPK);
+					id.setDatatype(DataType.Type.DATE_TIME);  // Date/time
+					break;
 				case "name_dictionary":
 					id.setOperation(Constants.NAME_DICTIONARY);
 					id.setDatatype(DataType.Type.STRING);  // String
@@ -511,11 +546,15 @@ public class Coordinator {
 					id.setOperation(Constants.VECTOR_DICTIONARY);
 					id.setDatatype(DataType.Type.NUMBER_ARRAY);   // ArrayOfNumbers
 					break;
+				case "textual_topk":
+					id.setOperation(Constants.TEXTUAL_TOPK);
+					id.setDatatype(DataType.Type.STRING);  // String
+					break;
 				case "pivot_based":
 					id.setOperation(Constants.PIVOT_BASED);	
 					// Data type will be determined after inspecting the attribute data
 					id.setDatatype(DataType.Type.UNKNOWN);
-					pivotMetrics.put(colValueName, searchConfig.metric);
+					pivotMetrics.put(id.getValueAttribute(), searchConfig.metric);
 					break;
 		        default:
 		        	mountResponse.appendNotification("Unknown operation specified: " + operation);
@@ -531,8 +570,8 @@ public class Coordinator {
 				else if (dataSources.get(sourceId).getHttpConn() != null) {    // REST API
 					log.writeln("Data on " + colValueName + " from REST API is not ingested but will be queried directly.");
 				}
-				else if ((jdbcConn != null)    // Target is a DBMS table, but NOT indexed on this particular attribute
-					&& !jdbcConn.isJDBCColumnIndexed(dataset, colValueName)) {	
+				else if ((jdbcConn != null)    // Target is a DBMS table, but NOT indexed on this particular attribute OR used as a name dictionary
+					&& (!jdbcConn.isJDBCColumnIndexed(dataset, colValueName) || (id.getOperation() == Constants.NAME_DICTIONARY))) {	
 //					System.out.println("Attempting to ingest data from " + dataset + " on column " + colValueName);
 					// So, ingest its contents and create an in-memory index, exactly like the ones read from CSV files
 					index(searchConfig, id, jdbcConn);
@@ -571,6 +610,9 @@ public class Coordinator {
 					tranformedID.setOperation(id.getOperation());
 					id.setOperation(Constants.KEYWORD_DICTIONARY);
 				
+					// CAUTION! Display the same sample value as in the original dataset
+					tranformedID.setSampleValue(id.getSampleValue());
+
 					// Apply the transformation and keep the transformed data in memory for use in similarity search
 					// FIXME: Assuming that only attributes with keywords are involved in such transformations
 					datasets.put(tranformedID.getHashKey(), transformer.apply((Map<String, String[]>) datasets.get(id.getHashKey())));
@@ -655,7 +697,6 @@ public class Coordinator {
 
 					// Must examine actual attribute data in order to determine the type of each one
 					if (datasetIdentifiers.get(datasetId).getDatatype() == Type.UNKNOWN) {
-						
 						// Parse a single attribute value from the dataset as indicative of its data type
 						Object val = ((TreeMap<String, Point>) datasets.get(datasetId)).firstEntry().getValue();
 						valParser.parse(val.toString());
@@ -668,9 +709,17 @@ public class Coordinator {
 					
 					// Number of ordinates per point for this attribute in the original dataset
 					int d = ((TreeMap<String, Point>) datasets.get(datasetId)).firstEntry().getValue().dimensions();
+/*					
+					for (Map.Entry<String, Point> e: ((TreeMap<String, Point>) datasets.get(datasetId)).entrySet()) {
+						if (e.getValue() != null) {
+							d = e.getValue().dimensions();
+							break;
+						}
+					}
+*/
 					dimensions.put(datasetIdentifiers.get(datasetId).getValueAttribute(), d);
 			
-					// FIXME: All NULL values for missing identifiers, are represented with NaN-valued points
+					// All NULL values for missing identifiers, are represented with NaN-valued points
 					// Find the identifiers of the missing objects
 					Set<String> missingKeys = new TreeSet<String>(objIdentifiers);
 					missingKeys.removeAll(datasets.get(datasetId).keySet());
@@ -703,7 +752,7 @@ public class Coordinator {
 			// Instantiate a pivot manager that will be used to create an RR*-tree and support multi-metric similarity search queries
 			pivotManager = new PivotManager(N, pivotDataIdentifiers, datasetIdentifiers, datasets, log);				
 			
-		    // FIXME: Use names instead of ordinal number of attributes involved in pivot-based search
+		    // Using ordinal number of attributes involved in pivot-based search
 		    MetricReferences ref = new MetricReferences(dataIngestor.getPivotAttrs().size());
 			// CAUTION! Metric references MUST have the same ordering as the attribute names!
 			int i = 0;
@@ -749,6 +798,9 @@ public class Coordinator {
 			return;
 		
 		dataIngestor.proc(attrConfig, id, jdbcConn);
+		
+		// Update reference to the attribute data identifier, as it may also include the data type
+		datasetIdentifiers.put(id.getHashKey(), id);
 			
 		datasets = dataIngestor.getDatasets();
 		indices = dataIngestor.getIndices();
@@ -872,6 +924,7 @@ public class Coordinator {
 		normalizations.remove(hashKey);
 	}
 	
+	
 	/**
 	 * Catalog with the collection of all attributes available for querying; each dataset is named after a particular attribute.
 	 * @return  An array of all attribute names including their supported similarity search operations.
@@ -882,10 +935,12 @@ public class Coordinator {
 		int i = 0;
 		for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
 			if (id.isQueryable()) {
-				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype());
+				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue());
 				i++;
 			}
 		}
+		
+		log.writeln("Listed available data sources.");
 		
 		return Arrays.copyOf(dataSources, i);   // In case some entries have been skipped
 	}
@@ -930,24 +985,37 @@ public class Coordinator {
 	/**
 	 * Provides a catalog with the collection of attributes available for querying; if an operation is specified, only relevant attributes will be reported.
 	 * This method accepts an instance of CatalogRequest class.
-	 * @param params  An instance of a CatalogRequest class; if not null, it should specify a string for similarity search operation (categorical_topk, spatial_knn, numerical_topk)
+	 * @param params  An instance of a CatalogRequest class; if not null, it should specify a string for similarity search operation (categorical_topk, spatial_knn, numerical_topk, temporal_topk) or a column name.
 	 * @return  An array of attribute names along with the supported similarity search operation(s).
 	 */
 	public AttributeInfo[] listDataSources(CatalogRequest params) {
 		
 		String operation = params.operation;
+		String column = params.column;
 		
-		// If no specific operation is given, report all attributes available for search
-		if (operation == null)
+		// If no specific operation or column is given, report all attributes available for search
+		if ((operation == null) && (column == null))
 			return listDataSources();
 		
-		// Otherwise, report only those attributes supporting the specified operation
 		List<AttributeInfo> dataSources = new ArrayList<AttributeInfo>();
-		for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
-			if (operation.equalsIgnoreCase(myAssistant.decodeOperation(id.getOperation()))) {
-				dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype()));
+		
+		// If a particular operation is specified, report only those attributes this operation
+		if (operation != null) {	
+			for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
+				if (operation.equalsIgnoreCase(myAssistant.decodeOperation(id.getOperation()))) {
+					dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue()));
+				}
 			}
 		}
+		else if (column != null) {  // A column is specified, so report its details
+			for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
+				if (column.equalsIgnoreCase(id.getValueAttribute())) {
+					dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue()));
+				}
+			}
+		}
+		
+		log.writeln("Listed available data sources.");
 		
 		return dataSources.toArray(new AttributeInfo[dataSources.size()]);
 	}
@@ -1021,12 +1089,12 @@ public class Coordinator {
 		}
 	}
 	
+	
 	/**
 	 * Explicitly writes the given message to the log file of the running instance.
 	 * @param msg  A message to be written to the log file.
 	 */
-	public void log(String msg) {
-		
+	public void log(String msg) {	
 		if (this.log != null)
 			this.log.writeln(msg);
 	}

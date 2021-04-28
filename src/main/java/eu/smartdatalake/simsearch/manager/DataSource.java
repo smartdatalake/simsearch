@@ -1,7 +1,7 @@
 package eu.smartdatalake.simsearch.manager;
 
-import eu.smartdatalake.simsearch.jdbc.JdbcConnectionPool;
-import eu.smartdatalake.simsearch.restapi.HttpConnector;
+import eu.smartdatalake.simsearch.manager.insitu.HttpRestConnector;
+import eu.smartdatalake.simsearch.manager.insitu.JdbcConnectionPool;
 
 /**
  * Instantiates a connection to retrieve attribute values from one of the following possible data sources:
@@ -14,7 +14,7 @@ public class DataSource {
 	private String key;    						// A key identifier for this data source
 	private String pathDir;						// Specifically for CSV data sources
 	private JdbcConnectionPool jdbcConnPool;   	// Specifically for JDBC sources
-	private HttpConnector httpConn;   			// Specifically for REST API sources
+	private HttpRestConnector httpConn;   			// Specifically for REST API sources
 	private boolean inSitu;						// Distinguishes a data source queried in-situ (true) from an ingested one (false).
 	private boolean isSimSearchService;			// Determines if this data source is a SimSearch REST API (true); otherwise, false.
 	
@@ -49,7 +49,7 @@ public class DataSource {
 	 * @param key  Internal identifier used for this data source.
 	 * @param httpConn  HTTP connection for accessing REST APIs (or another instance of a SimSearch service).
 	 */
-	public DataSource(String key, HttpConnector httpConn) {
+	public DataSource(String key, HttpRestConnector httpConn) {
 		this.key = key;
 		this.httpConn = httpConn;
 		this.inSitu = true;
@@ -71,7 +71,7 @@ public class DataSource {
 		this.jdbcConnPool = jdbcConnPool;
 	}
 
-	public void setHttpConn(HttpConnector httpConn) {
+	public void setHttpConn(HttpRestConnector httpConn) {
 		this.httpConn = httpConn;
 	}
 
@@ -97,7 +97,7 @@ public class DataSource {
 		return jdbcConnPool;
 	}
 
-	public HttpConnector getHttpConn() {
+	public HttpRestConnector getHttpConn() {
 		return httpConn;
 	}
 	

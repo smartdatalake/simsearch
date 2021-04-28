@@ -1,7 +1,7 @@
 package eu.smartdatalake.simsearch.manager;
 
-import eu.smartdatalake.simsearch.csv.lookup.Word2VectorTransformer;
 import eu.smartdatalake.simsearch.manager.DataType.Type;
+import eu.smartdatalake.simsearch.manager.ingested.lookup.Word2VectorTransformer;
 
 /**
  * Provides identification of a transformed dataset, i.e., sets of keywords converted to a vector of double values according to a given dictionary of words.  

@@ -1,13 +1,14 @@
 package eu.smartdatalake.simsearch.engine;
 
-import eu.smartdatalake.simsearch.ranking.ResultPair;
+import eu.smartdatalake.simsearch.engine.processor.ResultPair;
+import eu.smartdatalake.simsearch.engine.weights.WeightInfo;
 
 /**
  * Provides the complete response to a multi-attribute similarity search query, which encapsulates the search results and their similarity matrix.
  */
 public class SearchResponse extends Response {
 
-	private Double[] weights;
+	private WeightInfo[] weights;
 	private IResult[] rankedResults;
 	private ResultPair[] similarityMatrix;
 	private double timeInSeconds;
@@ -46,17 +47,17 @@ public class SearchResponse extends Response {
 
 	/**
 	 * Sets the weights used to compute the respective ranked results, as specified by the user when the request was submitted.
-	 * @param weights  An array of double values (one per attribute involved in the search request).
+	 * @param weights  An array of pairs of attribute names and their respective weights involved in the search request.
 	 */
-	public void setWeights(Double[] weights) {
+	public void setWeights(WeightInfo[] weights) {
 		this.weights = weights;
 	}
 	
 	/**
 	 * Provides the weights used to compute the respective ranked results, as specified by the user when the request was submitted.
-	 * @return  An array of double values (one per attribute involved in the search request).
+	 * @return  An array of pairs of attribute names and their respective weights involved in the search request.
 	 */
-	public Double[] getWeights() {
+	public WeightInfo[] getWeights() {
 		return weights;
 	}
 

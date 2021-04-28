@@ -35,14 +35,14 @@
 					"source":"localPath1",
 					"header":"true",
 					"dataset":"dataset1.csv",
-					"search_column":"pos_sentiment"
+					"search_column":"postitive_sentiment"
 				},
 				{
 					"operation":"numerical_topk",
 					"source":"localPath1",
 					"dataset":"dataset1.csv",
 					"header":"true",
-					"search_column":"neg_sentiment"
+					"search_column":"negative_sentiment"
 				},
 				{
 					"operation":"numerical_topk",

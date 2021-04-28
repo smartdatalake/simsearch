@@ -17,10 +17,10 @@ import eu.smartdatalake.simsearch.service.SimSearchServiceLauncher;
  * Query configurations (specified in JSON) can be submitted once data sources have been mounted. 
  * 
  * Execution command -- STANDALONE mode with requests specified from standard input: 
- * java -jar target/simsearch-0.3-SNAPSHOT.jar
+ * java -jar target/simsearch-0.4-SNAPSHOT.jar
  * 
  * Execution command -- SERVICE mode: for launching a web service, e.g., at port 8090, and specifying requests using the REST API: 
- * java -Dserver.port=8090 -jar target/simsearch-0.3-SNAPSHOT.jar --service
+ * java -Dserver.port=8090 -jar target/simsearch-0.4-SNAPSHOT.jar --service
  */
 public class Runner {	
 	
@@ -42,6 +42,7 @@ public class Runner {
 		
 		return configFile;
 	}
+	
 	
 	/**
 	 * Prints a JSON response to standard output.

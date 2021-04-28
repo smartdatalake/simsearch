@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.locationtech.jts.geom.Geometry;
@@ -13,39 +12,44 @@ import org.locationtech.jts.geom.Geometry;
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.Logger;
-import eu.smartdatalake.simsearch.csv.Index;
-import eu.smartdatalake.simsearch.csv.SimSearch;
-import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollection;
-import eu.smartdatalake.simsearch.csv.categorical.TokenSetCollectionReader;
-import eu.smartdatalake.simsearch.csv.numerical.BPlusTree;
-import eu.smartdatalake.simsearch.csv.numerical.INormal;
-import eu.smartdatalake.simsearch.csv.spatial.Location;
-import eu.smartdatalake.simsearch.csv.spatial.RTree;
-import eu.smartdatalake.simsearch.jdbc.JdbcConnector;
-import eu.smartdatalake.simsearch.jdbc.SimSearchQuery;
+import eu.smartdatalake.simsearch.engine.measure.CategoricalDistance;
+import eu.smartdatalake.simsearch.engine.measure.DecayedSimilarity;
+import eu.smartdatalake.simsearch.engine.measure.ISimilarity;
+import eu.smartdatalake.simsearch.engine.measure.NumericalDistance;
+import eu.smartdatalake.simsearch.engine.measure.SpatialDistance;
+import eu.smartdatalake.simsearch.engine.processor.IValueFinder;
+import eu.smartdatalake.simsearch.engine.processor.ingested.IndexSimSearch;
+import eu.smartdatalake.simsearch.engine.processor.insitu.ElasticSearchRestQuery;
+import eu.smartdatalake.simsearch.engine.processor.insitu.SimSearchJdbcQuery;
+import eu.smartdatalake.simsearch.engine.processor.insitu.SimSearchRestQuery;
+import eu.smartdatalake.simsearch.engine.processor.ranking.IRankAggregator;
+import eu.smartdatalake.simsearch.engine.processor.ranking.NoRandomAccessRanking;
+import eu.smartdatalake.simsearch.engine.processor.ranking.PartialRandomAccessRanking;
+import eu.smartdatalake.simsearch.engine.processor.ranking.RankedList;
+import eu.smartdatalake.simsearch.engine.processor.ranking.SingletonRanking;
+import eu.smartdatalake.simsearch.engine.processor.ranking.ThresholdRanking;
+import eu.smartdatalake.simsearch.engine.processor.ranking.randomaccess.CategoricalValueFinder;
+import eu.smartdatalake.simsearch.engine.processor.ranking.randomaccess.NumericalValueFinder;
+import eu.smartdatalake.simsearch.engine.processor.ranking.randomaccess.SpatialValueFinder;
+import eu.smartdatalake.simsearch.engine.weights.Validator;
 import eu.smartdatalake.simsearch.manager.DataSource;
 import eu.smartdatalake.simsearch.manager.DatasetIdentifier;
-import eu.smartdatalake.simsearch.measure.CategoricalDistance;
-import eu.smartdatalake.simsearch.measure.DecayedSimilarity;
-import eu.smartdatalake.simsearch.measure.ISimilarity;
-import eu.smartdatalake.simsearch.measure.NumericalDistance;
-import eu.smartdatalake.simsearch.measure.SpatialDistance;
-import eu.smartdatalake.simsearch.ranking.IRankAggregator;
-import eu.smartdatalake.simsearch.ranking.NoRandomAccessRanking;
-import eu.smartdatalake.simsearch.ranking.PartialRandomAccessRanking;
-import eu.smartdatalake.simsearch.ranking.SingletonRanking;
-import eu.smartdatalake.simsearch.ranking.ThresholdRanking;
-import eu.smartdatalake.simsearch.ranking.randomaccess.CategoricalValueFinder;
-import eu.smartdatalake.simsearch.ranking.randomaccess.NumericalValueFinder;
-import eu.smartdatalake.simsearch.ranking.randomaccess.SpatialValueFinder;
+import eu.smartdatalake.simsearch.manager.ingested.Index;
+import eu.smartdatalake.simsearch.manager.ingested.categorical.TokenSet;
+import eu.smartdatalake.simsearch.manager.ingested.categorical.TokenSetCollection;
+import eu.smartdatalake.simsearch.manager.ingested.categorical.TokenSetCollectionReader;
+import eu.smartdatalake.simsearch.manager.ingested.numerical.BPlusTree;
+import eu.smartdatalake.simsearch.manager.ingested.numerical.INormal;
+import eu.smartdatalake.simsearch.manager.ingested.spatial.Location;
+import eu.smartdatalake.simsearch.manager.ingested.spatial.RTree;
+import eu.smartdatalake.simsearch.manager.insitu.HttpRestConnector;
+import eu.smartdatalake.simsearch.manager.insitu.JdbcConnector;
 import eu.smartdatalake.simsearch.request.SearchRequest;
 import eu.smartdatalake.simsearch.request.SearchSpecs;
-import eu.smartdatalake.simsearch.restapi.ElasticSearchRequest;
-import eu.smartdatalake.simsearch.restapi.HttpConnector;
-import eu.smartdatalake.simsearch.restapi.SimSearchRequest;
 
 /**
- * Handles a new multi-attribute similarity search request employing rank aggregation for its evaluation. 
+ * Handles a new multi-attribute similarity search request.
+ * It applies one of the rank aggregation algorithms for its evaluation. Pivot-based similarity search is handled by another class.
  * A new instance of this class is invoked by the coordinator per search request.
  */
 public class SearchHandler {
@@ -65,7 +69,7 @@ public class SearchHandler {
 	Map<String, IValueFinder> valueFinders;
 	
 	// List of queues that collect results from each running task
-	Map<String, ConcurrentLinkedQueue<PartialResult>> queues;
+	Map<String, RankedList> queues;
 	
 	// List of atomic booleans to control execution of the various threads
 	Map<String, AtomicBoolean> runControl;
@@ -92,7 +96,7 @@ public class SearchHandler {
 		myAssistant = new Assistant();
 		
 	    // New instances of various constructs specifically for this request
-		queues = new HashMap<String, ConcurrentLinkedQueue<PartialResult>>();
+		queues = new HashMap<String, RankedList>();
 		tasks = new HashMap<String, Thread>();
 		similarities = new HashMap<String, ISimilarity>();
 		weights = new HashMap<String, Double[]>();
@@ -124,19 +128,19 @@ public class SearchHandler {
 	/**
 	 * Provides the maximum value available in a numerical attribute.
 	 * @param dbConnector  The JDBC connection specification to a DBMS (if applicable).
-	 * @param httpConnector  The HTTP connection specification for accessing REST APIs (if applicable).
+	 * @param httpRestConnector  The HTTP connection specification for accessing REST APIs (if applicable).
 	 * @param id  The identifier of the attribute in a dataset.
 	 * @return  The maximum numerical value available in the specified attribute.
 	 */
-	private Double getMaxNumValue(JdbcConnector dbConnector, HttpConnector httpConnector, DatasetIdentifier id) {
+	private Double getMaxNumValue(JdbcConnector dbConnector, HttpRestConnector httpRestConnector, DatasetIdentifier id) {
 		
 		if (dbConnector != null)  {			// Querying against a DBMS
 			return (Double)dbConnector.findSingletonValue("SELECT max(" + id.getValueAttribute() + ") FROM " + id.getDatasetName() + ";");
 		}
-		else if (httpConnector != null) {   // Querying against a REST API
+		else if (httpRestConnector != null) {   // Querying against a REST API
 			// FIXME: Custom retrieval of max value specifically from Elasticsearch
 			String query = "{\"_source\": [\"" + id.getValueAttribute() + "\"]," + "\"query\": {\"match_all\": {}}, \"sort\": [{\"" + id.getValueAttribute() + "\": {\"order\": \"desc\"}}],  \"size\": 1}";
-			return (Double)httpConnector.findSingletonValue(query);
+			return (Double)httpRestConnector.findSingletonValue(query);
 //			return Double.MAX_VALUE;
 		}
 		else {				// Querying against in-memory indices over a CSV file
@@ -187,6 +191,8 @@ public class SearchHandler {
 		long duration;
 		SearchResponse[] responses;
 		
+		String notification = "";  // Any extra notification(s) to the final response
+		
 		IRankAggregator aggregator = null;
 		String rankingMethod = Constants.RANKING_METHOD;   	// Threshold is the default ranking algorithm
 
@@ -196,7 +202,9 @@ public class SearchHandler {
 		int topk = 0;   // top-k value for ranked aggregated results
 		    
 		SearchSpecs[] queries = params.queries; 			// Array of specified queries
-		Double[] arrWeights = null;
+		
+		// Construct for validating weights
+		Validator weightValidator = new Validator();
 		
 		try {
 			topk = params.k;
@@ -222,7 +230,7 @@ public class SearchHandler {
 		List<JdbcConnector> openJdbcConnections = new ArrayList<JdbcConnector>();
 		
 		// HTTP connections opened during this request
-		List<HttpConnector> openHttpConnections = new ArrayList<HttpConnector>();
+		List<HttpRestConnector> openHttpConnections = new ArrayList<HttpRestConnector>();
 		
 	    // Iterate over the specified queries
 		if (queries != null) {
@@ -248,8 +256,10 @@ public class SearchHandler {
 				//DatasetIdentifier to be used for all constructs built for this attribute
 				DatasetIdentifier id = findIdentifier(colValueName);				
 				if (id == null) {
-					log.writeln("No dataset with attribute " + colValueName + " is available for search.");
-					throw new NullPointerException("No dataset with attribute " + colValueName + " is available for search.");
+					String msg = "No dataset with attribute " + colValueName + " is available for search.";
+					notification.concat(msg);
+					log.writeln(msg);
+					throw new NullPointerException(msg);
 				}
 				
 				String colKeyName = id.getKeyAttribute();
@@ -262,7 +272,7 @@ public class SearchHandler {
 					openJdbcConnections.add(jdbcConn);
 				}
 
-				HttpConnector httpConn = null;
+				HttpRestConnector httpConn = null;
 				if (dataSource.getHttpConn() != null) {  // Initialize a new HTTP connection to the specified REST API
 					httpConn = dataSource.getHttpConn();
 					if (rankingMethod.equals("threshold")) {
@@ -281,8 +291,8 @@ public class SearchHandler {
 				// operation
 				String operation = myAssistant.decodeOperation(id.getOperation());
 				
-				// Assign a name to this operation
-				String name = operation + " " + id.getDatasetName();
+				// Assign a name to this operation/thread
+				String name = operation + "." + id.getValueAttribute();
 				
 				// Inflate top-k value in order to fetch enough candidates from attribute search
 				// In case just one attribute is involved, there is no need for inflation
@@ -296,14 +306,25 @@ public class SearchHandler {
 				// Similarity measure: By default, decayed similarity will be used in all types of search
 				ISimilarity<?> simMeasure = null;
 			
-				// Queue that will be used to collect query results
-				ConcurrentLinkedQueue<PartialResult> resultsQueue = new ConcurrentLinkedQueue<PartialResult>();
+				// Ranked list: a priority queue that will be used to collect query results
+				RankedList resultsQueue = new RankedList();
 				
-				// WEIGHT: Array of specified weights to apply on a specific facet
-				arrWeights = queryConfig.weights;
-				weights.put(id.getHashKey(), arrWeights);
+				// WEIGHT: Array of specified weights to apply on a specific attribute
+				if ((queryConfig.weights != null) && (queryConfig.weights.length == 0)) {  // Empty array of weights
+					queryConfig.weights = null;
+				} else if ((queryConfig.weights != null) && !weightValidator.check(colValueName, queryConfig.weights)) {
+					responses = new SearchResponse[1];
+					SearchResponse response = new SearchResponse();
+					String msg = "Request aborted because at least one weight value for attribute " + colValueName + " is invalid.";
+					log.writeln(msg);
+					response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
+					responses[0] = response;
+					return responses;
+				}
+				weights.put(id.getHashKey(), queryConfig.weights);
 				
 				// SCALE factor to apply in normalizing distances
+				// If not user-specified, 0 indicates it will be dynamically set from the results
 				Double scale = (queryConfig.scale != null) ? queryConfig.scale : 0.0;
 				
 				// DatasetIdentifier to be used for all constructs built for this attribute
@@ -327,16 +348,16 @@ public class SearchHandler {
 					// QUERY SPECIFICATION
 					// Search keywords can be specified either as a JSON array of string values or a concatenated string using the default delimiter
 					String[] searchKeywords = (String[]) valParser.parse(queryConfig.value);
-					if (searchKeywords == null) {
-						log.writeln("Operation " + operation + " using a NULL or invalid search value is not supported! This query facet will be ignored.");
+					if ((searchKeywords == null) || (searchKeywords.length == 0)) {
+						reportValueError(id, String.valueOf(queryConfig.value), notification);
 						continue;
 					}
 					
 					TokenSetCollectionReader reader = new TokenSetCollectionReader();
 					TokenSetCollection queryCollection = null;
 					
-					// This will create a collection for the query only
-					queryCollection = reader.createFromQueryKeywords(searchKeywords, log);
+					// This will create a collection for the query only; do NOT use qgrams (qgram = 0)
+					queryCollection = reader.createFromQueryKeywords(searchKeywords, 0, log);
 
 					// Jaccard distance is applied on categorical (textual) values
 					// Similarity also indicates the corresponding task serial number
@@ -347,27 +368,27 @@ public class SearchHandler {
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.CATEGORICAL_TOPK);
 						// FIXME: Separator for search keywords must be ";" in this case
-						SimSearchQuery catSearch = new SimSearchQuery(jdbcConn, Constants.CATEGORICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.join(";", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						SimSearchJdbcQuery catSearch = new SimSearchJdbcQuery(jdbcConn, Constants.CATEGORICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.join(";", searchKeywords), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, catSearch.sqlValueRetrievalTemplate));
 						threadCatSearch = new Thread(catSearch);
 						runControl.put(id.getHashKey(), catSearch.running);
 					}
 					else if (httpConn != null) {	// Querying against a REST API
 						if (dataSource.isSimSearchService()) {   // This is an instance of another SimSearch REST API
-							SimSearchRequest catSearch = new SimSearchRequest(httpConn, Constants.CATEGORICAL_TOPK, colKeyName, colValueName, String.join(",", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							SimSearchRestQuery catSearch = new SimSearchRestQuery(httpConn, Constants.CATEGORICAL_TOPK, colKeyName, colValueName, String.join(",", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new CategoricalValueFinder(httpConn, null));  // By default, random access is prohibited
 							threadCatSearch = new Thread(catSearch);
 							runControl.put(id.getHashKey(), catSearch.running);
 						}
 						else {  // This is an ElasticSearch REST API
-							ElasticSearchRequest catSearch = new ElasticSearchRequest(httpConn, Constants.CATEGORICAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.join(",", searchKeywords), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							ElasticSearchRestQuery catSearch = new ElasticSearchRestQuery(httpConn, Constants.CATEGORICAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.join(",", searchKeywords), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new CategoricalValueFinder(httpConn, catSearch.queryValueRetrievalTemplate));
 							threadCatSearch = new Thread(catSearch);
 							runControl.put(id.getHashKey(), catSearch.running);
 						}
 					}
 					else {			// Querying against in-memory indices over a CSV file
-						SimSearch catSearch = new SimSearch(Constants.CATEGORICAL_TOPK, name, indices.get(id.getHashKey()), datasets.get(id.getHashKey()), queryCollection, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
+						IndexSimSearch catSearch = new IndexSimSearch(Constants.CATEGORICAL_TOPK, name, indices.get(id.getHashKey()), datasets.get(id.getHashKey()), queryCollection, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadCatSearch = new Thread(catSearch);
 						runControl.put(id.getHashKey(), catSearch.running);
 					}
@@ -383,12 +404,20 @@ public class SearchHandler {
 					
 					// QUERY SPECIFICATION
 					String val = String.valueOf(queryConfig.value);
-					// In case the "max" value is specified in search, identify this numerical value in the dataset
-					// Otherwise, get the user-specified numerical value to search
-					Double searchingKey = (val.equalsIgnoreCase("max") ? getMaxNumValue(jdbcConn, httpConn, id) : Double.parseDouble(val));
+					Double searchingKey;
+					try {
+						// In case the "max" value is specified in search, identify this numerical value in the dataset
+						if (val.equalsIgnoreCase("max"))
+							searchingKey = getMaxNumValue(jdbcConn, httpConn, id);
+						else   // Otherwise, get the user-specified numerical value to search
+							searchingKey = Double.parseDouble(val);
+					}
+					catch(Exception e) {
+						searchingKey = null;
+					}
 					// Check for NULL or invalid numerical value
 					if ((searchingKey == null) || (searchingKey.isNaN())) {
-						log.writeln("Operation " + operation + " using a NULL or invalid search value is not supported! This query facet will be ignored.");
+						reportValueError(id, val, notification);
 						continue;
 					}
 					
@@ -411,20 +440,20 @@ public class SearchHandler {
 					// Create an instance of the numerical search query (NUMERICAL_TOPK = 2)
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.NUMERICAL_TOPK);
-						SimSearchQuery numSearch = new SimSearchQuery(jdbcConn, Constants.NUMERICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						SimSearchJdbcQuery numSearch = new SimSearchJdbcQuery(jdbcConn, Constants.NUMERICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlValueRetrievalTemplate));
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);	
 					}
 					else if (httpConn != null) {	// Querying against a REST API
 						if (dataSource.isSimSearchService()) {   // This is an instance of another SimSearch REST API
-							SimSearchRequest numSearch = new SimSearchRequest(httpConn, Constants.NUMERICAL_TOPK, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							SimSearchRestQuery numSearch = new SimSearchRestQuery(httpConn, Constants.NUMERICAL_TOPK, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new NumericalValueFinder(httpConn, null));  // By default, random access is prohibited
 							threadNumSearch = new Thread(numSearch);
 							runControl.put(id.getHashKey(), numSearch.running);
 						}
 						else {  // This is an ElasticSearch REST API
-							ElasticSearchRequest numSearch = new ElasticSearchRequest(httpConn, Constants.NUMERICAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							ElasticSearchRestQuery numSearch = new ElasticSearchRestQuery(httpConn, Constants.NUMERICAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new NumericalValueFinder(httpConn, numSearch.queryValueRetrievalTemplate));
 							threadNumSearch = new Thread(numSearch);
 							runControl.put(id.getHashKey(), numSearch.running);
@@ -434,7 +463,7 @@ public class SearchHandler {
 						// Identify the B+-tree already built for this attribute
 						BPlusTree<Double, String> index = (BPlusTree<Double, String>) indices.get(id.getHashKey());
 						// collectionSize = -1 -> no prefixed bound on the number of results to fetch from numerical similarity search
-						SimSearch numSearch = new SimSearch(Constants.NUMERICAL_TOPK, name, index, searchingKey, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
+						IndexSimSearch numSearch = new IndexSimSearch(Constants.NUMERICAL_TOPK, name, index, searchingKey, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);		
 					}
@@ -453,7 +482,7 @@ public class SearchHandler {
 					Geometry queryPoint = valParser.parseGeometry(queryConfig.value);
 					// Check for NULL query value
 					if (queryPoint == null) {
-						log.writeln("Operation " + operation + " using a NULL or invalid search value is not supported! This query facet will be ignored.");
+						reportValueError(id, String.valueOf(queryConfig.value), notification);
 						continue;
 					}
 					Location queryLocation = new Location("QUERY", queryPoint);
@@ -466,21 +495,21 @@ public class SearchHandler {
 					// Create an instance of the spatial similarity search query (SPATIAL_KNN = 1)
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.SPATIAL_KNN);
-						SimSearchQuery geoSearch = new SimSearchQuery(jdbcConn, Constants.SPATIAL_KNN, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, queryPoint.toText(), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						SimSearchJdbcQuery geoSearch = new SimSearchJdbcQuery(jdbcConn, Constants.SPATIAL_KNN, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, queryPoint.toText(), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 						valueFinders.put(id.getHashKey(), new SpatialValueFinder(jdbcConn, geoSearch.sqlValueRetrievalTemplate));
 						threadGeoSearch = new Thread(geoSearch);
 						runControl.put(id.getHashKey(), geoSearch.running);
 					}
 					else if (httpConn != null) {	// Querying against a REST API
 						if (dataSource.isSimSearchService()) {   // This is an instance of another SimSearch REST API
-							SimSearchRequest geoSearch = new SimSearchRequest(httpConn, Constants.SPATIAL_KNN, colKeyName, colValueName, queryPoint.toText(), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							SimSearchRestQuery geoSearch = new SimSearchRestQuery(httpConn, Constants.SPATIAL_KNN, colKeyName, colValueName, queryPoint.toText(), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new SpatialValueFinder(httpConn, null));  // By default, random access is prohibited
 							threadGeoSearch = new Thread(geoSearch);
 							runControl.put(id.getHashKey(), geoSearch.running);
 						}
 						else {  // This is an ElasticSearch REST API
 							// FIXME: Geo-points in ElasticSearch are expressed as a string with the format: "lat, lon"
-							ElasticSearchRequest geoSearch = new ElasticSearchRequest(httpConn, Constants.SPATIAL_KNN, queryConfig.filter, colKeyName, colValueName, "" + queryPoint.getCoordinates()[0].y + "," + queryPoint.getCoordinates()[0].x, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							ElasticSearchRestQuery geoSearch = new ElasticSearchRestQuery(httpConn, Constants.SPATIAL_KNN, queryConfig.filter, colKeyName, colValueName, "" + queryPoint.getCoordinates()[0].y + "," + queryPoint.getCoordinates()[0].x, topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
 							valueFinders.put(id.getHashKey(), new SpatialValueFinder(httpConn, geoSearch.queryValueRetrievalTemplate));
 							threadGeoSearch = new Thread(geoSearch);
 							runControl.put(id.getHashKey(), geoSearch.running);
@@ -489,7 +518,7 @@ public class SearchHandler {
 					else {		// Querying against in-memory indices over a CSV file	
 						// Identify the R-tree already built for this attribute
 						RTree<String, Location> index = (RTree<String, Location>) indices.get(id.getHashKey());
-						SimSearch geoSearch = new SimSearch(Constants.SPATIAL_KNN, name, index, queryLocation, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
+						IndexSimSearch geoSearch = new IndexSimSearch(Constants.SPATIAL_KNN, name, index, queryLocation, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadGeoSearch = new Thread(geoSearch);
 						runControl.put(id.getHashKey(), geoSearch.running);
 					}
@@ -497,6 +526,137 @@ public class SearchHandler {
 					threadGeoSearch.setName(name);
 					tasks.put(id.getHashKey(), threadGeoSearch);
 					queues.put(id.getHashKey(), resultsQueue);		
+				}
+				// settings for top-k similarity search on date/time values
+				else if (operation.equalsIgnoreCase("temporal_topk")) {
+					
+					Thread threadNumSearch = null;
+					
+					// QUERY SPECIFICATION
+					// Parse the user-specified date/time value to a double number (epoch) for searching in the index
+					// Epoch used only against ingested in-memory data
+					Double searchingKey;
+					if ((searchingKey = valParser.parseDate(queryConfig.value)) == null)
+						searchingKey = (Double) valParser.parse(queryConfig.value);
+					
+					// Check for NULL or invalid temporal value
+					if ((searchingKey == null) || (searchingKey.isNaN())) {
+						reportValueError(id, String.valueOf(queryConfig.value), notification);
+						continue;
+					}
+					
+		        	// Check compatibility of data types
+		        	if (id.getDatatype() != valParser.getDataType()) {
+		        		String msg = "Query value " + String.valueOf(queryConfig.value) + " is not of type " + id.getDatatype() + " as the attribute data.";
+		        		log.writeln(msg);
+		        		notification.concat(msg);
+		        	}
+//					System.out.println("Epoch value: " + searchingKey);
+
+					// Absolute difference is used for estimating distance (and thus, similarity) of epoch numerical values
+					// Similarity also indicates the corresponding task serial number
+					simMeasure = new DecayedSimilarity(new NumericalDistance(searchingKey), decay, scale, tasks.size());
+					similarities.put(id.getHashKey(), simMeasure);
+					
+					// Employ a temporal search query (TEMPORAL_TOPK = 7)
+					if (jdbcConn != null)  {		// Querying against a DBMS using the original date/time value
+						id.setOperation(Constants.TEMPORAL_TOPK);
+						SimSearchJdbcQuery numSearch = new SimSearchJdbcQuery(jdbcConn, Constants.TEMPORAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.valueOf(queryConfig.value), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlValueRetrievalTemplate));
+						threadNumSearch = new Thread(numSearch);
+						runControl.put(id.getHashKey(), numSearch.running);	
+					}
+					else if (httpConn != null) {	// Querying against a REST API
+						if (dataSource.isSimSearchService()) {   // This is an instance of another SimSearch REST API with the original date/time value
+							SimSearchRestQuery numSearch = new SimSearchRestQuery(httpConn, Constants.TEMPORAL_TOPK, colKeyName, colValueName, String.valueOf(queryConfig.value), collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							valueFinders.put(id.getHashKey(), new NumericalValueFinder(httpConn, null));  // By default, random access is prohibited
+							threadNumSearch = new Thread(numSearch);
+							runControl.put(id.getHashKey(), numSearch.running);
+						}
+						else {  // Querying against an ElasticSearch REST API using the original date/time value
+							// TODO: Check that Elasticsearch supports search over date/time values
+							ElasticSearchRestQuery numSearch = new ElasticSearchRestQuery(httpConn, Constants.TEMPORAL_TOPK, queryConfig.filter, colKeyName, colValueName, String.valueOf(queryConfig.value), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							valueFinders.put(id.getHashKey(), new NumericalValueFinder(httpConn, numSearch.queryValueRetrievalTemplate));
+							threadNumSearch = new Thread(numSearch);
+							runControl.put(id.getHashKey(), numSearch.running);
+						}	
+					}
+					else {		// Querying with the epoch value against in-memory indices over a CSV file	
+						// A numerical search query is used internally for ingested temporal data
+						// Identify the B+-tree already built for this attribute
+						BPlusTree<Double, String> index = (BPlusTree<Double, String>) indices.get(id.getHashKey());
+						// collectionSize = -1 -> no prefixed bound on the number of results to fetch from numerical similarity search
+						IndexSimSearch numSearch = new IndexSimSearch(Constants.TEMPORAL_TOPK, name, index, searchingKey, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
+						threadNumSearch = new Thread(numSearch);
+						runControl.put(id.getHashKey(), numSearch.running);		
+					}
+					
+					threadNumSearch.setName(name);
+					tasks.put(id.getHashKey(), threadNumSearch);
+					queues.put(id.getHashKey(), resultsQueue);
+				}
+				// settings for top-k textual (string) similarity search
+				else if (operation.equalsIgnoreCase("textual_topk")) {
+					
+					Thread threadStringSearch = null;
+					
+					// QUERY SPECIFICATION
+					// Search string
+					String[] parsedValue = (String[]) valParser.parse(queryConfig.value);  // returns an array
+					if ((parsedValue == null) || (parsedValue.length == 0)) {
+						reportValueError(id, String.valueOf(queryConfig.value), notification);
+						continue;
+					}
+					String searchString = parsedValue[0];
+					
+					// Identify q-gram used in original dataset
+					int qgram = Constants.QGRAM;					
+					if (!id.getDataSource().isInSitu())   // Auto-detect QGRAM value for ingested data only
+						qgram = ((TokenSet) datasets.get(id.getHashKey()).values().iterator().next()).tokens.get(0).length();
+					
+					// Create a collection of q-gram representations for the query only
+					TokenSetCollectionReader reader = new TokenSetCollectionReader();
+					TokenSetCollection queryCollection = reader.createFromQueryString(searchString, qgram, log);
+
+//					System.out.println(searchString + " qgram:" + qgram + " tokens:" +  queryCollection.sets.values().iterator().next().tokens.toArray());
+					
+					// Jaccard distance is applied on categorical (textual) values
+					// Similarity also indicates the corresponding task serial number
+					simMeasure = new DecayedSimilarity(new CategoricalDistance(queryCollection.sets.get("querySet")), decay, scale, tasks.size());
+					similarities.put(id.getHashKey(), simMeasure);
+					
+					// Create an instance of the textual (string) search query (TEXTUAL_TOPK = 8)
+					if (jdbcConn != null)  {		// Querying against a DBMS
+						id.setOperation(Constants.TEXTUAL_TOPK);
+						// FIXME: Separator for search keywords must be ";" in this case
+						SimSearchJdbcQuery stringSearch = new SimSearchJdbcQuery(jdbcConn, Constants.TEXTUAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, searchString, topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, stringSearch.sqlValueRetrievalTemplate));
+						threadStringSearch = new Thread(stringSearch);
+						runControl.put(id.getHashKey(), stringSearch.running);
+					}
+					else if (httpConn != null) {	// Querying against a REST API
+						if (dataSource.isSimSearchService()) {   // This is an instance of another SimSearch REST API
+							SimSearchRestQuery stringSearch = new SimSearchRestQuery(httpConn, Constants.TEXTUAL_TOPK, colKeyName, colValueName, searchString, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							valueFinders.put(id.getHashKey(), new CategoricalValueFinder(httpConn, null));  // By default, random access is prohibited
+							threadStringSearch = new Thread(stringSearch);
+							runControl.put(id.getHashKey(), stringSearch.running);
+						}
+						else {  // This is an ElasticSearch REST API
+							ElasticSearchRestQuery stringSearch = new ElasticSearchRestQuery(httpConn, Constants.TEXTUAL_TOPK, queryConfig.filter, colKeyName, colValueName, searchString, topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
+							valueFinders.put(id.getHashKey(), new CategoricalValueFinder(httpConn, stringSearch.queryValueRetrievalTemplate));
+							threadStringSearch = new Thread(stringSearch);
+							runControl.put(id.getHashKey(), stringSearch.running);
+						}
+					}
+					else {			// Querying against in-memory indices over a CSV file
+						IndexSimSearch stringSearch = new IndexSimSearch(Constants.TEXTUAL_TOPK, name, indices.get(id.getHashKey()), datasets.get(id.getHashKey()), queryCollection, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
+						threadStringSearch = new Thread(stringSearch);
+						runControl.put(id.getHashKey(), stringSearch.running);
+					}
+					
+					threadStringSearch.setName(name);
+					tasks.put(id.getHashKey(), threadStringSearch);
+					queues.put(id.getHashKey(), resultsQueue);
 				}
 				// TODO: Include other types of operations...
 				else {
@@ -552,7 +712,7 @@ public class SearchHandler {
 	    
 		// Format response
 		SearchResponseFormat responseFormat = new SearchResponseFormat();
-		responses = responseFormat.proc(results, weights, datasetIdentifiers, datasets, lookups, similarities, normalizations, null, topk, this.isCollectQueryStats(), outCSVWriter);
+		responses = responseFormat.proc(results, weights, datasetIdentifiers, datasets, lookups, similarities, normalizations, null, topk, this.isCollectQueryStats(), notification, outCSVWriter);
 
 		// Close output writer to CSV (if applicable)
 		if (outCSVWriter.isSet())
@@ -572,7 +732,7 @@ public class SearchHandler {
 			jdbcConn.closeConnection();
 
 		// Close any HTTP connections
-		for (HttpConnector httpConn: openHttpConnections)
+		for (HttpRestConnector httpConn: openHttpConnections)
 			httpConn.closeConnection();
 		
 		// Response can be formatted as JSON
@@ -597,4 +757,19 @@ public class SearchHandler {
 		this.collectQueryStats = collectQueryStats;
 	}
 	
+	
+	/**
+	 * Reports an error regarding the search value specified for a particular query operation.
+	 * @param id  The identifier of the dataset targeted by the serach value.
+	 * @param val  The search value specified in the query.
+	 * @param notification  The notification string to update with a message.
+	 */
+	private void reportValueError(DatasetIdentifier id, String val, String notification) {
+		
+		String msg = "Query value: " + val + ". Operation " + myAssistant.decodeOperation(id.getOperation()) + " using a NULL or invalid search value is not supported! This attribute will be ignored in search.";
+		log.writeln(msg);
+		notification.concat(msg);
+		// No longer consider weights on this attribute
+		weights.remove(id.getHashKey());
+	}
 }

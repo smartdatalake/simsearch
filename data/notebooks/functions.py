@@ -4,6 +4,7 @@ from shapely.geometry import Point, box
 from shapely import wkt
 import geopandas as gpd
 import folium
+from folium.plugins import HeatMap
 from folium import IFrame
 from folium.plugins import MarkerCluster
 import math
@@ -13,6 +14,25 @@ import matplotlib
 from matplotlib import pyplot as plt
 from wordcloud import WordCloud
 import statistics
+
+
+def bbox(gdf):
+    """Computes the bounding box of a GeoDataFrame (Adaptation from LOCI).
+
+    Args:
+        gdf (GeoDataFrame): A GeoDataFrame.
+
+    Returns:
+        A Polygon representing the bounding box enclosing all geometries in the GeoDataFrame.
+    """
+
+    # Exclude all NULL geometries from computation
+    gdf_clean = gdf[~gdf.is_empty]
+    minx, miny, maxx, maxy = gdf_clean.geometry.total_bounds
+    if np.isnan(minx) or np.isnan(miny) or np.isnan(maxx) or np.isnan(maxy):
+        return Point()
+    return box(minx, miny, maxx, maxy)
+
 
 
 def wkt_to_geometry(p):
@@ -29,20 +49,6 @@ def wkt_to_geometry(p):
         return wkt.loads(p)
     except Exception:
         return None
-    
-
-def bbox(gdf):
-    """Computes the bounding box of a GeoDataFrame (imported from LOCI).
-
-    Args:
-        gdf (GeoDataFrame): A GeoDataFrame.
-
-    Returns:
-        A Polygon representing the bounding box enclosing all geometries in the GeoDataFrame.
-    """
-
-    minx, miny, maxx, maxy = gdf.geometry.total_bounds
-    return box(minx, miny, maxx, maxy)
 
     
 def changeDataType(col):
@@ -66,23 +72,27 @@ def changeDataType(col):
             else:
                 col = col.astype(str).astype(int)  # integer
         except:
-            # try date time
+            # try numeric
             try:
-                col = pd.to_datetime(col.dropna().unique())
+                col = pd.to_numeric(col.dropna().unique())
             except:
+                # try date time
                 try:
-                    pd.to_timedelta(col.dropna().unique())
+                    col = pd.to_datetime(col.dropna().unique())
                 except:
                     try:
-                        # try POINT locations in WKT representation
-                        if 'POINT (' in col.any():
-                            col = col.apply(wkt_to_geometry)
-                            isWKT = True
-                        else:   
-                            # try array of strings (e.g., keywords)
-                            col = col.str[1:-1].str.split(',')
-                    except:    # Return original column intact
-                        return col
+                        pd.to_timedelta(col.dropna().unique())
+                    except:
+                        try:
+                            # try POINT locations in WKT representation
+                            if 'POINT (' in col.any():
+                                col = col.apply(wkt_to_geometry)
+                                isWKT = True
+                            else:   
+                                # try array of strings (e.g., keywords)
+                                col = col.str[1:-1].str.split(',')
+                        except:    # Return original column intact
+                            return col
 
     return col, isWKT
 
@@ -112,10 +122,8 @@ def flatten(results):
     # This provides all infomation about this batch of top-k results
     dfFinal = pd.merge(dfRest, dfAttrFlat, on=['id','id'])
 
-    ## Bring name attribute first
+    ## Attribute names
     cols = dfFinal.columns.tolist()
-    cols = cols[-1:] + cols[:-1]
-    dfFinal = dfFinal[cols]
    
     # Create a copy for conversion to geodataframe
     pois = dfFinal.copy() 
@@ -134,14 +142,14 @@ def flatten(results):
         # Rename columns related to the spatial attribute
         s = col_wkt.find('_value')
         if (s > 0):
-            pois.rename(columns={col_wkt[0:s]+'_score': 'location_score'}, inplace=True)
-        pois.rename(columns={col_wkt: 'location'}, inplace=True)
+            pois.rename(columns={col_wkt[0:s]+'_score': 'geometry_score'}, inplace=True)
+        
         # Transform geometries to WGS84 
         source_crs='EPSG:4326'
         target_crs='EPSG:4326'
-        source_crs = {'init': source_crs}
-        target_crs = {'init': target_crs}
-        pois = gpd.GeoDataFrame(pois, crs=source_crs, geometry=pois['location']).to_crs(target_crs) 
+        pois = gpd.GeoDataFrame(pois, crs=source_crs, geometry=pois[col_wkt]).to_crs(target_crs) 
+        # Drop original attribute holding locations
+        pois = pois.drop(columns=[col_wkt], axis=1)
 
     # Resulting flattened (geo)dataframe
     return pois
@@ -287,11 +295,13 @@ def map_points(pois, tiles='OpenStreetMap', width='100%', height='100%', show_bb
     """
         
     # Set the crs to WGS84
-    if pois.crs['init'] != '4326':
-        pois = pois.to_crs({'init': 'epsg:4326'})
+    if pois.crs != 'epsg:4326':
+        pois = pois.to_crs('epsg:4326')
 
     # Automatically center the map at the center of the bounding box enclosing the POIs.
     bb = bbox(pois)
+    if bb.is_empty:
+        return None
     map_center = [bb.centroid.y, bb.centroid.x]
 
     # Initialize the map
@@ -329,6 +339,46 @@ def map_points(pois, tiles='OpenStreetMap', width='100%', height='100%', show_bb
         folium.GeoJson(bb).add_to(m)
 
     return m
+
+
+   
+# Generates a Folium Map object displaying a weighted heatmap generated from the POIs (Adaptation from LOCI)
+def weighted_heatmap(pois, tiles='OpenStreetMap', width='100%', height='100%', radius=10):
+
+    """Generates a Folium Map object displaying a weighted heatmap generated from the POIs (Adaptation from LOCI)
+
+    Args:
+         pois (GeoDataFrame): A GeoDataFrame containing the POIs to be displayed.
+         tiles (string): The tiles to use for the map (default: `OpenStreetMap`).
+         width (integer or percentage): Width of the map in pixels or percentage (default: 100%).
+         height (integer or percentage): Height of the map in pixels or percentage (default: 100%).
+         radius (float): Radius of each point of the heatmap (default: 10).
+
+    Returns:
+        A Folium Map object displaying the heatmap generated from the POIs.
+    """
+    
+    # Set the crs to WGS84
+    if pois.crs != 'epsg:4326':
+        pois = pois.to_crs('epsg:4326')
+
+    # Automatically center the map at the center of the gdf's bounding box
+    bb = bbox(pois)
+    if bb.is_empty:
+        return None
+    map_center = [bb.centroid.y, bb.centroid.x]
+    # Create the map
+    heat_map = folium.Map(location=map_center, tiles=tiles, width=width, height=height)
+    # Automatically set zoom level
+    heat_map.fit_bounds(([bb.bounds[1], bb.bounds[0]], [bb.bounds[3], bb.bounds[2]]))
+
+    # Make list of lists for the values
+    heat_data = [[row['geometry'].y, row['geometry'].x, row['score']] for index, row in pois[~pois.is_empty].iterrows()]
+
+    # Plot it on the map
+    HeatMap(heat_data, radius=radius).add_to(heat_map)
+
+    return heat_map
 
 
 def frequency(gdf, col_kwds='kwds', normalized=False):

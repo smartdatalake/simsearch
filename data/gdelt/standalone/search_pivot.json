@@ -4,7 +4,7 @@
 	"queries":[    
 				{
 					"column":"organizations",
-					"value": ["white house","united nations"],
+					"value": ["white house","cnn"],
 					"weights":["1.0","0.8"]
 				},
 				{
@@ -13,9 +13,14 @@
 					"weights":["1.0","0.4"]
 				},
 				{
-					"column":"[longitude, latitude]",
+					"column":"position",
 					"value":"POINT(-74.94 42.15)",
 					"weights":["1.0","0.7"]
+				},
+				{
+					"column":"positive_sentiment",
+					"value":2.5,
+					"weights":["1.0","0.6"]
 				}
 			]
 }

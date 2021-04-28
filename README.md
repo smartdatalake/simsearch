@@ -5,8 +5,10 @@
 SimSearch is a Java library providing support for combined similarity search against multi-attribute entities, i.e., datasets with different types of properties (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, Manhattan, etc.): 
 
 - *Categorical (set-valued) similarity search*: return data elements with the highest similarity score to the given query set of keywords.
+- *Textual (string) similarity search*: return data elements with the highest similarity score to the given query string.
 - *Numerical similarity search*: return data elements with the highest similarity score to the given query (numerical) value.
-- *Spatial similarity search*: implements k-nearest neighbor search and return data elements closest to the given query (point) location.
+- *Spatial similarity search*: implements k-nearest neighbor search and returns data elements closest to the given query (point) location.
+- *Temporal similarity search*: return data elements with the highest similarity score to the given query (date/time) value.
 
 Attribute data values may come from diverse data sources, and each one can be either ingested or queried in-situ:
 
@@ -45,7 +47,7 @@ $ mvn clean package spring-boot:repackage
 
 To invoke SimSearch in standalone mode as a Java application, run the executable:
 ```sh
-$ java -jar target/simsearch-0.3.1-SNAPSHOT.jar
+$ java -jar target/simsearch-0.4-SNAPSHOT.jar
 ```
 
 Next, choose a number corresponding to a functionality you want to apply:
@@ -62,7 +64,7 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 SimSearch also integrates a REST API and can be deployed as a web service application at a specific port (e.g., 8090) as follows:
 ```sh
-$ java -Dserver.port=8090 -jar target/simsearch-0.3.1-SNAPSHOT.jar --service
+$ java -Dserver.port=8090 -jar target/simsearch-0.4-SNAPSHOT.jar --service
 ```
 
 Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). Once the user wishes to make some data source(s) available for similarity search, a new instance of the service is created, which is associated with an auto-generated API key that is returned back to the user. All subsequent requests against this instance of the SimSearch service should specify this API key. Multiple SimSearch instances may be active in parallel but running in isolation, each one responding to requests that specify its own unique API key.
@@ -99,9 +101,18 @@ SimSearch supports several options in specifying query values in *search request
 	2) A _double_ value: 124.68
 	3) A _string containing a numerical value_: "124.68"
 
+- *DATE_TIME*. This data type concerns temporal values specified as:
+	1) A _date_ value in several common formats, e.g.: "2015-03-24", "24/03/2015", "2015-03"
+	2) A _date time_ value, e.g.: "2015-03-24 14:03:42", "2015-03-24 08:25:19+03"
+	3) A _time_ value, e.g.: "14:03:42"
+	4) A _timestamp_ value (optionally with milliseconds): "2015-03-24 14:03:42.366"
+	
 - *KEYWORD_SET*. Such values typically represent sets of keywords used in categorical (set-valued) search and can be specified as:
 	1) _Array of strings_: ["Computer+science", "Electronics", "Software", "E-commerce"]
 	2) String of _comma-separated keywords_: "Computer+science, Electronics, Software, E-commerce"
+
+- *STRING*. For textual (string) similarity search, simply specify:
+	1) A _string_ enclosed in quotes: "Big Ben"
 
 
 ## Interactive Data Exploration with the SimSearch REST API and Jupyter notebooks
