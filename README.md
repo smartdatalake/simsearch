@@ -2,7 +2,9 @@
 
 ## Overview
 
-SimSearch is a Java library providing support for combined similarity search against multi-attribute entities, i.e., datasets with different types of properties (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, Manhattan, etc.): 
+SimSearch is an open-source software for top-*k* similarity search over multi-attribute entity profiles possibly residing in different, remote, and heterogeneous data sources.
+
+SimSearch is developed in Java and provides support for combined similarity search against multi-attribute entities, i.e., datasets with different types of properties (textual/categorical, numerical, spatial, temporal, etc.). The queries enable multi-attribute similarity search for data exploration and may involve different similarity measures per attribute (Jaccard, Euclidean, Manhattan, etc.): 
 
 - *Categorical (set-valued) similarity search*: return data elements with the highest similarity score to the given query set of keywords.
 - *Textual (string) similarity search*: return data elements with the highest similarity score to the given query string.
