@@ -270,7 +270,7 @@ public class RankAggregator<K, V> implements IRankAggregator {
 
 
 	@Override
-	public IResult[][] proc() {
+	public IResult[][] proc(long query_timeout) {
 		return null;
 	}
 

@@ -9,8 +9,9 @@ public interface IRankAggregator {
 	
 	/**
 	 * Executes the rank aggregation process.
+	 * @param query_timeout  Max execution time (in milliseconds) for ranking in a submitted query.
 	 * @return  Array of the aggregated top-k results.
 	 */
-	public IResult[][] proc();
+	public IResult[][] proc(long query_timeout);
 
 }

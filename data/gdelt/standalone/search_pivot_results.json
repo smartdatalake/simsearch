@@ -4,9 +4,6 @@
     "attribute" : "positive_sentiment",
     "value" : 1.0
   }, {
-    "attribute" : "negative_sentiment",
-    "value" : 0.0
-  }, {
     "attribute" : "organizations",
     "value" : 1.0
   }, {
@@ -18,119 +15,129 @@
   } ],
   "rankedResults" : [ {
     "id" : "20191103164500-452",
-    "score" : 0.9445004123444538,
+    "score" : 0.7992473188520339,
     "rank" : 1,
     "exact" : true,
-    "name" : null,
     "attributes" : [ {
       "name" : "timestamp",
       "value" : "20191103164500",
-      "score" : 0.9683416528605051
+      "score" : 0.9974568472254959
     }, {
       "name" : "organizations",
-      "value" : "[whataburger, instagram, twitter, senate minority leader chuck schumer, cnn, democratic national committee, national anthem, democratic senatorial campaign committee, facebook, iowa democratic party]",
-      "score" : 0.9275409693565136
-    }, {
-      "name" : "position",
-      "value" : "Point (-86.25 41.6834)",
-      "score" : 0.9055966997657116
+      "value" : [ "whataburger", "instagram", "twitter", "senate minority leader chuck schumer", "cnn", "democratic national committee", "national anthem", "democratic senatorial campaign committee", "facebook", "iowa democratic party" ],
+      "score" : 0.7038393213376266
     }, {
       "name" : "positive_sentiment",
       "value" : "2.5219298245613997",
-      "score" : 0.9765223273950852
-    } ]
-  }, {
-    "id" : "20191107044500-602",
-    "score" : 0.9034826027885137,
-    "rank" : 2,
-    "exact" : true,
-    "name" : null,
-    "attributes" : [ {
-      "name" : "timestamp",
-      "value" : "20191107044500",
-      "score" : 0.901671996426159
-    }, {
-      "name" : "organizations",
-      "value" : "[white house, cnn, hilton hotel]",
-      "score" : 0.9668582199127227
+      "score" : 0.8951003237513859
     }, {
       "name" : "position",
-      "value" : "Point (-75.97800000000001 36.8529)",
-      "score" : 0.953814810693135
-    }, {
-      "name" : "positive_sentiment",
-      "value" : "2.28426395939086",
-      "score" : 0.7915853841220379
-    } ]
+      "value" : "Point (-86.25 41.6834)",
+      "score" : 0.6005927830936272
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 2.96052631578947
+    }
   }, {
     "id" : "20191116104500-446",
-    "score" : 0.8641473147628591,
-    "rank" : 3,
+    "score" : 0.797545817913742,
+    "rank" : 2,
     "exact" : true,
-    "name" : null,
     "attributes" : [ {
       "name" : "timestamp",
       "value" : "20191116104500",
-      "score" : 0.6568418190437032
+      "score" : 0.9672781660563033
     }, {
       "name" : "organizations",
-      "value" : "[boeing, friendly, singapore airline, melbourne monash university, qantas, cnn, university of sydney charles perkins centre, airbus]",
-      "score" : 0.9064389218980216
-    }, {
-      "name" : "position",
-      "value" : "Point (-74.9384 42.1497)",
-      "score" : 0.9999857396625067
+      "value" : [ "boeing", "friendly", "singapore airline", "melbourne monash university", "qantas", "cnn", "university of sydney charles perkins centre", "airbus" ],
+      "score" : 0.632131597001369
     }, {
       "name" : "positive_sentiment",
       "value" : "2.3958717287136",
-      "score" : 0.8933227784472048
-    } ]
-  }, {
-    "id" : "20191104201500-2626",
-    "score" : 0.842168833931666,
-    "rank" : 4,
-    "exact" : true,
-    "name" : null,
-    "attributes" : [ {
-      "name" : "timestamp",
-      "value" : "20191104201500",
-      "score" : 0.9959171338540972
-    }, {
-      "name" : "organizations",
-      "value" : "[house intelligence committee, eurasian affairs a wess mitchell, white house, european bureau, consular affairs, cnn, united states]",
-      "score" : 0.9303247141214923
-    }, {
-      "name" : "position",
-      "value" : "Point (-98.5795 39.828175)",
-      "score" : 0.8121410342192166
-    }, {
-      "name" : "positive_sentiment",
-      "value" : "2.07394048692516",
-      "score" : 0.6302924535318579
-    } ]
-  }, {
-    "id" : "20191116000000-2019",
-    "score" : 0.8210023221953502,
-    "rank" : 5,
-    "exact" : true,
-    "name" : null,
-    "attributes" : [ {
-      "name" : "timestamp",
-      "value" : "20191116000000",
-      "score" : 0.6592463932618656
-    }, {
-      "name" : "organizations",
-      "value" : "[white house, european union, national security council, cnn, permanent select committee, united states]",
-      "score" : 0.9348148174127987
+      "score" : 0.5908468260651135
     }, {
       "name" : "position",
       "value" : "Point (-74.9384 42.1497)",
-      "score" : 0.9999857396625067
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 2.2852930335422004
+    }
+  }, {
+    "id" : "20191017000000-153",
+    "score" : 0.7575105527246526,
+    "rank" : 3,
+    "exact" : true,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "20191017000000",
+      "score" : 0.7858149072419881
+    }, {
+      "name" : "organizations",
+      "value" : [ "wisconsin dane county circuit court", "connecticut department of public health", "vital records division", "wrongs without remedies", "cnn", "dane county court"],
+      "score" : 0.7299843248967746
     }, {
       "name" : "positive_sentiment",
-      "value" : "2.15743440233236",
-      "score" : 0.6899623384442293
-    } ]
+      "value" : "2.63157894736842",
+      "score" : 0.5143162962276654
+    }, {
+      "name" : "position",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 7.456140350877191
+    }
+  }, {
+    "id" : "20191029191500-1334",
+    "score" : 0.7480152436334964,
+    "rank" : 4,
+    "exact" : true,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "20191029191500",
+      "score" : 0.8127837829322349
+    }, {
+      "name" : "organizations",
+      "value" : [ "walmart", "drug administration", "cnn" ],
+      "score" : 0.7744575600873259
+    }, {
+      "name" : "positive_sentiment",
+      "value" : "2.321083172147",
+      "score" : 0.40489294898224243
+    }, {
+      "name" : "position",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 2.321083172147
+    }
+  }, {
+    "id" : "20191203153000-2047",
+    "score" : 0.7431673304132402,
+    "rank" : 5,
+    "exact" : true,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "20191203153000",
+      "score" : 0.7601773437201903
+    }, {
+      "name" : "organizations",
+      "value" : [ "united states" ],
+      "score" : 0.6236921842949229
+    }, {
+      "name" : "positive_sentiment",
+      "value" : "2.39520958083832",
+      "score" : 0.5888731111056652
+    }, {
+      "name" : "position",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 3.2934131736527004
+    }
   } ],
   "similarityMatrix" : [ {
     "left" : "20191103164500-452",
@@ -138,110 +145,107 @@
     "score" : 1.0
   }, {
     "left" : "20191103164500-452",
-    "right" : "20191107044500-602",
-    "score" : 0.8743556900556709
-  }, {
-    "left" : "20191103164500-452",
     "right" : "20191116104500-446",
-    "score" : 0.8280839517137566
+    "score" : 0.6751177052688004
   }, {
     "left" : "20191103164500-452",
-    "right" : "20191104201500-2626",
-    "score" : 0.8559254205605904
+    "right" : "20191017000000-153",
+    "score" : 0.6861025283181627
   }, {
     "left" : "20191103164500-452",
-    "right" : "20191116000000-2019",
-    "score" : 0.7915696495537193
+    "right" : "20191029191500-1334",
+    "score" : 0.6275169424274781
   }, {
-    "left" : "20191107044500-602",
-    "right" : "20191103164500-452",
-    "score" : 0.8743556900556709
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191107044500-602",
-    "score" : 1.0
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191116104500-446",
-    "score" : 0.8717258659518892
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191104201500-2626",
-    "score" : 0.8706999445161374
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191116000000-2019",
-    "score" : 0.8808578720464533
+    "left" : "20191103164500-452",
+    "right" : "20191203153000-2047",
+    "score" : 0.6526045677422874
   }, {
     "left" : "20191116104500-446",
     "right" : "20191103164500-452",
-    "score" : 0.8280839517137566
-  }, {
-    "left" : "20191116104500-446",
-    "right" : "20191107044500-602",
-    "score" : 0.8717258659518892
+    "score" : 0.6751177052688004
   }, {
     "left" : "20191116104500-446",
     "right" : "20191116104500-446",
     "score" : 1.0
   }, {
     "left" : "20191116104500-446",
-    "right" : "20191104201500-2626",
-    "score" : 0.7739149422938538
+    "right" : "20191017000000-153",
+    "score" : 0.6847961805459969
   }, {
     "left" : "20191116104500-446",
-    "right" : "20191116000000-2019",
-    "score" : 0.9220082836547787
+    "right" : "20191029191500-1334",
+    "score" : 0.7762310925686748
   }, {
-    "left" : "20191104201500-2626",
+    "left" : "20191116104500-446",
+    "right" : "20191203153000-2047",
+    "score" : 0.8554040008844715
+  }, {
+    "left" : "20191017000000-153",
     "right" : "20191103164500-452",
-    "score" : 0.8559254205605904
+    "score" : 0.6861025283181627
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191107044500-602",
-    "score" : 0.8706999445161374
-  }, {
-    "left" : "20191104201500-2626",
+    "left" : "20191017000000-153",
     "right" : "20191116104500-446",
-    "score" : 0.7739149422938538
+    "score" : 0.6847961805459969
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191104201500-2626",
+    "left" : "20191017000000-153",
+    "right" : "20191017000000-153",
     "score" : 1.0
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191116000000-2019",
-    "score" : 0.845698235396656
+    "left" : "20191017000000-153",
+    "right" : "20191029191500-1334",
+    "score" : 0.7273984772211137
   }, {
-    "left" : "20191116000000-2019",
+    "left" : "20191017000000-153",
+    "right" : "20191203153000-2047",
+    "score" : 0.688654231904265
+  }, {
+    "left" : "20191029191500-1334",
     "right" : "20191103164500-452",
-    "score" : 0.7915696495537193
+    "score" : 0.6275169424274781
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191107044500-602",
-    "score" : 0.8808578720464533
-  }, {
-    "left" : "20191116000000-2019",
+    "left" : "20191029191500-1334",
     "right" : "20191116104500-446",
-    "score" : 0.9220082836547787
+    "score" : 0.7762310925686748
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191104201500-2626",
-    "score" : 0.845698235396656
+    "left" : "20191029191500-1334",
+    "right" : "20191017000000-153",
+    "score" : 0.7273984772211137
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191116000000-2019",
+    "left" : "20191029191500-1334",
+    "right" : "20191029191500-1334",
+    "score" : 1.0
+  }, {
+    "left" : "20191029191500-1334",
+    "right" : "20191203153000-2047",
+    "score" : 0.7390786016162477
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191103164500-452",
+    "score" : 0.6526045677422874
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191116104500-446",
+    "score" : 0.8554040008844715
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191017000000-153",
+    "score" : 0.688654231904265
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191029191500-1334",
+    "score" : 0.7390786016162477
+  }, {
+    "left" : "20191203153000-2047",
+    "right" : "20191203153000-2047",
     "score" : 1.0
   } ],
-  "timeInSeconds" : 0.046087593
+  "timeInSeconds" : 0.0168151
 }, {
   "notification" : "",
   "weights" : [ {
     "attribute" : "positive_sentiment",
     "value" : 0.6
-  }, {
-    "attribute" : "negative_sentiment",
-    "value" : 0.0
   }, {
     "attribute" : "organizations",
     "value" : 0.8
@@ -253,221 +257,231 @@
     "value" : 0.4
   } ],
   "rankedResults" : [ {
-    "id" : "20191103164500-452",
-    "score" : 0.9396802091609849,
+    "id" : "20191116104500-446",
+    "score" : 0.7788293269740849,
     "rank" : 1,
     "exact" : true,
-    "name" : null,
-    "attributes" : [ {
-      "name" : "timestamp",
-      "value" : "20191103164500",
-      "score" : 0.9683416528605051
-    }, {
-      "name" : "organizations",
-      "value" : "[whataburger, instagram, twitter, senate minority leader chuck schumer, cnn, democratic national committee, national anthem, democratic senatorial campaign committee, facebook, iowa democratic party]",
-      "score" : 0.9275409693565136
-    }, {
-      "name" : "position",
-      "value" : "Point (-86.25 41.6834)",
-      "score" : 0.9055966997657116
-    }, {
-      "name" : "positive_sentiment",
-      "value" : "2.5219298245613997",
-      "score" : 0.9765223273950852
-    } ]
-  }, {
-    "id" : "20191107044500-602",
-    "score" : 0.9107107889836236,
-    "rank" : 2,
-    "exact" : true,
-    "name" : null,
-    "attributes" : [ {
-      "name" : "timestamp",
-      "value" : "20191107044500",
-      "score" : 0.901671996426159
-    }, {
-      "name" : "organizations",
-      "value" : "[white house, cnn, hilton hotel]",
-      "score" : 0.9668582199127227
-    }, {
-      "name" : "position",
-      "value" : "Point (-75.97800000000001 36.8529)",
-      "score" : 0.953814810693135
-    }, {
-      "name" : "positive_sentiment",
-      "value" : "2.28426395939086",
-      "score" : 0.7915853841220379
-    } ]
-  }, {
-    "id" : "20191116104500-446",
-    "score" : 0.8895486199871904,
-    "rank" : 3,
-    "exact" : true,
-    "name" : null,
     "attributes" : [ {
       "name" : "timestamp",
       "value" : "20191116104500",
-      "score" : 0.6568418190437032
+      "score" : 0.9672781660563033
     }, {
       "name" : "organizations",
-      "value" : "[boeing, friendly, singapore airline, melbourne monash university, qantas, cnn, university of sydney charles perkins centre, airbus]",
-      "score" : 0.9064389218980216
-    }, {
-      "name" : "position",
-      "value" : "Point (-74.9384 42.1497)",
-      "score" : 0.9999857396625067
+      "value" : [ "boeing", "friendly", "singapore airline", "melbourne monash university", "qantas", "cnn", "university of sydney charles perkins centre", "airbus" ],
+      "score" : 0.632131597001369
     }, {
       "name" : "positive_sentiment",
       "value" : "2.3958717287136",
-      "score" : 0.8933227784472048
-    } ]
-  }, {
-    "id" : "20191116000000-2019",
-    "score" : 0.8502071328261109,
-    "rank" : 4,
-    "exact" : true,
-    "name" : null,
-    "attributes" : [ {
-      "name" : "timestamp",
-      "value" : "20191116000000",
-      "score" : 0.6592463932618656
-    }, {
-      "name" : "organizations",
-      "value" : "[white house, european union, national security council, cnn, permanent select committee, united states]",
-      "score" : 0.9348148174127987
+      "score" : 0.5908468260651135
     }, {
       "name" : "position",
       "value" : "Point (-74.9384 42.1497)",
-      "score" : 0.9999857396625067
-    }, {
-      "name" : "positive_sentiment",
-      "value" : "2.15743440233236",
-      "score" : 0.6899623384442293
-    } ]
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 2.2852930335422004
+    }
   }, {
-    "id" : "20191104201500-2626",
-    "score" : 0.8357203283645596,
-    "rank" : 5,
+    "id" : "20191103164500-452",
+    "score" : 0.7678117353506682,
+    "rank" : 2,
     "exact" : true,
-    "name" : null,
     "attributes" : [ {
       "name" : "timestamp",
-      "value" : "20191104201500",
-      "score" : 0.9959171338540972
+      "value" : "20191103164500",
+      "score" : 0.9974568472254959
     }, {
       "name" : "organizations",
-      "value" : "[house intelligence committee, eurasian affairs a wess mitchell, white house, european bureau, consular affairs, cnn, united states]",
-      "score" : 0.9303247141214923
-    }, {
-      "name" : "position",
-      "value" : "Point (-98.5795 39.828175)",
-      "score" : 0.8121410342192166
+      "value" : [ "whataburger", "instagram", "twitter", "senate minority leader chuck schumer", "cnn", "democratic national committee", "national anthem", "democratic senatorial campaign committee", "facebook", "iowa democratic party" ],
+      "score" : 0.7038393213376266
     }, {
       "name" : "positive_sentiment",
-      "value" : "2.07394048692516",
-      "score" : 0.6302924535318579
-    } ]
+      "value" : "2.5219298245613997",
+      "score" : 0.8951003237513859
+    }, {
+      "name" : "position",
+      "value" : "Point (-86.25 41.6834)",
+      "score" : 0.6005927830936272
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 2.96052631578947
+    }
+  }, {
+    "id" : "20191017000000-153",
+    "score" : 0.7627407513293367,
+    "rank" : 3,
+    "exact" : true,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "20191017000000",
+      "score" : 0.7858149072419881
+    }, {
+      "name" : "organizations",
+      "value" : [ "wisconsin dane county circuit court", "connecticut department of public health", "vital records division", "wrongs without remedies", "cnn", "dane county court"],
+      "score" : 0.7299843248967746
+    }, {
+      "name" : "positive_sentiment",
+      "value" : "2.63157894736842",
+      "score" : 0.5143162962276654
+    }, {
+      "name" : "position",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 7.456140350877191
+    }
+  }, {
+    "id" : "20190813200000-920",
+    "score" : 0.7560026711808724,
+    "rank" : 4,
+    "exact" : true,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "20190813200000",
+      "score" : 0.44703642343972627
+    }, {
+      "name" : "organizations",
+      "value" : [ "bureau of prisons", "justice department", "cnn", "correctional center" ],
+      "score" : 0.7897418466150333
+    }, {
+      "name" : "positive_sentiment",
+      "value" : "2.59067357512953",
+      "score" : 0.6324165891862268
+    }, {
+      "name" : "position",
+      "value" : "Point (-74.9384 42.1497)",
+      "score" : 0.9999266825321824
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 8.29015544041451
+    }
+  }, {
+    "id" : "20190801003000-2130",
+    "score" : 0.751399891133566,
+    "rank" : 5,
+    "exact" : true,
+    "attributes" : [ {
+      "name" : "timestamp",
+      "value" : "20190801003000",
+      "score" : 0.43219678515035653
+    }, {
+      "name" : "organizations",
+      "value" : [ "youtube", "house judiciary committee", "department of health", "human services", "media addiction reduction technology", "facebook", "justice department" ],
+      "score" : 0.6827494172893757
+    }, {
+      "name" : "positive_sentiment",
+      "value" : "2.5096525096525095",
+      "score" : 0.9523928390183781
+    }, {
+      "name" : "position",
+      "value" : "Point (-77.0364 38.8951)",
+      "score" : 0.8399796807589209
+    } ],
+    "extraAttributes" : {
+      "negative_sentiment" : 5.21235521235521
+    }
   } ],
   "similarityMatrix" : [ {
-    "left" : "20191103164500-452",
-    "right" : "20191103164500-452",
-    "score" : 1.0
-  }, {
-    "left" : "20191103164500-452",
-    "right" : "20191107044500-602",
-    "score" : 0.8814210940932126
-  }, {
-    "left" : "20191103164500-452",
-    "right" : "20191116104500-446",
-    "score" : 0.8521685556330713
-  }, {
-    "left" : "20191103164500-452",
-    "right" : "20191116000000-2019",
-    "score" : 0.8209445777823126
-  }, {
-    "left" : "20191103164500-452",
-    "right" : "20191104201500-2626",
-    "score" : 0.856181687375261
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191103164500-452",
-    "score" : 0.8814210940932126
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191107044500-602",
-    "score" : 1.0
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191116104500-446",
-    "score" : 0.8902120941162949
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191116000000-2019",
-    "score" : 0.9026337863426788
-  }, {
-    "left" : "20191107044500-602",
-    "right" : "20191104201500-2626",
-    "score" : 0.8731786610771269
-  }, {
-    "left" : "20191116104500-446",
-    "right" : "20191103164500-452",
-    "score" : 0.8521685556330713
-  }, {
-    "left" : "20191116104500-446",
-    "right" : "20191107044500-602",
-    "score" : 0.8902120941162949
-  }, {
     "left" : "20191116104500-446",
     "right" : "20191116104500-446",
     "score" : 1.0
   }, {
     "left" : "20191116104500-446",
-    "right" : "20191116000000-2019",
-    "score" : 0.9189657943848513
+    "right" : "20191103164500-452",
+    "score" : 0.6434483761577322
   }, {
     "left" : "20191116104500-446",
-    "right" : "20191104201500-2626",
-    "score" : 0.7961556246517197
+    "right" : "20191017000000-153",
+    "score" : 0.690612282627424
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191103164500-452",
-    "score" : 0.8209445777823126
+    "left" : "20191116104500-446",
+    "right" : "20190813200000-920",
+    "score" : 0.6561911948492748
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191107044500-602",
-    "score" : 0.9026337863426788
+    "left" : "20191116104500-446",
+    "right" : "20190801003000-2130",
+    "score" : 0.6369790582105763
   }, {
-    "left" : "20191116000000-2019",
+    "left" : "20191103164500-452",
     "right" : "20191116104500-446",
-    "score" : 0.9189657943848513
+    "score" : 0.6434483761577322
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191116000000-2019",
+    "left" : "20191103164500-452",
+    "right" : "20191103164500-452",
     "score" : 1.0
   }, {
-    "left" : "20191116000000-2019",
-    "right" : "20191104201500-2626",
-    "score" : 0.871015323079051
+    "left" : "20191103164500-452",
+    "right" : "20191017000000-153",
+    "score" : 0.6821710355497005
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191103164500-452",
-    "score" : 0.856181687375261
+    "left" : "20191103164500-452",
+    "right" : "20190813200000-920",
+    "score" : 0.6610077521359469
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191107044500-602",
-    "score" : 0.8731786610771269
+    "left" : "20191103164500-452",
+    "right" : "20190801003000-2130",
+    "score" : 0.7590622118371
   }, {
-    "left" : "20191104201500-2626",
+    "left" : "20191017000000-153",
     "right" : "20191116104500-446",
-    "score" : 0.7961556246517197
+    "score" : 0.690612282627424
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191116000000-2019",
-    "score" : 0.871015323079051
+    "left" : "20191017000000-153",
+    "right" : "20191103164500-452",
+    "score" : 0.6821710355497005
   }, {
-    "left" : "20191104201500-2626",
-    "right" : "20191104201500-2626",
+    "left" : "20191017000000-153",
+    "right" : "20191017000000-153",
+    "score" : 1.0
+  }, {
+    "left" : "20191017000000-153",
+    "right" : "20190813200000-920",
+    "score" : 0.8619890545104137
+  }, {
+    "left" : "20191017000000-153",
+    "right" : "20190801003000-2130",
+    "score" : 0.7123808459367507
+  }, {
+    "left" : "20190813200000-920",
+    "right" : "20191116104500-446",
+    "score" : 0.6561911948492748
+  }, {
+    "left" : "20190813200000-920",
+    "right" : "20191103164500-452",
+    "score" : 0.6610077521359469
+  }, {
+    "left" : "20190813200000-920",
+    "right" : "20191017000000-153",
+    "score" : 0.8619890545104137
+  }, {
+    "left" : "20190813200000-920",
+    "right" : "20190813200000-920",
+    "score" : 1.0
+  }, {
+    "left" : "20190813200000-920",
+    "right" : "20190801003000-2130",
+    "score" : 0.8047436488959118
+  }, {
+    "left" : "20190801003000-2130",
+    "right" : "20191116104500-446",
+    "score" : 0.6369790582105763
+  }, {
+    "left" : "20190801003000-2130",
+    "right" : "20191103164500-452",
+    "score" : 0.7590622118371
+  }, {
+    "left" : "20190801003000-2130",
+    "right" : "20191017000000-153",
+    "score" : 0.7123808459367507
+  }, {
+    "left" : "20190801003000-2130",
+    "right" : "20190813200000-920",
+    "score" : 0.8047436488959118
+  }, {
+    "left" : "20190801003000-2130",
+    "right" : "20190801003000-2130",
     "score" : 1.0
   } ],
-  "timeInSeconds" : 0.046087593
+  "timeInSeconds" : 0.0168151
 } ]

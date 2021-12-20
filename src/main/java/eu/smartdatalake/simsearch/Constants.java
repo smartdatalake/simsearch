@@ -1,5 +1,8 @@
 package eu.smartdatalake.simsearch;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Auxiliary class that defines basic parameters and their default values.
  */
@@ -32,7 +35,7 @@ public class Constants {
 	public final static int TEMPORAL_TOPK = 7;  	// temporal top-k similarity search
 	public final static int TEXTUAL_TOPK = 8;  		// textual (string) top-k similarity search
 	
-	public final static double DECAY_FACTOR = 0.01;      // Default exponential decay constant lambda
+	public final static double DECAY_FACTOR = 0.05;      // Default exponential decay constant lambda
 	
 	public final static int QGRAM = 3;		// Default value for q-grams (i.e., trigrams)
 	
@@ -40,16 +43,25 @@ public class Constants {
 	
 	public final static int INFLATION_FACTOR = 1000;     // Multiply the top-k with this value to specify the number of partial results to made available from each facet
 	
-	public final static String RANKING_METHOD = "threshold";	// By default, apply the threshold algorithm in rank aggregation
+	public final static List<String> RANKING_METHODS = Arrays.asList("threshold", "partial_random_access", "no_random_access", "pivot_based");
+	public final static String DEFAULT_METHOD = "threshold";	// By default, apply the threshold algorithm in rank aggregation
 
 	public static final String INCORRECT_DBMS = "Incorrect or no value set for the DBMS where input data is stored. Please specify a correct value in the configuration settings.";
 	  
-	public static final long RANKING_MAX_TIME = 60000;   // Time slot (in milliseconds) dedicated to ranking; otherwise, time out this process and issue all available results
+	public static final long RANKING_MAX_TIME = 10000;	// Time (in milliseconds) dedicated to ranking; otherwise, time out this process and issue all available results
 
-	public static final int NUM_PIVOTS = 8;   			// Total number of pivot values --> dimensionality of the RR*-tree ; This must be admin-specified
+	public static final int NUM_PIVOTS = 8;				// Total number of pivot values --> dimensionality of the RR*-tree ; This must be admin-specified
 	
 	public static final int NODE_FANOUT = 28; 			// Max number of children per node in the RR*-tree
 	
 	public static final int NUM_SAMPLES = 500;  	// Number of sample points used for estimating pruning potential per metric to be used in RR*-tree construction
+	
+	// Pattern for SQL-like SELECT queries
+	public static final String SQL_SELECT_PATTERN = "SELECT * \r\n" + 
+			"    [ FROM running_instance ]\r\n" + 
+			"      WHERE attr_name1 ~= 'attr_value1' [ AND ...] \r\n" + 
+			"    [ WEIGHTS weight_value1 [, ...] ]\r\n" + 
+			"    [ ALGORITHM { threshold | partial_random_access | no_random_access | pivot_based } ]\r\n" + 
+			"    [ LIMIT count ]";
 	
 }

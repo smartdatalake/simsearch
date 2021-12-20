@@ -294,7 +294,7 @@ public class DataIngestor {
 				if (jdbcConn != null) {	// Input comes from a single non-indexed geometry column in a DBMS table acquired via a JDBC connection
 					// Must always specify the key column in the configuration
 					targetData = locReader.importFromJdbcTable(id.getDatasetName(), colKeyName, colValueName, jdbcConn, log);
-					log.writeln("Ingested location data from JDBC data source on column " + colValueName);
+					log.writeln("Ingested locations from JDBC data source on column " + colValueName);
 				}
 				else   // Input comes from a CSV file
 					targetData = locReader.importFromCsvFile(dataset, maxLines, colKey, colValue, columnSeparator, header, log);

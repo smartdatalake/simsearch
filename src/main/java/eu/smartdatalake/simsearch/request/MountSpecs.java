@@ -13,7 +13,7 @@ public class MountSpecs {
 	@ApiModelProperty(required = true, value = "The dataset with the attribute values to search against; e.g., a CSV file or a table in a DBMS")
 	public String dataset;
 	
-	@ApiModelProperty(required = true, allowableValues = "spatial_knn, categorical_topk, numerical_topk, pivot_based, name_dictionary, keyword_dictionary", value = "The similarity search operation supported for this attribute or the dictionary to be constructed from its values")
+	@ApiModelProperty(required = true, allowableValues = "spatial_knn, categorical_topk, numerical_topk, temporal_topk, textual_topk, pivot_based, name_dictionary, keyword_dictionary", value = "The similarity search operation supported for this attribute or the dictionary to be constructed from its values")
 	public String operation;
 
 	@ApiModelProperty(required = false, allowableValues = "Manhattan, Euclidean, Chebyshev, Haversine, Jaccard", value = "The distance distance supported for this attribute (only applicable in PIVOT-based similarity search); if omitted, Euclidean is the default distance")

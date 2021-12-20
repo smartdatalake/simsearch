@@ -1,6 +1,5 @@
 package eu.smartdatalake.simsearch.engine.processor.ranking;
 
-
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
@@ -187,7 +186,7 @@ public class ThresholdRanking<K, V> extends RankAggregator<K, V> {
 	 * Implements the processing logic of the threshold-based algorithm.
 	 */
 	@Override
-	public IResult[][] proc() {
+	public IResult[][] proc(long query_timeout) {
 			
 		long startTime = System.currentTimeMillis();
 		int n = 0;
@@ -206,7 +205,7 @@ public class ThresholdRanking<K, V> extends RankAggregator<K, V> {
 		// Iterate over candidates in the the priority queues
 		// Stop any further examination if top-k results are issued or if the process times out	
 		boolean stop = false;
-		while (!stop && (System.currentTimeMillis() - startTime < Constants.RANKING_MAX_TIME)) {
+		while (!stop && (System.currentTimeMillis() - startTime < query_timeout)) {
 
 			// To be updated with results from this iteration
 			for (int w = 0; w < weightCombinations; w++) {

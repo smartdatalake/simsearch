@@ -1,5 +1,8 @@
 {
 	"k":"5",
+	"output" : { 
+			"extra_columns" : ["negative_sentiment"]
+		},
 	"algorithm":"pivot_based",
 	"queries":[    
 				{

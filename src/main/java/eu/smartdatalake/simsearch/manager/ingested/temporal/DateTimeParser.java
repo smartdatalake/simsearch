@@ -12,8 +12,8 @@ import org.apache.commons.lang3.time.DateUtils;
  */
 public class DateTimeParser {
 
-	// TODO: Add other common patterns of dates and times to apply in parsing, e.g., "yyyy-MM-ddTHH:mm:ss" 
-	String[] datePatterns = new String[] { "yyyy-MM-dd HH:mm:ssX", "yyyy-MM-dd HH:mm:ss", "yyyyMMddHHmmss", "yyyy-MM-dd HH:mm:ss.SSX", "yyyy-MM-dd", "dd/MM-yyyy", "dd/MM/yyyy", "yyyy-MM", "YYYY", "HH:mm:ss" };
+	// Most common patterns of dates and times to apply in parsing 
+	String[] datePatterns = new String[] { "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd HH:mm:ssX", "yyyy-MM-dd HH:mm:ss", "yyyyMMddHHmmss", "yyyy-MM-dd HH:mm:ss.SSX", "yyyy-MM-dd", "dd/MM-yyyy", "dd/MM/yyyy", "yyyy-MM", "YYYY", "HH:mm:ss"};
 	
 	String msg = null;
 	
@@ -44,7 +44,7 @@ public class DateTimeParser {
 		
 		if (!strDate.trim().isEmpty()) {
 			Date date;
-			try {
+			try {			
 				date = DateUtils.parseDate(strDate, datePatterns);
 				return date.toInstant().toEpochMilli()/1000.0;   //milliseconds stored in the decimal part
 			} catch (ParseException e) {

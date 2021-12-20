@@ -26,9 +26,11 @@ With SimSearch, users can request the top-k results across all examined attribut
 
 SimSearch can be deployed either as a standalone Java application or as a RESTful web service, as detailed next.
 
+
 ## Documentation
 
 Javadoc is available [here](https://smartdatalake.github.io/simsearch/).
+
 
 ## Usage
 
@@ -45,11 +47,12 @@ $ mvn clean package spring-boot:repackage
 
 **Step 3**. Edit the parameters in the `search.json` file for the various attributes involved in the top-k similarity search query.
 
+
 ## Standalone execution
 
 To invoke SimSearch in standalone mode as a Java application, run the executable:
 ```sh
-$ java -jar target/simsearch-0.4-SNAPSHOT.jar
+$ java -jar target/simsearch-0.5-SNAPSHOT.jar
 ```
 
 Next, choose a number corresponding to a functionality you want to apply:
@@ -62,11 +65,15 @@ Next, choose a number corresponding to a functionality you want to apply:
 
 (4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file containing the query specification (as in [`search.json.example`](search.json.example) file or [`data/gdelt/standalone/search.json`](data/gdelt/standalone/search.json) for a search request using rank aggregation). Configuration for search requests using pivot-based SimSearch must specifically define *pivot_based* as the algorithm to be used, as in this [`example`](data/gdelt/standalone/search_pivot.json) of a *pivot-based search request*. In all cases, once evaluation is complete, results will be available in JSON format (as in [`data/gdelt/standalone/search_results.json`](data/gdelt/standalone/search_results.json)).
 
+(5): SQL TERMINAL -> This terminal-based front-end that enables users to type *conjunctive SQL-like queries* interactively, issue them against the locally running SimSearch instance, and inspect the query results. Please consult details on this [SQL syntax](#sql-syntax) customized for top-*k* similarity search. 
+
+
 ## Launching SimSearch as web service
 
 SimSearch also integrates a REST API and can be deployed as a web service application at a specific port (e.g., 8090) as follows:
+
 ```sh
-$ java -Dserver.port=8090 -jar target/simsearch-0.4-SNAPSHOT.jar --service
+$ java -Dserver.port=8090 -jar target/simsearch-0.5-SNAPSHOT.jar --service
 ```
 
 Option `--service` signifies that a web application will be deployed using [Spring Boot](https://spring.io/projects/spring-boot). Once the user wishes to make some data source(s) available for similarity search, a new instance of the service is created, which is associated with an auto-generated API key that is returned back to the user. All subsequent requests against this instance of the SimSearch service should specify this API key. Multiple SimSearch instances may be active in parallel but running in isolation, each one responding to requests that specify its own unique API key.
@@ -83,12 +90,12 @@ Thus, users are able to issue requests to an instance of the SimSearch service v
 
 - [`CATALOG request`](data/gdelt/service/simsearch-gdelt-catalog.py) -> Returns a JSON list of the currently queryable attributes and the operation (categorical, numerical, or spatial) supported for each one. An API key referring to this instance of the SimSearch service is required.
 
-- [`SEARCH request`](data/gdelt/service/simsearch-gdelt-query.py) -> Allows specification of a top-k similarity search query using a JSON. An API key referring to this instance of the SimSearch service is required. In case of *in-situ data sources* (e.g., DBMS, Elasticsearch), an optional *filter* may be specified along with the queried attribute. This user-specified condition (written in the dialect of the corresponding data source, e.g., SQL for a DBMS, or filter context for Elasticsearch) may involve any attributes available in that source and is used to filter the underlying data prior to applying similarity search. Once evaluation is complete, results will be issued in JSON format.
+- [`SEARCH request`](data/gdelt/service/simsearch-gdelt-query.py) -> Allows specification of a top-*k* similarity search query using a JSON. An API key referring to this instance of the SimSearch service is required. In case of *in-situ data sources* (e.g., DBMS, Elasticsearch), an optional *filter* may be specified along with the queried attribute. This user-specified condition (written in the dialect of the corresponding data source, e.g., SQL for a DBMS, or filter context for Elasticsearch) may involve any attributes available in that source and is used to filter the underlying data prior to applying similarity search. Once evaluation is complete, results will be issued in JSON format.
 
 In case all data is available in *ElasticSearch*, these [`example scripts`](data/elastic/) demonstrate how to specify a SimSearch instance against various types of ES-indexed atributes and interact with it with top-k similarity search queries. 
 
 
-### Value specification in search requests
+## Value specification in search requests
 
 SimSearch supports several options in specifying query values in *search requests*. The following _examples_ indicate these alternative specifications for the various types of attributes involved in SimSearch queries:
 
@@ -105,7 +112,7 @@ SimSearch supports several options in specifying query values in *search request
 
 - *DATE_TIME*. This data type concerns temporal values specified as:
 	1) A _date_ value in several common formats, e.g.: "2015-03-24", "24/03/2015", "2015-03"
-	2) A _date time_ value, e.g.: "2015-03-24 14:03:42", "2015-03-24 08:25:19+03"
+	2) A _date time_ value, e.g.: "2015-03-24 14:03:42", "2015-03-24 08:25:19+03", "2015-03-24T08:25:19+03Z"
 	3) A _time_ value, e.g.: "14:03:42"
 	4) A _timestamp_ value (optionally with milliseconds): "2015-03-24 14:03:42.366"
 	
@@ -115,6 +122,44 @@ SimSearch supports several options in specifying query values in *search request
 
 - *STRING*. For textual (string) similarity search, simply specify:
 	1) A _string_ enclosed in quotes: "Big Ben"
+
+
+## SQL syntax
+
+When running SimSearch as a *standalone* application, its terminal-based interface allows users to submit *conjunctive SQL-like queries* and interactively browse the results. In particular, users can write `SELECT` statements of the following syntax (optional clauses are enclosed in brackets):
+
+```sh
+SELECT *, [ extra_attrX [, ...] ]
+    [ FROM running_instance ]
+      WHERE attr_name1 ~= 'attr_value1' [ AND ...]
+    [ WEIGHTS weight_value1 [, ...] ]
+    [ ALGORITHM { threshold | partial_random_access | no_random_access | pivot_based } ]
+    [ LIMIT count ] ;
+```
+
+More specifically:
+
+- The `SELECT` clause returns all attributes involved in the *similarity criteria* of this query, as well as the entity identifiers, the entity names (if available), as well as the rank and the overall score assigned by the similarity search algorithm. Extra attribute names (but neither functions nor other expressions) may be specified, even if not involved in similarity conditions; however, such extra attributes must have been [mounted as data sources](#standalone-execution] for the running SimSearch instance. 
+
+- The `FROM` clause currently targets the _locally running SimSearch instance_, so it may be omitted without error. The SimSearch instance must have been created by [mounting data sources in standalone mode](#standalone-execution].
+
+- The `WHERE` clause specifies the conditions. _At least one similarity condition_ must be specified with the `~=` operator involving an attribute name and the respective query value always enclosed within single quotes regardless of its data type (e.g., '12.4', 'POINT (-74.94 42.15)', '2021-12-20'). Multiple such similarity operations can be specified against different attributes conjuncted with the `AND` logical operator. Furthermore, in case that data sources can be queried in situ, such as a DBMS that _natively supports SQL_ queries (e.g., PostgreSQL), _extra boolean filters_ can be specified following standard SQL syntax (involving comparison operators like `>` or `=`, matching against a list of values with the `IN` operator, etc.). Subqueries are _not_ supported in conditions.
+
+- Optionally, `WEIGHTS` may be specified as a list of comma separated real numbers between 0 and 1. Each number corresponds to attributes in the `WHERE` clause involved in similarity search operations (i.e., operator `~=`). The order of the weight values corresponds to the exact order each attribute is specified in the `WHERE` clause.
+
+- Optionally, users may choose the similarity method with the `ALGORITHM` clause. If omitted, the `threshold` algorithm will be used by default, if random access to raw data is supported by the specified sources.
+
+- Finally, the `LIMIT` clause may be used to specify the number *k* of results with the highest scores to be returned. If this clause is omitted, the top-50 results are returned by default.
+
+These [`example SQL statements`](data/gdelt/standalone/queries.sql) demonstrate how to specify such queries through the terminal over a locally running instance of SimSearch. In the list of returned results, the applied weights are shown in brackets next to the names of attributes involved in the similarity criteria.
+
+Finally, users may specify the internal parameter setting `query_timeout` regarding the maximum response time allowed per query (default value: 10000 milliseconds). If this deadline is reached during evaluation of a query, the best (i.e., approximately scored) results found so far will be fetched. This timeout value is specified *in milliseconds* as in this example:
+
+```sh
+SET query_timeout 20000;
+```
+
+Then, execution of any newly submitted queries will timeout after 20 seconds at the latest, issuing all currently collected results, but with possibly approximate scores and ranks.
 
 
 ## Interactive Data Exploration with the SimSearch REST API and Jupyter notebooks
@@ -140,6 +185,7 @@ $ docker run -p 8090:8080 sdl/simsearch-docker:latest
 
 Once the service is launched, requests can be sent as mentioned above in order to create, manage, and query instances of SimSearch against data source(s).
 
+
 ## Demonstration
 
 We have made available two videos demonstrating the current functionality provided by the SimSearch software:
@@ -149,7 +195,6 @@ We have made available two videos demonstrating the current functionality provid
 - Our [demonstration](https://www.youtube.com/watch?v=DDjmYQdxyUc) of the SimSearch functionality as of September 2020, as presented during the mid-term review of the SmartDataLake project.
 
 - Our [demonstration](https://www.youtube.com/watch?v=aj_RNiIPF8w) of the SimSearch UI as presented at the [SIMPLIFY Workshop](https://simplify2021.imsi.athenarc.gr/) in March 2021. This demo exemplifies [Multi-Attribute Similarity Search for Interactive Data Exploration](https://simplify2021.imsi.athenarc.gr/papers/SIMPLIFY_2021_paper_11.pdf) through a web interface. It shows how users can specify parameters and their preferences for similarity search, and also how they can visually inspect and compare the results through appropriate visualizations for the different types of attributes involved.
-
 
 
 ## Note on R-tree implementation
@@ -170,6 +215,7 @@ Basic extensions made for SimSearch include:
 ## License
 
 The contents of this project are licensed under the [Apache License 2.0](https://github.com/smartdatalake/simsearch/blob/master/LICENSE).
+
 
 ## Acknowledgement
 

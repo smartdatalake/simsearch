@@ -382,7 +382,7 @@ public class HttpRestConnector implements IDataConnector {
 	
 	/**
 	 * Finds out the maximum number of results returned by an HTTP request.
-	 * FIXME: This method currently handles only ElasticSearch indices.
+	 * CAUTION: This method currently handles only ElasticSearch indices as well as data sources from another SimSearch instance.
 	 * @return  An integer value representing the maximum number of results per HTTP request.
 	 */
 	private int findMaxResultCount() {
@@ -393,12 +393,11 @@ public class HttpRestConnector implements IDataConnector {
 	 	try { 		
 	 		String origURI = this.uri.toString();
 	 		
-	 		// SimSearch REST API does not specify this value
-	 		if (origURI.contains("simsearch"))
-	 			return Constants.INFLATION_FACTOR;
-	 		
-	 		// FIXME: This URI specifically targeting ElasticSearch indices
-	 		String settingsURI = origURI.substring(0, origURI.indexOf("/_")) + "/_settings";
+	 		String settingsURI = null;
+	 		if (origURI.trim().endsWith("/simsearch/api/search"))  // This URI refers to another SimSearch instance
+	 			settingsURI = origURI.trim().substring(0, origURI.indexOf("/simsearch/api/search")) + "/simsearch/api/_settings";
+	 		else // This URI specifically targeting ElasticSearch indices
+	 			settingsURI = origURI.substring(0, origURI.indexOf("/_")) + "/_settings";
 //	 		System.out.println("URI:" + new URI(settingsURI));
 	 		
 	 		// Create a new HTTP client to get the settings
@@ -430,13 +429,16 @@ public class HttpRestConnector implements IDataConnector {
 							JSONObject items = (JSONObject) jsonParser.parse(result);
 							String key = (String) items.keySet().iterator().next(); 
 							Object value = items.get(key);
-							// FIXME: Value extracted according to the JSON response by ElasticSearch
+							// Establish whether this is a SimSearch instance
+							this.setSimSearchInstance(((JSONObject) getJSONValue(getJSONValue(value, "settings"), "index")).containsKey("isSimSearchInstance"));
+							// Value extracted according to the JSON response by ElasticSearch or SimSearch
 							String strSize = (String) getJSONValue(getJSONValue(getJSONValue(value, "settings"), "index"),"max_result_window");
 							int size = 10000; // Default value;
 							if (myAssistant.isNumeric(strSize))
 								size = Integer.parseInt(strSize);
-							// Precaution just in case ES returns a zero value
-							if (size > maxSize)
+							if (this.isSimSearchInstance())   // For SimSearch
+								maxSize = size;
+							else if (size > maxSize)  // Precaution just in case ES returns a zero value
 								maxSize = size;
 						} catch (Exception e) {  
 							e.printStackTrace(); 

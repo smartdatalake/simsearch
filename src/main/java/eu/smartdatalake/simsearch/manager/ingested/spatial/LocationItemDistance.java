@@ -13,7 +13,7 @@ import org.locationtech.jts.index.strtree.ItemDistance;
  * using to query a single index tree,
  * the distance metric is <i>anti-reflexive</i>.
  * That is, if the two arguments are the same Geometry object,
- * the distance returned is {@link Double.MAX_VALUE}.
+ * the distance returned is {@link Double#MAX_VALUE}.
  */
 public class LocationItemDistance implements ItemDistance {
 	

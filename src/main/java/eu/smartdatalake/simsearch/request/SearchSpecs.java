@@ -10,13 +10,13 @@ public class SearchSpecs {
 	@ApiModelProperty(required = true, value = "The attribute to search against; for search on composite attribute (e.g., location with lon/lat coordinates), specify an array of attribute names")
 	public Object column;
 
-	@ApiModelProperty(required = true, value = "The value to search for similar ones; in case of categorical search, specify an array of string values (e.g., keywords)")
+	@ApiModelProperty(required = true, value = "The value to search for similar ones on this attribute; in case of categorical search, specify an array of string values (e.g., a set of keywords)")
 	public Object value;
 
-	@ApiModelProperty(required = false, value = "An array of double values to be used as weights in ranking of results")
+	@ApiModelProperty(required = false, value = "An array of double values to be used as alternative weights in ranking of results on this attribute")
 	public Double[] weights;
 
-	@ApiModelProperty(required = false, value = "A positive double value used as decay factor in ranking of results")
+	@ApiModelProperty(required = false, value = "A positive double value used as decay factor in ranking of results on this attribute")
 	public Double decay;
 
 	@ApiModelProperty(required = false, value = "A positive double value used as scale factor to normalize distance values on this attribute amongst results")

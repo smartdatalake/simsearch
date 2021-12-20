@@ -5,7 +5,6 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import eu.smartdatalake.simsearch.Constants;
@@ -187,7 +186,7 @@ public class PartialRandomAccessRanking<K,V> extends RankAggregator<K,V> {
 	 * Implements the logic of the Partial Random Access algorithm.
 	 */
 	@Override
-	public IResult[][] proc() {
+	public IResult[][] proc(long query_timeout) {
 		
 		long startTime = System.currentTimeMillis();
 		
@@ -221,7 +220,7 @@ public class PartialRandomAccessRanking<K,V> extends RankAggregator<K,V> {
 		// Iterate over candidates in the the priority queues
 		// Stop any further examination if top-k results are issued or if the process times out	
 		boolean stop = false;
-		while (!stop && (System.currentTimeMillis() - startTime < Constants.RANKING_MAX_TIME)) {
+		while (!stop && (System.currentTimeMillis() - startTime < query_timeout)) {
 					
 			// To be updated with results from this iteration
 			for (int w = 0; w < weightCombinations; w++) {

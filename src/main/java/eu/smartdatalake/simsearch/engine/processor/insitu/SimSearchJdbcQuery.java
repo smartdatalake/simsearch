@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -55,8 +56,12 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 	String valColumnName = null;
 	String udfClause = "";
 
+	// Parsers for values of complex data types
+	WKTReader wktReader;
+	
 	// Compose the SQL SELECT command for value retrieval 
-	public String sqlValueRetrievalTemplate = null;	
+	public String sqlSingleValueRetrievalTemplate = null;	// for one object identifier
+	public String sqlMultiValuesRetrievalTemplate = null;	// for multiple object identifiers
 
 	ISimilarity simMeasure;
 
@@ -99,6 +104,8 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 			this.hashKey = hashKey;
 			this.simMeasure = simMeasure;
 
+			wktReader = new WKTReader();
+			
 			// In case no column for key datasetIdentifiers has been specified, use the primary key of the table
 			if (this.keyColumnName == null) { 
 				// Assuming that primary key is a single attribute (column) 
@@ -164,8 +171,11 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 				whereClause += " AND " + filter;
 
 			// Template of SQL query to retrieve the value for a particular object ($id is a placeholder for its identifier)
-			sqlValueRetrievalTemplate = "SELECT " + valColumnName + " FROM " + tableName + " WHERE " + this.keyColumnName + " = '$id'";
-
+			// For temporal values, extract and use the epoch (numerical ) value
+			sqlSingleValueRetrievalTemplate = "SELECT " + ((operation == Constants.TEMPORAL_TOPK) ? ("EXTRACT(EPOCH FROM " + valColumnName + "::timestamp) AS " + valColumnName) : valColumnName) + " FROM " + tableName + " WHERE " + this.keyColumnName + " = '$id'";
+			// Another template to retrieve attribute values for a set of object identifiers 
+			sqlMultiValuesRetrievalTemplate = "SELECT " + this.keyColumnName + ", " + ((operation == Constants.TEMPORAL_TOPK) ? ("EXTRACT(EPOCH FROM " + valColumnName + "::timestamp) AS " + valColumnName) : valColumnName) + " FROM " + tableName + " WHERE " + this.keyColumnName + " IN ( $ids )";
+			
 		} catch (Exception e) {
 			this.log.writeln(Constants.INCORRECT_DBMS);      //Execution terminated abnormally
 			e.printStackTrace();
@@ -183,7 +193,6 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 
 		int numMatches = 0;
 		Object val = null;
-		WKTReader wktReader = new WKTReader();
 		ResultSet rs = null;
 		long duration = System.nanoTime();
 
@@ -203,37 +212,20 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 			 */
 			// Iterate through all retrieved results and push them to the queue
 			// ASSUMPTION: acquiring three properties per result: (1) the identifier; (2) attribute value; (3) distance
-			while (rs.next()) {  
-
+			while (rs.next()) {
 				// LOOK-UP STEP: Look-up the attribute value to be used during random access
-				val = rs.getObject(2);
-				try {	
-					if (val instanceof PGgeometry)  			// Spatial locations
-						val = wktReader.read(val.toString().substring(val.toString().indexOf(";") + 1));
-					else if (val instanceof PGobject) {		// Sets of keywords
-						// FIXME: Specific for PostgreSQL: Expunge [ and ] from the returned array, as well as double quotes
-						String keywords = val.toString().replace("\"", "");
-						keywords = keywords.substring(1, keywords.length()-1);
-						// FIXME: comma is the delimiter in PostgreSQL arrays
-						val = myAssistant.tokenize(rs.getString(1), keywords, ",");   
-					}
-					else if (val instanceof String) {			// Names
-						// Specific for PostgreSQL: Expunge double quotes and tokenize using the default QGRAM value
-						val = myAssistant.tokenize(rs.getString(1), val.toString().replace("\"", ""), Constants.QGRAM); 
-					}
-				} catch (ParseException e) {
-					e.printStackTrace();
-				}
+				val = formatValue(rs.getString(1), rs.getObject(2));
+
 				// Casting the attribute value to the respective data type used by the look-up (hash) table
 				this.datasets.get(this.hashKey).put((K)rs.getObject(1), (V)val);
 
 				// Result is derived with a similarity distance
 				if (this.dbType.equals("AVATICA")) {
-					// FIXME: Parsing double from strings is required by Avatica JDBC (Proteus)
+					// Parsing double from strings as required by Avatica JDBC (Proteus)
 					pRes = new PartialResult(rs.getString(1), val, Double.parseDouble(rs.getString(3)));
 				}
 				else {
-					// FIXME: Parsing double from strings as required by PostgreSQL
+					// Parsing double from strings as required by PostgreSQL
 					pRes = new PartialResult(rs.getString(1), val, rs.getDouble(3));	
 				}
 
@@ -265,7 +257,7 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 			}
 		}
 		catch(Exception e) { 
-			//			this.log.writeln("An error occurred while retrieving data from the database.");
+//			this.log.writeln("An error occurred while retrieving data from the database.");
 			e.printStackTrace();
 		}
 		finally {
@@ -278,10 +270,88 @@ public class SimSearchJdbcQuery<K extends Comparable<? super K>, V> implements I
 		duration = System.nanoTime() - duration;
 		this.log.writeln("Query [" + myAssistant.decodeOperation(this.operation) + "] on " + this.valColumnName + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
 
-		return numMatches;                      //Report how many records have been retrieved from the database    
+		return numMatches;  	//Report how many records have been retrieved from the database    
 	}
 
 
+    /**
+     * Formats the given value of an entity according to its data type. 
+     * @param id  The object identifier of the entity.
+     * @param val  The attribute value of the entity
+     * @return  The formatted value.
+     */
+    private Object formatValue(String id, Object val) {
+
+		try {	
+			if (val instanceof PGgeometry)  			// Spatial locations
+				val = wktReader.read(val.toString().substring(val.toString().indexOf(";") + 1));
+			else if (val instanceof PGobject) {		// Sets of keywords
+				// FIXME: Specific for PostgreSQL: Expunge [ and ] from the returned array, as well as double quotes
+				String keywords = val.toString().replace("\"", "");
+				keywords = keywords.substring(1, keywords.length()-1);
+				// FIXME: comma is the delimiter in PostgreSQL arrays
+				val = myAssistant.tokenize(id, keywords, ",");   
+			}
+			else if (val instanceof String) {			// Names
+				// Specific for PostgreSQL: Expunge double quotes and tokenize using the default QGRAM value
+				val = myAssistant.tokenize(id, val.toString().replace("\"", ""), Constants.QGRAM); 
+			}
+			else if (val == null)		// Report empty string for NULL
+				val = "";
+			
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		
+		return val;
+    }
+    
+	/**
+	 * Connects to a database to collect attribute values regarding specific object identifiers. These values are appended to the in-memory lookup maintained for this attribute.
+	 * @param identifiers  The set of object identifiers (acting as the primary key in the respective database table).
+	 * @return  The number of collected results.
+	 */
+	public int appendValues(Set<String> identifiers) {
+
+		int numMatches = 0;
+		Object val = null;
+		ResultSet rs = null;
+
+		try {	
+			String ids = String.join(",", identifiers.stream().map(id -> ("'" + id + "'")).collect(Collectors.toList()));
+			
+			// Modify the template to return all values for the given set of identifiers
+			String sql = sqlMultiValuesRetrievalTemplate.replace("$ids", ids);
+			
+			//Execute SQL query in the DBMS and fetch all results 
+			rs = databaseConnector.executeQuery(sql);
+
+			// Iterate through all retrieved results 
+			// ASSUMPTION: acquiring two properties per result: (1) the identifier; (2) attribute value
+			while (rs.next()) {  
+				// LOOK-UP STEP: Look-up the attribute value to be used during random access
+				val = formatValue(rs.getString(1), rs.getObject(2));
+				numMatches++;
+
+				// Casting the attribute value to the respective data type used by the look-up (hash) table
+				this.datasets.get(this.hashKey).put((K)rs.getObject(1), (V)val);
+			}
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
+		finally {
+			try {
+				rs.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
+		return numMatches;  	//Report how many records were retrieved from the database    
+	}
+	
+	
 	/**
 	 * Progressively provides the next query result.
 	 * NOT applicable with this type of search, as results are issued directly to the queue.

@@ -115,9 +115,9 @@ public class QueryValueParser {
 					dtype = DataType.Type.NUMBER_ARRAY;
 					return elements.toArray(new Double[elements.size()]);
 				}
-				else {	// Array of strings, also trimmed from spaces between keywords
+				else {	// Array of strings (without duplicates), also trimmed from spaces between keywords
 					dtype = DataType.Type.KEYWORD_SET;
-					return Arrays.stream(elements.toArray(new String[elements.size()])).map(String::trim).toArray(String[]::new);
+					return Arrays.stream(elements.toArray(new String[elements.size()])).map(String::trim).distinct().toArray(String[]::new);
 				}
 			}
 			else
@@ -156,8 +156,9 @@ public class QueryValueParser {
 			}
 		}
 	
-		// Trim string values in the resulting array
-		return Arrays.stream(q.split(delimiter)).map(String::trim).toArray(String[]::new);
+		// Trim string values in the resulting array (without duplicates)
+		return Arrays.stream(q.split(delimiter)).map(String::trim).distinct().toArray(String[]::new);
+	
 	}
 	
 	

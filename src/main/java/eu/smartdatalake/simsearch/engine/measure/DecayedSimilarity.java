@@ -68,7 +68,9 @@ public class DecayedSimilarity<V> implements ISimilarity<V> {
 		// Special handling of irrelevant tokens in categorical search
 		if ((Math.abs(distance - 1.0) < 0.000001) && (this.distance.getClass().getSimpleName().equals("CategoricalDistance")))
 			return 0.0;	
-		else    // Otherwise, use scaling and the exponential decay function
+//		else if (this.distance.getClass().getSimpleName().equals("CategoricalDistance"))
+//			return 1.0 - distance;	// FIXME: Jaccard similarity in case of categorical search
+		else    // Otherwise, apply scaling and the exponential decay function
 			return Math.exp(- scale.apply(distance) * lambda);
 	}
 

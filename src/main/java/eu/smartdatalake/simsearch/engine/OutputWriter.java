@@ -3,19 +3,23 @@ package eu.smartdatalake.simsearch.engine;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.Map;
 
+import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.request.SearchOutput;
 
 /**
- * Auxiliary class that can be used to write search results to a file in CSV format.
+ * Auxiliary class that can be used to write search results to a file in CSV format or to standard output (console).
  */
 public class OutputWriter {
 
+	Assistant myAssistant;
 	PrintStream outStream = null;
 	String outColumnDelimiter = Constants.OUTPUT_COLUMN_SEPARATOR;	// Default delimiter for values in the output CSV file
 	boolean outHeader = true;
-	String outQuote = null;						
+	String outQuote = null;		
+	boolean outStandard = false;	// Indicates whether output will be written to standard output (console)
 
 	/**
 	 * Constructor
@@ -23,10 +27,12 @@ public class OutputWriter {
 	 */
 	public OutputWriter(SearchOutput out) {
 		
+		myAssistant = new Assistant();
+		
 		if (out!= null) {    // Output specifications may be missing in case of JSON (default)
 			if (out.format != null) {
 				String outFormat = out.format;
-				if (outFormat.toLowerCase().equals("csv")) {
+				if (outFormat.toLowerCase().equals("csv")) {   // Output will be stored in a CSV file
 					if (out.delimiter != null) {
 						outColumnDelimiter = out.delimiter;
 						if (outColumnDelimiter == null || outColumnDelimiter.equals(""))
@@ -49,6 +55,13 @@ public class OutputWriter {
 						e.printStackTrace();
 					}
 				}
+				else if (outFormat.toLowerCase().equals("console")) { // Output written to console
+					try {
+						outStandard = true;
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
 			}
 		}
 	}
@@ -62,6 +75,14 @@ public class OutputWriter {
 		return (outStream != null);
 	}
 	
+	/**
+	 * Indicates whether output will be written to standard output (console).
+	 * @return  True, if the output will be printed to the console; otherwise, False.
+	 */
+	public boolean isStandardOutput() {
+		
+		return outStandard;
+	}
 	
 	/**
 	 * Closes the output writer.
@@ -91,6 +112,18 @@ public class OutputWriter {
 			else
 				outStream.println(Arrays.toString(weights) + outColumnDelimiter + res.toString(outColumnDelimiter));
 		}
+	}
+	
+	/**
+	 * Prints the search results into the standard output (console).
+	 * @param weights  The weights applied to the specified batch of results. Assuming only ONE weight value per attribute.
+	 * @param results  Output results as received from the rank aggregation process (for a given combination of weights).
+	 * @param responseTime  Time (in seconds) taken to provide the response in the backend.
+	 */
+	public void printResults(Map<String, Double> weights, IResult[] results, double responseTime) {
+		
+		SearchResponseTable tab = new SearchResponseTable();
+		tab.print(weights, results, responseTime);
 	}
 	
 }

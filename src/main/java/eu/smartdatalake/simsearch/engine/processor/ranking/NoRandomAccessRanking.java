@@ -144,7 +144,7 @@ public class NoRandomAccessRanking<K,V> extends RankAggregator<K,V> {
 	 * Implements the logic of the NRA (No Random Access) algorithm.
 	 */
 	@Override
-	public IResult[][] proc() {
+	public IResult[][] proc(long query_timeout) {
 		
 		long startTime = System.currentTimeMillis();
 		
@@ -165,7 +165,7 @@ public class NoRandomAccessRanking<K,V> extends RankAggregator<K,V> {
 		// Iterate over candidates in the the priority queues
 		// Stop any further examination if top-k results are issued or if the process times out	
 		boolean stop = false;
-		while (!stop && (System.currentTimeMillis() - startTime < Constants.RANKING_MAX_TIME)) {
+		while (!stop && (System.currentTimeMillis() - startTime < query_timeout)) {
 			
 			probed.clear(); // New results to be fetched from each queue
 			

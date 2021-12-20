@@ -12,7 +12,7 @@
 	
 	<groupId>eu.smartdatalake</groupId>
 	<artifactId>simsearch</artifactId>
-	<version>0.4-SNAPSHOT</version>
+	<version>0.5-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>simsearch</name>
@@ -122,6 +122,11 @@
 			<artifactId>slf4j-simple</artifactId> 
 			<version>1.7.25</version> 
 		</dependency>
+		<dependency>
+			<groupId>com.github.jsqlparser</groupId>
+			<artifactId>jsqlparser</artifactId>
+			<version>1.4</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -157,7 +162,6 @@
 							<mainClass>eu.smartdatalake.simsearch.Runner</mainClass>
 						</manifest>
 					</archive>
-
 				</configuration>
 				<executions>
 					<execution>
@@ -175,4 +179,3 @@
 	</build>
 
 </project>
-

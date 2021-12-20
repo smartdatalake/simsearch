@@ -11,7 +11,7 @@ public class TokenSet {
 	public String toString() {
 //		return id + ": " + tokens.toString();
 		//Avoid printing the identifier; in case of q-grams, return the original string
-		return ((originalString != null) ? originalString : tokens.toString());   
+		return ((originalString != null) ? originalString : tokens.toString());  //String.join(",", tokens)
 	}
 
 }

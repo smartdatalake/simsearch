@@ -446,6 +446,8 @@ public class PivotManager {
 	 */
 	private Map<String, Point> setQueryValues(SearchSpecs[] querySpecs, double[] scale, Map<String, Double[]> attrWeights, String notification) {
 			
+		boolean unusedFilter = false;   // Notify on any extra boolean filters non applicable to CSV data sources
+		
         // CAUTION! Query: a multi-dimensional point must be constructed per attribute
         Map<String, Point> qPoint = new TreeMap<String, Point>();
         
@@ -489,7 +491,7 @@ public class PivotManager {
         	
         	// Retain the weights associated with this attribute
         	attrWeights.put(qColumns[i], querySpecs[i].weights);
-        	
+
         	// Specify the distance similarity to be used for this attribute (distance)
         	int m = ref.getAttributeOrder(qColumns[i]);   // The distance (attribute) involved
         	// Apply the user-specified scale factor for distances on this attribute
@@ -499,8 +501,17 @@ public class PivotManager {
         	MetricSimilarity metricSimilarity = new MetricSimilarity(p, ref.getMetric(m), ((querySpecs[i].decay != null) ? querySpecs[i].decay : Constants.DECAY_FACTOR), scale[m], m);
         	// As key employ the same hashkey used for the respecive attribute dataset
         	metricSimilarities.put(datasetId.getHashKey(), metricSimilarity);
+        	
+        	// Extra boolean filters not supported in pivot-based search
+        	unusedFilter = unusedFilter || (querySpecs[i].filter != null);  
 		}
 
+        // Notify if any filters were specified; these cannot be applied
+		if (unusedFilter) {
+			log.writeln("Unsupported boolean filters specified in this query will be ignored.");
+			System.out.println("NOTICE: Unsupported boolean filters specified in this query will be ignored.");
+		}
+		
 		return qPoint;
 	}
 	
@@ -518,8 +529,13 @@ public class PivotManager {
 		SearchResponse[] responses;
 		String notification = "";  // Any extra notification(s) to the final response
 
-		// Specifications for writing results into an output CSV file (if applicable)
-		OutputWriter outCSVWriter = new OutputWriter(params.output);
+		// Specifications for writing results into an output CSV file or to the standard output (if applicable)
+		OutputWriter outWriter = new OutputWriter(params.output);
+		
+		// Extra columns (not involved in similarity criteria) to report in the output
+		String[] extraColumns = null;
+		if ((params.output != null) && (params.output.extra_columns != null))
+			extraColumns = params.output.extra_columns;
 		
 		// Construct for validating weights
 		Validator weightValidator = new Validator();
@@ -557,6 +573,8 @@ public class PivotManager {
 					SearchResponse response = new SearchResponse();
 					String msg = "Request aborted because at least one weight value for attribute " + String.valueOf(queryConfig.column) + " is invalid.";
 					log.writeln(msg);
+					if ((params.output.format != null) && (params.output.format.equals("console")))
+						System.out.println("NOTICE: "+ msg);
 					response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
 					responses[0] = response;
 					return responses;
@@ -594,14 +612,17 @@ public class PivotManager {
 		if (topk > Constants.K_MAX) {
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
-			log.writeln("Search request discarded, because no more than top-" + Constants.K_MAX + " results can be returned per query.");
+			String msg = "Request aborted because no more than top-" + Constants.K_MAX + " results can be returned per query.";
+			log.writeln(msg);
+			if ((params.output.format != null) && (params.output.format.equals("console")))
+				System.out.println("NOTICE: "+ msg);
 			response.setNotification("Please specify a positive integer value up to " + Constants.K_MAX + " for k and submit your request again.");
 			responses[0] = response;
 			return responses;
 		}
 					
 		// Weights: dictionary with attribute names as keys
-    	Map<String, Double[]> attrWeights = new HashMap<String, Double[]>();
+		Map<String, Double[]> attrWeights = new HashMap<String, Double[]>();
     	
     	// Scale factors to be used in this search
     	double[] scale = scaleFactors.getAll();   // Default values to apply if not specified in the query configuration
@@ -614,6 +635,8 @@ public class PivotManager {
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
 			String msg = "Query value is missing in at least one attribute. Please check your query specification.";
+			if ((params.output.format != null) && (params.output.format.equals("console")))
+				System.out.println("NOTICE: "+ msg);
 			log.writeln(msg);
 			response.setNotification(msg.concat(notification));
 			responses[0] = response;
@@ -688,22 +711,24 @@ public class PivotManager {
         }
         
 		duration = System.nanoTime() - duration;   
-    	
-		// Format response, including similarity matrix of results pairwise
-		SearchResponseFormat responseFormat = new SearchResponseFormat();
-		responses = responseFormat.proc(allResults, attrWeights, datasetIdentifiers, datasets, datasets, null, null, metricSimilarities, topk, this.isCollectQueryStats(), notification, outCSVWriter);
-
 		double execTime = duration / 1000000000.0;
-		log.writeln("SimSearch [pivot-based] issued " + responses[0].getRankedResults().length + " results. Processing time: " + execTime + " sec.");
 
-		// Execution cost for experimental results; the same time cost concerns all weight combinations
-		for (SearchResponse response: responses) { 
-			response.setTimeInSeconds(execTime);	
+		// Remove weights for any not user-specified attributes for reporting them in results
+		String[] indexedAttributes = attrWeights.keySet().toArray(new String[0]);
+		for (String attr: indexedAttributes) {
+			if (!queryAttributes.contains(attr)) {
+				attrWeights.remove(attr);
+			}
 		}
 		
+		// Format response, including similarity matrix of results pairwise
+		SearchResponseFormat responseFormat = new SearchResponseFormat();
+		responses = responseFormat.proc(allResults, extraColumns, attrWeights, datasetIdentifiers, datasets, datasets, null, null, metricSimilarities, topk, this.isCollectQueryStats(), notification, execTime, outWriter);
+		log.writeln("SimSearch [pivot-based] issued " + responses[0].getRankedResults().length + " results. Processing time: " + execTime + " sec.");
+
 		// Close output writer to CSV (if applicable)
-		if (outCSVWriter.isSet())
-			outCSVWriter.close();
+		if (outWriter.isSet())
+			outWriter.close();
         
 		return responses;
 	}
@@ -872,8 +897,8 @@ public class PivotManager {
 		else   // Non-transformed dataset
 			val = myAssistant.formatAttrValue(datasets.get(datasetId.getHashKey()).get(oid));
 		
-		// Handle NULL in attribute values
-		attr.setValue(((val != null) ? ((val.getClass().isArray()) ? Arrays.toString((String[]) val) : String.valueOf(val)) : ""));
+		// Handle NULL in attribute values or arrays
+		attr.setValue(((val != null) ? ((val.getClass().isArray()) ? myAssistant.formatAttrValue((String[]) val) : String.valueOf(val)) : ""));   // String.join(",", (String[])val) 
 		
 		return attr;
 	}

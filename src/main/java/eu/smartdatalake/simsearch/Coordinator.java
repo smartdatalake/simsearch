@@ -7,9 +7,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -66,6 +68,7 @@ import eu.smartdatalake.simsearch.request.SearchRequest;
 public class Coordinator {
 
 	Logger log;
+	InstanceSettings instanceSettings;
 	
 	// Constructs required for mounting the available data sources
 	Map<String, INormal> normalizations;
@@ -233,21 +236,33 @@ public class Coordinator {
 		
 		Response mountResponse = new Response();
 		
-		// Instantiate log file
+		// Instantiate log file and settings
 		try {
+			Date creation_date = new Date();
+			String provided_name = "SimSearch" + new SimpleDateFormat("yyyyMMddHHmmss").format(creation_date);
 			if (log == null) {   // Use already existing log file if an index after query execution has started
 				String logFile;
 				if (params.log != null) 
 					logFile = params.log;   // User-specified file location
 				else   // Otherwise, use current system time to compose the name of the log file and put it in the TMP directory
-					logFile = System.getProperty("java.io.tmpdir") + "/" + "SimSearch" + new SimpleDateFormat("yyyyMMddHHmmss").format(new java.util.Date()) + ".log";
+					logFile = System.getProperty("java.io.tmpdir") + "/" + provided_name + ".log";
 				System.out.println("Logging activity at file:" + logFile);
 				log = new Logger(logFile, false);		
+			}
+			// Specify main settings
+			if (instanceSettings == null) {
+				instanceSettings = new InstanceSettings();
+				instanceSettings.settings.index.setProvidedName(provided_name);
+				instanceSettings.settings.index.setCreationDate(String.valueOf(Instant.now().toEpochMilli()));
+				// Specify the maximum number of results for individual (single-attribute) queries returned by another REST SimSearch service
+				instanceSettings.settings.index.setMaxResultWindow(String.valueOf(Constants.K_MAX * Constants.INFLATION_FACTOR));
+				// Initialize the query timeout (in milliseconds)
+				instanceSettings.settings.index.setQueryTimeout(Constants.RANKING_MAX_TIME);
 			}
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
-					
+		
 		// Array of available data sources (directories or JDBC connections or REST APIs)
 		MountSource[] sources = params.sources;
 		
@@ -324,11 +339,9 @@ public class Coordinator {
 									dataSource = new DataSource(sourceConfig.name, httpConn);
 									
 									// Include type specification for safe discrimination between REST API services
-									if (sourceConfig.url.contains("simsearch")) {
-										// Specify the maximum number of results for individual (single-attribute) queries returned by another REST SimSearch service
-										dataSource.getHttpConn().setMaxResultCount(Constants.K_MAX * Constants.INFLATION_FACTOR);
+									// Detect whether this REST API connects to another SimSearch instance
+									if (httpConn.isSimSearchInstance())
 										dataSource.setSimSearchService(true);
-									}
 									
 									dataSources.put(dataSource.getKey(), dataSource);
 								}
@@ -745,8 +758,13 @@ public class Coordinator {
 			// Total number of pivot values can be user-specified --> dimensionality of RR*-tree
 			int N = Constants.NUM_PIVOTS;   
 			if ((params.numPivots != null) && (params.numPivots instanceof Integer)) {
-				// RR*-tree must index at least 1-dimensional points 
-				N = (params.numPivots < 1) ? Constants.NUM_PIVOTS : params.numPivots;
+				// RR*-tree can index at least 2-dimensional points 
+				N = (params.numPivots < 2) ? Constants.NUM_PIVOTS : params.numPivots;		
+				if (params.numPivots < 2) {
+					String msg = "Total number of pivots must be an integer greater than 1. Applying default value: " + Constants.NUM_PIVOTS;
+					mountResponse.appendNotification(msg);
+					log.writeln(msg);
+				}
 			}
 			
 			// Instantiate a pivot manager that will be used to create an RR*-tree and support multi-metric similarity search queries
@@ -935,7 +953,7 @@ public class Coordinator {
 		int i = 0;
 		for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
 			if (id.isQueryable()) {
-				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue());
+				dataSources[i] = new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue(), !id.getDataSource().isInSitu());
 				i++;
 			}
 		}
@@ -999,18 +1017,18 @@ public class Coordinator {
 		
 		List<AttributeInfo> dataSources = new ArrayList<AttributeInfo>();
 		
-		// If a particular operation is specified, report only those attributes this operation
+		// If a particular operation is specified, report only those attributes supporting this operation
 		if (operation != null) {	
 			for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
 				if (operation.equalsIgnoreCase(myAssistant.decodeOperation(id.getOperation()))) {
-					dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue()));
+					dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue(), !id.getDataSource().isInSitu()));
 				}
 			}
 		}
 		else if (column != null) {  // A column is specified, so report its details
 			for (DatasetIdentifier id: this.datasetIdentifiers.values()) {
 				if (column.equalsIgnoreCase(id.getValueAttribute())) {
-					dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue()));
+					dataSources.add(new AttributeInfo(id.getValueAttribute(), myAssistant.decodeOperation(id.getOperation()), id.getDatatype(), id.getSampleValue(), !id.getDataSource().isInSitu()));
 				}
 			}
 		}
@@ -1037,20 +1055,19 @@ public class Coordinator {
 	/**
 	 * Searching stage: Given a user-specified configuration, execute the various similarity search queries and provide the ranked aggregated results.
 	 * This method accepts a configuration formatted as a JSON object.
-	 * @param searchConfig   JSON configuration that provides the multi-facet query specifications.
+	 * @param searchConfig   JSON configuration that provides the multi-attribute query specifications.
 	 * @return   A JSON-formatted response with the ranked results.
 	 */
 	public SearchResponse[] search(JSONObject searchConfig) {
 
-		SearchRequest params = null;
+		SearchRequest params = new SearchRequest();
 		
-		ObjectMapper mapper = new ObjectMapper();	
+		ObjectMapper mapper = new ObjectMapper();
 		try {
 			params = mapper.readValue(searchConfig.toJSONString(), SearchRequest.class);
-		} catch (JsonMappingException e) {
-			e.printStackTrace();
 		} catch (JsonProcessingException e) {
-			e.printStackTrace();
+			System.out.println(e.getCause());
+//			e.printStackTrace();
 		}
 		
 		return search(params);
@@ -1075,13 +1092,13 @@ public class Coordinator {
 			else {		// A new handler is created for each request involving rank aggregation
 				SearchHandler reqHandler = new SearchHandler(dataSources, datasetIdentifiers, datasets, indices, normalizations, log);
 				reqHandler.setCollectQueryStats(this.isCollectQueryStats());	// Specify whether to collect detailed query statistics
-				return reqHandler.search(params);
+				return reqHandler.search(params, this.instanceSettings.settings.index.getQueryTimeout());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			SearchResponse[] responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
-			String msg = "Search request discarded due to illegal specification of query attributes or parameters.";
+			String msg = "Search request discarded due to illegal specification of query attributes or parameters. " + e.getMessage();
 			log.writeln(msg);
 			response.setNotification(msg + " Please check your query specifications.");
 			responses[0] = response;
@@ -1100,6 +1117,14 @@ public class Coordinator {
 	}
 
 
+	/**
+	 * Provides the main settings of the running SimSearch instance.
+	 * @return  An object that contains generic informations about this instance.
+	 */
+	public InstanceSettings getSettings() {
+		return instanceSettings;
+	}
+	
 	/**
 	 * Indicates whether the platform is empirically evaluated and collects execution statistics.
 	 * @return  True, if collecting execution statistics; otherwise, False.

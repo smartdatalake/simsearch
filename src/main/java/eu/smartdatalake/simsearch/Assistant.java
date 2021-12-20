@@ -154,21 +154,23 @@ public class Assistant {
 	/**
 	 * Formats attribute values to be issued in the reporting results.
 	 * @param val  The attribute value (numerical, textual, spatial) to be formatted.
-	 * @return  The formatted string.
+	 * @return  The formatted attribute value.
 	 */
-	public String formatAttrValue(Object val) {
+	public Object formatAttrValue(Object val) {
 
-		// Special handling of numeric formats
-		if (isNumeric(val.toString())) {
-			double num = Double.parseDouble(val.toString());
-			if (num == Math.rint(num))   	// integer
-				return Long.toString((long) num);
-		    return String.valueOf(num); 	// double 
+		String strVal = val.toString().trim();	
+		if (isNumeric(strVal)) {   		// Special handling of numerical formats
+			double num = Double.parseDouble(strVal);
+			if (num == Math.rint(num))	// Integer
+				return (long) num;
+		    return num; 				// Double 
 		}
-		else if (val instanceof String[])
-			return Arrays.toString((String[]) val);
-		else	// other data type
-			return val.toString();
+		else if (val instanceof String[])  // Array of strings 
+			return val;
+		else if ((strVal.startsWith("[")) && (strVal.endsWith("]")))   // String representing array of keywords
+			return strVal.substring(1, strVal.length()-1).split("\\s*,\\s*");  
+		else	// Any other data type
+			return strVal;
 	}
 
 	
@@ -180,9 +182,9 @@ public class Assistant {
 	public String formatDateValue(Object epoch) {
 		
 		Long millis = (long) (Double.valueOf(epoch.toString())*1000);
-		// FIXME: If no time zone is set in the data, it return times in UTC
+		// FIXME: If no time zone is set in the data, it will return times in UTC
 		Instant instant = Instant.ofEpochMilli(millis);   
-		
+
 		return instant.toString();
 	}
 	
@@ -385,7 +387,7 @@ public class Assistant {
 	 * @param dtype  The data type of the values.
 	 * @return  A randomly chosen value from the dataset.
 	 */
-	public String pickRandomValue(Map<String,?> targetData, Type dtype) {
+	public Object pickRandomValue(Map<String,?> targetData, Type dtype) {
 		Random random = new Random();
 		List<String> keys = new ArrayList<String>(targetData.keySet());
 		if (keys.size() == 0)   // No data available

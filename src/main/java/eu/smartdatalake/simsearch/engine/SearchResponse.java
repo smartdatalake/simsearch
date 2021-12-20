@@ -2,15 +2,23 @@ package eu.smartdatalake.simsearch.engine;
 
 import eu.smartdatalake.simsearch.engine.processor.ResultPair;
 import eu.smartdatalake.simsearch.engine.weights.WeightInfo;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * Provides the complete response to a multi-attribute similarity search query, which encapsulates the search results and their similarity matrix.
  */
 public class SearchResponse extends Response {
 
+	@ApiModelProperty(required = true, value = "The weight(s) applied on each attribute during query evaluation")
 	private WeightInfo[] weights;
+	
+	@ApiModelProperty(required = true, value = "The array of ranked results qualifying to the query")
 	private IResult[] rankedResults;
+	
+	@ApiModelProperty(value = "A matrix indicating the similarity between all possible pairwise combinations in the query results")
 	private ResultPair[] similarityMatrix;
+	
+	@ApiModelProperty(required = true, value = "Query evaluation cost (in seconds)")
 	private double timeInSeconds;
 
 	/**

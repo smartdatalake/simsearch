@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import eu.smartdatalake.simsearch.Assistant;
-import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.Logger;
 import eu.smartdatalake.simsearch.engine.IResult;
 import eu.smartdatalake.simsearch.engine.measure.ISimilarity;
@@ -145,7 +144,7 @@ public class SingletonRanking  implements IRankAggregator {
 	 * Implements the processing logic of the threshold-based algorithm.
 	 */
 	@Override
-	public IResult[][] proc() {
+	public IResult[][] proc(long query_timeout) {
 			
 		boolean running = true;
 		int n = 0;
@@ -180,7 +179,7 @@ public class SingletonRanking  implements IRankAggregator {
 				// Wait a while and then try again to fetch results from the queue	
 				while (updateRankedList(taskKey, n) == false) {
 					TimeUnit.NANOSECONDS.sleep(1);
-					if (System.currentTimeMillis() - startTime > Constants.RANKING_MAX_TIME)
+					if (System.currentTimeMillis() - startTime > query_timeout)
 						break;
 				}			
 				
@@ -190,7 +189,7 @@ public class SingletonRanking  implements IRankAggregator {
 				// Determine whether to continue polling results from queue
 				// Once top-k ranked results are returned, stop the running task gracefully
 				// If the process times out, then stop any further examination
-				if (stop || (System.currentTimeMillis() - startTime > Constants.RANKING_MAX_TIME)) {
+				if (stop || (System.currentTimeMillis() - startTime > query_timeout)) {
 					runControl.get(taskKey).set(false);   //Stop each task
 					running = false; 		// Quit the ranked aggregation process
 				} 

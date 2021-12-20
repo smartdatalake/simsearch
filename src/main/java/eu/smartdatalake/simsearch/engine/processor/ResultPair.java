@@ -1,14 +1,26 @@
 package eu.smartdatalake.simsearch.engine.processor;
 
+import io.swagger.annotations.ApiModelProperty;
+
 /**
- * Auxiliary class that retains the similarity scores between two search results.
+ * Auxiliary class that retains the similarity scores between two search results (entity).
  */
 public class ResultPair {
 
-	private String left; 	// DatasetIdentifier for the first item
-	private String right;	// DatasetIdentifier for the second item
-	private double score; 	// Estimated similarity score for this pair of items
+	@ApiModelProperty(required = true, value = "Identifier of the first entity in the pair")
+	private String left; 	// DatasetIdentifier for the first entity
 	
+	@ApiModelProperty(required = true, value = "Identifier of the second entity in the pair")
+	private String right;	// DatasetIdentifier for the second entity
+	
+	@ApiModelProperty(required = true, value = "Estimated similarity score for this pair of entities")
+	private double score; 	// Estimated similarity score for this pair of entities
+	
+	/**
+	 * Constructor
+	 * @param left  DatasetIdentifier for the first item
+	 * @param right  DatasetIdentifier for the second item
+	 */
 	public ResultPair(String left, String right) {
 		this.left = left;
 		this.right = right;

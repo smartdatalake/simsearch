@@ -1,11 +1,16 @@
 package eu.smartdatalake.simsearch.engine.weights;
 
+import io.swagger.annotations.ApiModelProperty;
+
 /**
  * Retains an attribute name and its assigned weight in a similarity search query.
  */
 public class WeightInfo {
 
+	@ApiModelProperty(required = true, value = "The name of the attribute")
 	private String attribute;
+	
+	@ApiModelProperty(required = true, value = "A real value between 0 and 1 that weighs the significance of search candidates on this attribute")
 	private double value;
 	
 	/**

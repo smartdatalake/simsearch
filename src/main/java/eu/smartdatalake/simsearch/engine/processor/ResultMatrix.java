@@ -11,7 +11,7 @@ import eu.smartdatalake.simsearch.pivoting.MetricSimilarity;
 import eu.smartdatalake.simsearch.pivoting.rtree.geometry.Point;
 
 /**
- * A matrix containing the similarity between all possible combinations in the query results.
+ * A matrix indicating the similarity between all possible pairwise combinations in the query results.
  */
 public class ResultMatrix {
 

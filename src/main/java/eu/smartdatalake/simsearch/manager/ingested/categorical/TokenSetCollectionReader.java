@@ -366,7 +366,7 @@ public class TokenSetCollectionReader {
 						gramTokenizer.end();
 						gramTokenizer.close();
 					} else {  	// Use original tokens (keywords)
-						List<String> tokens = new ArrayList<String>(Arrays.asList(keywords));
+						List<String> tokens = new ArrayList<String>(new HashSet<String>(Arrays.asList(keywords)));
 						set.tokens.addAll(tokens);
 					}
 					collection.sets.put(set.id, set);

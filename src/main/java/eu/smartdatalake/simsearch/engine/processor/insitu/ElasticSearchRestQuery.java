@@ -7,8 +7,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.ParseException;
@@ -62,6 +64,10 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 	
 	Map<String, HashMap<K,V>> datasets = null;
 	
+	// Parsers for values of complex data types
+	DateTimeParser dateParser;
+	WKTReader wktReader;
+	
 	// Compose the query template for value retrieval 
 	public String queryValueRetrievalTemplate = null;	
 
@@ -94,6 +100,9 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 		this.resultsQueue = resultsQueue;
 		this.datasets = datasets;
 		this.topk = topk;
+		
+		dateParser = new DateTimeParser();
+		wktReader = new WKTReader();
 
 		// Limit results returned per request up to a certain number
 		// By default setting for the max number of returned results (if applied by the HTTP server)
@@ -130,7 +139,10 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 		
 		// Extra user-specified filter context to be applied prior to similarity search
 		if (filter != null) {
-			query = "{\"bool\": {\"must\": [" + query + "], \"filter\": " + filter + "}}";
+			if (filter.matches("\\[[^\\[]*\\]|\\{(.*?)\\}"))
+				query = "{\"bool\": {\"must\": [" + query + "], \"filter\": " + filter + "}}";
+			else
+				System.out.println("NOTICE: Unsupported boolean filters specified in this query will be ignored.");
 		}
 
 		// Final search request to be submitted for evaluation
@@ -152,7 +164,6 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
     	
     	JSONParser jsonParser = new JSONParser();
     	int numMatches = 0;
-    	WKTReader wktReader = new WKTReader();
     	long duration = System.nanoTime();	 
    
     	// Queue to collect results and keep them by ASCENDING distance as calculated by the REST API
@@ -172,7 +183,6 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 			        Object val = null;
 			        String id = null;
 			        IDistance distMeasure = simMeasure.getDistanceMeasure();  
-			        DateTimeParser dateParser = new DateTimeParser();
 			        
 					// Get results as a string...
 					String result = EntityUtils.toString(entity);	
@@ -194,35 +204,8 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 									continue;
 			            	
 								id = String.valueOf(item.get("_id"));
-								// Depending on the operation, cast resulting attribute value into the suitable data type
-				            	switch(this.operation) {
-				    	        case Constants.NUMERICAL_TOPK:
-				    	        	val = Double.parseDouble(String.valueOf(val));
-			//	    	        	dist = distMeasure.calc(val);
-				    	        	break;
-				    	        case Constants.TEMPORAL_TOPK:  
-				    	        	// Parse date/time values and convert them to epoch (double) values in order to compute the metric distance
-				    	        	val = dateParser.parseDateTimeToEpoch(String.valueOf(val));
-			//	    	        	dist = distMeasure.calc(val);
-				    	        	break;
-				    	        case Constants.CATEGORICAL_TOPK:   // Must convert the array of strings into a set of tokens
-				    	        	// Specific for ElasticSearch: Expunge possible double quotes from the return value
-				    	        	// CAUTION! Comma is the delimiter in ElasticSearch arrays
-					    			val = myAssistant.tokenize(id, String.valueOf(val).replace("\"", ""), ",");  
-				    				break;
-				    	        case Constants.TEXTUAL_TOPK:  // Must handle non-tokenized strings using the default QGRAM value
-				    	        	// Specific for ElasticSearch: Expunge possible double quotes from the return value
-				    	        	val = myAssistant.tokenize(id, String.valueOf(val).replace("\"", ""), Constants.QGRAM);
-				    				break;
-				    	        case Constants.SPATIAL_KNN:
-				    	        	// CAUTION! Geo-points in ElasticSearch are expressed as a string with the format: "lat, lon"
-				    	        	String[] coords = String.valueOf(val).split(",");
-				    	        	val = wktReader.read("POINT (" + coords[1] + " " + coords[0] + ")");   // Reverse coordinates for WKT representation
-				    	        	break;
-				            	}
-				            	
-//				            	System.out.println(String.valueOf(item.get("_id")) + " : "+ String.valueOf(val) + " -> " + simMeasure.scoring(distMeasure.calc(val)));
-			            	
+								val = formatValue(id, val);
+		            	
 						    	// Casting the attribute value to the respective data type used by the look-up (hash) table
 						    	this.datasets.get(this.hashKey).put((K)id, (V)val);
 
@@ -263,9 +246,121 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
     	duration = System.nanoTime() - duration;
     	this.log.writeln("Query [" + myAssistant.decodeOperation(this.operation) + "] on " + this.valColumnName + " (in-situ) returned " + numMatches + " results in " + duration / 1000000000.0 + " sec.");
     	
-    	return numMatches;                      //Report how many records have been retrieved from the database
+    	return numMatches;	//Report how many records have been retrieved from the data source
      }
     
+
+    /**
+     * Formats the given value of an entity according to its data type. 
+     * @param id  The object identifier of the entity.
+     * @param val  The attribute value of the entity
+     * @return  The formatted value.
+     */
+    private Object formatValue(String id, Object val) {
+
+    	try {
+			// Depending on the operation, cast resulting attribute value into the suitable data type
+	    	switch(this.operation) {
+	        case Constants.NUMERICAL_TOPK:
+	        	val = Double.parseDouble(String.valueOf(val));
+	        	break;
+	        case Constants.TEMPORAL_TOPK:  
+	        	// Parse date/time values and convert them to epoch (double) values in order to compute the metric distance
+	        	val = dateParser.parseDateTimeToEpoch(String.valueOf(val));
+	        	break;
+	        case Constants.CATEGORICAL_TOPK:   // Must convert the array of strings into a set of tokens
+	        	// Specific for ElasticSearch: Expunge possible double quotes from the return value
+	        	// CAUTION! Comma is the delimiter in ElasticSearch arrays
+				val = myAssistant.tokenize(id, String.valueOf(val).replace("\"", ""), ",");  
+				break;
+	        case Constants.TEXTUAL_TOPK:  // Must handle non-tokenized strings using the default QGRAM value
+	        	// Specific for ElasticSearch: Expunge possible double quotes from the return value
+	        	val = myAssistant.tokenize(id, String.valueOf(val).replace("\"", ""), Constants.QGRAM);
+				break;
+	        case Constants.SPATIAL_KNN:
+	        	// CAUTION! Geo-points in ElasticSearch are expressed as a string with the format: "lat, lon"
+	        	String[] coords = String.valueOf(val).split(",");
+	        	val = wktReader.read("POINT (" + coords[1] + " " + coords[0] + ")");   // Reverse coordinates for WKT representation
+	        	break;
+	    	}
+	    } catch (Exception e) {  
+			e.printStackTrace(); 
+		}
+    	
+//    	System.out.println(id + " : "+ String.valueOf(val));
+    	return val;
+	
+    }
+    
+	/**
+	 * Connects to a REST API to collect attribute values regarding specific object identifiers. These values are appended to the in-memory lookup maintained for this attribute.
+	 * @param identifiers  The set of object identifiers (acting as the primary key in the respective database table).
+	 * @return  The number of collected results.
+	 */
+    public int appendValues(Set<String> identifiers) {
+    	
+    	JSONParser jsonParser = new JSONParser();
+    	int numMatches = 0;
+
+    	try {
+			String ids = String.join(",", identifiers.stream().map(id -> ("\"" + id + "\"")).collect(Collectors.toList()));
+			
+			// Modify the template to return all values for the given set of identifiers
+			String query = queryValueRetrievalTemplate.replace("\"$id\"", ids);
+
+    		// Execute the query against the REST API and receive its response
+    		CloseableHttpResponse response = httpConn.executeQuery(query);
+    		
+    		if ((response != null) && (response.getStatusLine().getStatusCode() == 200)) {	// Response is valid
+    			
+    			HttpEntity entity = response.getEntity();
+				if (entity != null) {
+					
+					JSONObject items;
+			        Object val = null;
+			        String id = null;
+			        
+					// Get results as a string...
+					String result = EntityUtils.toString(entity);	
+					// ... and then parse its JSON contents
+					try {				
+						items = (JSONObject) jsonParser.parse(result);
+						// Obtain the array of hits (qualifying results)
+						JSONArray arrItems = (JSONArray) ((JSONObject) items.get("hits")).get("hits");
+						
+						// ... and iterate over them in order to populate the respective priority queue
+						Iterator<Object> iterator = arrItems.iterator();
+
+						while (iterator.hasNext()) {
+							JSONObject item = (JSONObject) iterator.next();
+							if (item instanceof JSONObject) {
+								// Only attribute values are considered
+								val = ((JSONObject)item.get("_source")).get(valColumnName);
+								if (val == null)
+									continue;
+			            	
+								id = String.valueOf(item.get("_id"));
+								val = formatValue(id, val);
+		            	
+						    	// Casting the attribute value to the respective data type used by the look-up (hash) table
+						    	this.datasets.get(this.hashKey).put((K)id, (V)val);
+
+				            	numMatches++;
+							}
+						}	
+					} catch (Exception e) {  
+						e.printStackTrace(); 
+					}
+				}
+				response.close();   // Close the response once query result has been obtained	
+    		}			
+    	} catch (ParseException | IOException e) {
+			e.printStackTrace();		
+    	} 
+    	
+    	return numMatches;		//Report how many records have been retrieved from the data source
+     }
+ 
     
  	/**
  	 * Sends the specified similarity search request against the REST API.

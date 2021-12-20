@@ -14,8 +14,8 @@ public class DataSource {
 	private String key;    						// A key identifier for this data source
 	private String pathDir;						// Specifically for CSV data sources
 	private JdbcConnectionPool jdbcConnPool;   	// Specifically for JDBC sources
-	private HttpRestConnector httpConn;   			// Specifically for REST API sources
-	private boolean inSitu;						// Distinguishes a data source queried in-situ (true) from an ingested one (false).
+	private HttpRestConnector httpConn;   		// Specifically for REST API sources
+	private boolean inSitu = false;				// Distinguishes a data source queried in-situ (true) from an ingested one (false).
 	private boolean isSimSearchService;			// Determines if this data source is a SimSearch REST API (true); otherwise, false.
 	
 	/**

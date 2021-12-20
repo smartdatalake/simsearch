@@ -5,13 +5,18 @@ import java.util.Optional;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import io.swagger.annotations.ApiModelProperty;
+
 /**
  * Generic response involving notifications on submitted requests.
  */
 @JsonInclude(Include.NON_NULL)    // Ignore NULL values when issuing the response
 public class Response {
 
+	@ApiModelProperty(required = true, value = "Error messages or warnings to notify the user regarding a submitted request")
 	private String notification;
+	
+	@ApiModelProperty(required = false, value = "Provides the API key used for connecting to an instance of SimSearch service")
 	private Optional<String> api_key = Optional.empty();
 	
 	/**

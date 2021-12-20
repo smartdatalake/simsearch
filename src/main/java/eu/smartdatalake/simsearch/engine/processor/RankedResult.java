@@ -1,20 +1,36 @@
 package eu.smartdatalake.simsearch.engine.processor;
 
+import java.util.Arrays;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+
 import eu.smartdatalake.simsearch.engine.IResult;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * Auxiliary class that is used to collect the attribute values and their scores for a final result, along with its ranking and aggregate score.
  */
 public class RankedResult implements IResult {
 
+	@ApiModelProperty(required = true, value = "Identifier of the resulting entity in the dataset")
 	private String id;
-	private double score;
-	private int rank;
-	private boolean exact;  // Indicates whether the ranking assigned to this result is exact or not (i.e., based on approximate bounds)
-	private String name;	// Only used in reporting names of entities
 	
+	@ApiModelProperty(required = true, value = "Estimated similarity score of this result to the query")
+	private double score;
+	
+	@ApiModelProperty(required = true, value = "Ranking of this result amongst the top-k returned by the query")
+	private int rank;
+	
+	@ApiModelProperty(required = true, value = "Indicates whether the ranking is exact or approximate (in case the query timed out before issuing all top-k results)")
+	private boolean exact;  // Indicates whether the ranking assigned to this result is exact or not (i.e., based on approximate bounds)
+	
+	@ApiModelProperty(required = true, value = "Attribute values and similarity scores on the individual attributes specified in the query")
 	ResultFacet[] attributes;
 
+	@ApiModelProperty(required = false, value = "Attribute values regarding extra columns not involved in similarity search for reporting in output")
+	private Map<String, ?> extra_attributes;
+	
 	/**
 	 * Constructor
 	 * @param cardinality  The number of attributes involved in the search; their values will be listed in the final results.
@@ -35,6 +51,7 @@ public class RankedResult implements IResult {
 		return score;
 	}
 	
+	@Override
 	public int getRank() {
 		return rank;
 	}
@@ -57,15 +74,7 @@ public class RankedResult implements IResult {
 	public void setRank(int rank) {
 		this.rank = rank;
 	}
-	
-	public String getName() {
-		return name;
-	}
 
-	public void setName(String name) {
-		this.name = name;
-	}
-	
 	@Override
 	public boolean isExact() {
 		return exact;
@@ -85,16 +94,19 @@ public class RankedResult implements IResult {
 		
 		StringBuilder builder = new StringBuilder();
 		builder.append(this.rank + delimiter);
+		builder.append(this.score + delimiter);
 		builder.append(this.id + delimiter);
 
 		for (ResultFacet col : this.attributes) {
-			builder.append(col.getValue() + delimiter);
+			Object val = col.getValue();
+			if (val instanceof String[])
+				builder.append(Arrays.toString((String[])val) + delimiter);
+			else
+				builder.append(val + delimiter);
 			builder.append(col.getScore() + delimiter);
 		}
-
-		builder.append(this.score);
-	    
-		return builder.toString();
+		
+		return StringUtils.chop(builder.toString());  // Expunge the delimiter char at the end
 	}
 	
 	/**
@@ -108,19 +120,21 @@ public class RankedResult implements IResult {
 		
 		StringBuilder builder = new StringBuilder();
 		builder.append(this.rank + delimiter);
+		builder.append(this.score + delimiter);
 		builder.append(this.id + delimiter);
 
 		for (ResultFacet col : this.attributes) {
-			if (col.getValue().contains(delimiter))
-				builder.append(quote + col.getValue() + quote + delimiter);
+			Object val = col.getValue();
+			if (val instanceof String[])
+				val = Arrays.toString((String[])val);
+			if (val.toString().contains(delimiter))
+				builder.append(quote + val + quote + delimiter);
 			else
-				builder.append(col.getValue() + delimiter);
+				builder.append(val + delimiter);
 			builder.append(col.getScore() + delimiter);
 		}
 
-		builder.append(this.score);
-	    
-		return builder.toString();
+		return StringUtils.chop(builder.toString());  // Expunge the delimiter char at the end
 	}
 	
 	/**
@@ -132,6 +146,7 @@ public class RankedResult implements IResult {
 		
 		StringBuilder builder = new StringBuilder();
 		builder.append("rank" + delimiter);
+		builder.append("score" + delimiter);
 		builder.append("id" + delimiter);
 		
 		for (ResultFacet col : this.attributes) {
@@ -139,9 +154,23 @@ public class RankedResult implements IResult {
 			builder.append(col.getName() + "Score" + delimiter);
 		}
 		
-		builder.append("score");
-	    
-		return builder.toString();
+		return StringUtils.chop(builder.toString());  // Expunge the delimiter char at the end
+	}
+
+	/** 
+	 * Returns attribute values regarding extra columns not involved in similarity search.
+	 * @return  A dictionary of values, one per extra attribute.
+	 */
+	public Map<String, ?> getExtraAttributes() {
+		return extra_attributes;
+	}
+
+	/**
+	 * Sets attribute values regarding extra columns not involved in similarity search.
+	 * @param extra_attributes  A dictionary of values, one per extra attribute.
+	 */
+	public void setExtraAttributes(Map<String, ?> extra_attributes) {
+		this.extra_attributes = extra_attributes;
 	}
 
 }

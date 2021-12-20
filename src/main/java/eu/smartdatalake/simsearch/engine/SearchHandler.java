@@ -2,12 +2,18 @@ package eu.smartdatalake.simsearch.engine;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.postgis.PGgeometry;
+import org.postgresql.util.PGobject;
 
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
@@ -183,10 +189,11 @@ public class SearchHandler {
 	
 	/**
 	 * Given a user-specified JSON configuration, execute the various similarity search queries and provide the ranked aggregated results.
-	 * @param params   JSON configuration that provides the multi-facet query specifications.
+	 * @param params   JSON configuration that provides the multi-attribute query specifications.
+	 * @param query_timeout  Max execution time (in milliseconds) for ranking in a submitted query.
 	 * @return   A JSON-formatted response with the ranked results.
 	 */
-	public SearchResponse[] search(SearchRequest params) {
+	public SearchResponse[] search(SearchRequest params, long query_timeout) {
 		
 		long duration;
 		SearchResponse[] responses;
@@ -194,10 +201,14 @@ public class SearchHandler {
 		String notification = "";  // Any extra notification(s) to the final response
 		
 		IRankAggregator aggregator = null;
-		String rankingMethod = Constants.RANKING_METHOD;   	// Threshold is the default ranking algorithm
+		String rankingMethod = Constants.DEFAULT_METHOD;   	// Threshold is the default ranking algorithm
 
-		// Specifications for output CSV file (if applicable)
-		OutputWriter outCSVWriter = new OutputWriter(params.output);
+		// Specifications for output CSV file or standard output (if applicable)
+		OutputWriter outWriter = new OutputWriter(params.output);
+		// Extra columns (not involved in similarity criteria) to report in the output
+		String[] extraColumns = null;
+		if ((params.output != null) && (params.output.extra_columns != null))
+			extraColumns = params.output.extra_columns;
 	
 		int topk = 0;   // top-k value for ranked aggregated results
 		    
@@ -220,8 +231,11 @@ public class SearchHandler {
 			e.printStackTrace();
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
-			log.writeln("Search request discarded due to illegal specification of parameters.");
-			response.setNotification("Please specify a positive integer value for k. Search request dismissed.");
+			String msg = "Please specify a positive integer value for k. Search request aborted.";
+			if ((params.output.format != null) && (params.output.format.equals("console")))
+				System.out.println("NOTICE: "+ msg);
+			log.writeln("Search request aborted due to illegal specification of parameters.");
+			response.setNotification(msg);
 			responses[0] = response;
 			return responses;
 		}
@@ -239,7 +253,10 @@ public class SearchHandler {
 			if ((queries.length > 1) && (topk > Constants.K_MAX)) {
 				responses = new SearchResponse[1];
 				SearchResponse response = new SearchResponse();
-				log.writeln("Search request discarded, because no more than top-" + Constants.K_MAX + " results can be returned per query..");
+				String msg = "Request aborted because no more than top-" + Constants.K_MAX + " results can be returned per query.";
+				log.writeln(msg);
+				if ((params.output.format != null) && (params.output.format.equals("console")))
+					System.out.println("NOTICE: "+ msg);
 				response.setNotification("Please specify a positive integer value up to " + Constants.K_MAX + " for k and submit your request again.");
 				responses[0] = response;
 				return responses;
@@ -247,16 +264,17 @@ public class SearchHandler {
 
 			// Instantiate a parser for the various types of query values
 			QueryValueParser valParser = new QueryValueParser();
+			boolean unusedFilter = false;   // Notify on any extra boolean filters non applicable to CSV data sources
 			
 	        for (SearchSpecs queryConfig: queries) {
-
 	        	// Search column; Multiple attributes (e.g., lon, lat) will be combined into a virtual column [lon, lat] for searching
 				String colValueName = queryConfig.column.toString();
-			
 				//DatasetIdentifier to be used for all constructs built for this attribute
 				DatasetIdentifier id = findIdentifier(colValueName);				
 				if (id == null) {
 					String msg = "No dataset with attribute " + colValueName + " is available for search.";
+					if ((params.output.format != null) && (params.output.format.equals("console")))
+						System.out.println("NOTICE: "+ msg);
 					notification.concat(msg);
 					log.writeln(msg);
 					throw new NullPointerException(msg);
@@ -279,7 +297,10 @@ public class SearchHandler {
 //						rankingMethod = "partial_random_access";   // FIXME: Random access cannot be applied against the SimSearch REST API						
 						responses = new SearchResponse[1];
 						SearchResponse response = new SearchResponse();
-						log.writeln("Request aborted because random access is not supported against the SimSearch REST API.");
+						String msg = "Request aborted because random access is not supported against the SimSearch REST API. Please specify another ranking method.";
+						log.writeln(msg);
+						if ((params.output.format != null) && (params.output.format.equals("console")))
+							System.out.println("NOTICE: "+ msg);
 						response.setNotification("SimSearch REST API does not allow random access to the data. Please specify another ranking method, either partial_random_access or no_random_access. This request will be aborted.");
 						responses[0] = response;
 						return responses;						
@@ -317,6 +338,8 @@ public class SearchHandler {
 					SearchResponse response = new SearchResponse();
 					String msg = "Request aborted because at least one weight value for attribute " + colValueName + " is invalid.";
 					log.writeln(msg);
+					if ((params.output.format != null) && (params.output.format.equals("console")))
+						System.out.println("NOTICE: "+ msg);
 					response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
 					responses[0] = response;
 					return responses;
@@ -333,12 +356,12 @@ public class SearchHandler {
 				if (!datasets.containsKey(id.getHashKey()) || (rankingMethod.equals("partial_random_access")))  {
 					// Use a generated hash key of the column as a reference of values to be looked up for this attribute
 					lookups.put(id.getHashKey(), new HashMap<String, Object>());
-//					log.writeln("Look-up table for " + id.getColumnName() + " will be created on-the-fly during ranking.");
+//					log.writeln("Look-up table for " + id.getValueAttribute() + " will be created on-the-fly during ranking.");
 				}
 				else {  // Otherwise, the lookup is the original collection of attribute values
 					lookups.put(id.getHashKey(), datasets.get(id.getHashKey()));
 				}
-				
+					
 				// Settings for top-k similarity search on categorical values
 				// Optional filters on datasets from JDBC or REST API sources can be specified; NOT allowed on ingested data from CSV files
 				if (operation.equalsIgnoreCase("categorical_topk")) {
@@ -359,6 +382,9 @@ public class SearchHandler {
 					// This will create a collection for the query only; do NOT use qgrams (qgram = 0)
 					queryCollection = reader.createFromQueryKeywords(searchKeywords, 0, log);
 
+					// FIXME: If user has not specified a scale factor, do NOT apply scaling on Jaccard distances 
+//					scale = (scale > 0.0) ? scale : 1.0;
+					
 					// Jaccard distance is applied on categorical (textual) values
 					// Similarity also indicates the corresponding task serial number
 					simMeasure = new DecayedSimilarity(new CategoricalDistance(queryCollection.sets.get("querySet")), decay, scale, tasks.size());
@@ -369,7 +395,7 @@ public class SearchHandler {
 						id.setOperation(Constants.CATEGORICAL_TOPK);
 						// FIXME: Separator for search keywords must be ";" in this case
 						SimSearchJdbcQuery catSearch = new SimSearchJdbcQuery(jdbcConn, Constants.CATEGORICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.join(";", searchKeywords), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
-						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, catSearch.sqlValueRetrievalTemplate));
+						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, catSearch.sqlSingleValueRetrievalTemplate));
 						threadCatSearch = new Thread(catSearch);
 						runControl.put(id.getHashKey(), catSearch.running);
 					}
@@ -391,6 +417,8 @@ public class SearchHandler {
 						IndexSimSearch catSearch = new IndexSimSearch(Constants.CATEGORICAL_TOPK, name, indices.get(id.getHashKey()), datasets.get(id.getHashKey()), queryCollection, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadCatSearch = new Thread(catSearch);
 						runControl.put(id.getHashKey(), catSearch.running);
+						// Extra boolean filters not supported over CSV data sources
+			        	unusedFilter = unusedFilter || (queryConfig.filter != null); 
 					}
 					
 					threadCatSearch.setName(name);
@@ -441,7 +469,7 @@ public class SearchHandler {
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.NUMERICAL_TOPK);
 						SimSearchJdbcQuery numSearch = new SimSearchJdbcQuery(jdbcConn, Constants.NUMERICAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.valueOf(searchingKey), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
-						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlValueRetrievalTemplate));
+						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlSingleValueRetrievalTemplate));
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);	
 					}
@@ -466,6 +494,8 @@ public class SearchHandler {
 						IndexSimSearch numSearch = new IndexSimSearch(Constants.NUMERICAL_TOPK, name, index, searchingKey, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);		
+						// Extra boolean filters not supported over CSV data sources
+			        	unusedFilter = unusedFilter || (queryConfig.filter != null); 
 					}
 					
 					threadNumSearch.setName(name);
@@ -496,7 +526,7 @@ public class SearchHandler {
 					if (jdbcConn != null)  {		// Querying against a DBMS
 						id.setOperation(Constants.SPATIAL_KNN);
 						SimSearchJdbcQuery geoSearch = new SimSearchJdbcQuery(jdbcConn, Constants.SPATIAL_KNN, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, queryPoint.toText(), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
-						valueFinders.put(id.getHashKey(), new SpatialValueFinder(jdbcConn, geoSearch.sqlValueRetrievalTemplate));
+						valueFinders.put(id.getHashKey(), new SpatialValueFinder(jdbcConn, geoSearch.sqlSingleValueRetrievalTemplate));
 						threadGeoSearch = new Thread(geoSearch);
 						runControl.put(id.getHashKey(), geoSearch.running);
 					}
@@ -521,6 +551,8 @@ public class SearchHandler {
 						IndexSimSearch geoSearch = new IndexSimSearch(Constants.SPATIAL_KNN, name, index, queryLocation, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadGeoSearch = new Thread(geoSearch);
 						runControl.put(id.getHashKey(), geoSearch.running);
+						// Extra boolean filters not supported over CSV data sources
+			        	unusedFilter = unusedFilter || (queryConfig.filter != null); 
 					}
 					
 					threadGeoSearch.setName(name);
@@ -549,6 +581,8 @@ public class SearchHandler {
 		        	if (id.getDatatype() != valParser.getDataType()) {
 		        		String msg = "Query value " + String.valueOf(queryConfig.value) + " is not of type " + id.getDatatype() + " as the attribute data.";
 		        		log.writeln(msg);
+						if ((params.output.format != null) && (params.output.format.equals("console")))
+							System.out.println("NOTICE: "+ msg);
 		        		notification.concat(msg);
 		        	}
 //					System.out.println("Epoch value: " + searchingKey);
@@ -562,7 +596,7 @@ public class SearchHandler {
 					if (jdbcConn != null)  {		// Querying against a DBMS using the original date/time value
 						id.setOperation(Constants.TEMPORAL_TOPK);
 						SimSearchJdbcQuery numSearch = new SimSearchJdbcQuery(jdbcConn, Constants.TEMPORAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, String.valueOf(queryConfig.value), topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
-						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlValueRetrievalTemplate));
+						valueFinders.put(id.getHashKey(), new NumericalValueFinder(jdbcConn, numSearch.sqlSingleValueRetrievalTemplate));
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);	
 					}
@@ -589,6 +623,8 @@ public class SearchHandler {
 						IndexSimSearch numSearch = new IndexSimSearch(Constants.TEMPORAL_TOPK, name, index, searchingKey, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadNumSearch = new Thread(numSearch);
 						runControl.put(id.getHashKey(), numSearch.running);		
+						// Extra boolean filters not supported over CSV data sources
+			        	unusedFilter = unusedFilter || (queryConfig.filter != null); 
 					}
 					
 					threadNumSearch.setName(name);
@@ -620,6 +656,9 @@ public class SearchHandler {
 
 //					System.out.println(searchString + " qgram:" + qgram + " tokens:" +  queryCollection.sets.values().iterator().next().tokens.toArray());
 					
+					// FIXME: If user has not specified a scale factor, do NOT apply scaling on Jaccard distances 
+//					scale = (scale > 0.0) ? scale : 1.0;
+					
 					// Jaccard distance is applied on categorical (textual) values
 					// Similarity also indicates the corresponding task serial number
 					simMeasure = new DecayedSimilarity(new CategoricalDistance(queryCollection.sets.get("querySet")), decay, scale, tasks.size());
@@ -630,7 +669,7 @@ public class SearchHandler {
 						id.setOperation(Constants.TEXTUAL_TOPK);
 						// FIXME: Separator for search keywords must be ";" in this case
 						SimSearchJdbcQuery stringSearch = new SimSearchJdbcQuery(jdbcConn, Constants.TEXTUAL_TOPK, id.getDatasetName(), queryConfig.filter, colKeyName, colValueName, searchString, topk, collectionSize, simMeasure, resultsQueue, lookups, id.getHashKey(), log);
-						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, stringSearch.sqlValueRetrievalTemplate));
+						valueFinders.put(id.getHashKey(), new CategoricalValueFinder(jdbcConn, stringSearch.sqlSingleValueRetrievalTemplate));
 						threadStringSearch = new Thread(stringSearch);
 						runControl.put(id.getHashKey(), stringSearch.running);
 					}
@@ -652,6 +691,8 @@ public class SearchHandler {
 						IndexSimSearch stringSearch = new IndexSimSearch(Constants.TEXTUAL_TOPK, name, indices.get(id.getHashKey()), datasets.get(id.getHashKey()), queryCollection, topk, collectionSize, simMeasure, resultsQueue, id.getHashKey(), log);
 						threadStringSearch = new Thread(stringSearch);
 						runControl.put(id.getHashKey(), stringSearch.running);
+						// Extra boolean filters not supported over CSV data sources
+			        	unusedFilter = unusedFilter || (queryConfig.filter != null);  
 					}
 					
 					threadStringSearch.setName(name);
@@ -662,8 +703,16 @@ public class SearchHandler {
 				else {
 					log.writeln("Unknown operation specified: " + operation);
 				}			
-			}	
+			}
+	        // Notify if any filters were specified for CSV data sources; these cannot be applied
+			if (unusedFilter) {
+				String msg = "Unsupported boolean filters specified in this query over ingested data will be ignored.";
+				log.writeln(msg);
+				if ((params.output.format != null) && (params.output.format.equals("console")))
+					System.out.println("NOTICE: " + msg);
+			}
 		}
+
 
 		// Start all tasks; each query will now start fetching results
 		for (Entry<String, Thread> task: tasks.entrySet()) {
@@ -683,12 +732,19 @@ public class SearchHandler {
 			case "partial_random_access":
 				aggregator = new PartialRandomAccessRanking(datasetIdentifiers, lookups, similarities, weights, normalizations, tasks, queues, runControl, topk, log);
 				break;
-			case "threshold":
+			case "threshold":   // This is the default method, if not explicitly specified by the user
 				aggregator = new ThresholdRanking(datasetIdentifiers, lookups, similarities, weights, normalizations, tasks, queues, valueFinders, runControl, topk, log);
 				break;
 			default:
-				log.writeln("No ranking method specified!");
-				break;
+				responses = new SearchResponse[1];
+				SearchResponse response = new SearchResponse();
+				String msg = "No ranking method specified or the one specified is not applicable on the available data sources!";
+				log.writeln(msg);
+				if ((params.output.format != null) && (params.output.format.equals("console")))
+					System.out.println("NOTICE: "+ msg);
+				response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
+				responses[0] = response;
+				return responses;
 			}
 		}
 		else {   // Only one attribute is involved, so no rank aggregation needs to be executed
@@ -698,7 +754,7 @@ public class SearchHandler {
 		responses = null;
 			
 		// Collect results that may be issued as JSON
-		IResult[][] results = aggregator.proc();
+		IResult[][] results = aggregator.proc(query_timeout);
 		
 	    // USED FOR EXPERIMENTS ONLY: Change the estimated aggregate scores with the exact ones
 	    if (isCollectQueryStats() && (!rankingMethod.equals("threshold"))) {
@@ -710,18 +766,82 @@ public class SearchHandler {
 	    	}
 	    }
 	    
+		duration = System.nanoTime() - duration;
+		double execTime = duration / 1000000000.0;	
+		
+		// EXTRA COLUMNS: Collect values from in-situ data sources for any extra attributes required for the results
+		if (extraColumns != null) {
+			// First collect identifiers of all results
+			Set<String> setResultId = new HashSet<String>();
+			for (int w = 0; w < weights.entrySet().iterator().next().getValue().length; w++) {
+				for (int i = 0; i < results[w].length; i++) {
+					setResultId.add(results[w][i].getId());
+				}
+			}
+			
+			// For each extra attribute, check whether an in-situ query must be submitted to retrieve values for the result identifiers 
+			for (String col: extraColumns) {
+				//DatasetIdentifier to be used for all constructs built for this attribute
+				DatasetIdentifier id = findIdentifier(col);				
+				if (id == null) {
+					String msg = "No dataset with attribute " + col + " is available for search.";
+					if ((params.output.format != null) && (params.output.format.equals("console")))
+						System.out.println("NOTICE: "+ msg);
+					notification.concat(msg);
+					log.writeln(msg);
+					continue;
+				}
+
+				// No need for extra look up if attribute data is already ingested in memory
+				if (datasets.containsKey(id.getHashKey()))
+					continue;
+					
+				// Otherwise, create a lookup of values for this extra attribute to be reported in the final results
+				lookups.put(id.getHashKey(), new HashMap<String, Object>());
+					
+				// The name of the identifier column in this source
+				String colKeyName = id.getKeyAttribute();
+				// operation
+				String operation = myAssistant.decodeOperation(id.getOperation());
+					
+				// Get the respective connection details to this dataset
+				DataSource dataSource = id.getDataSource();
+				// Initialize a new JDBC connection from the pool
+				if (dataSource.getJdbcConnPool() != null) {  
+					JdbcConnector jdbcConn = dataSource.getJdbcConnPool().initDbConnector();
+					openJdbcConnections.add(jdbcConn);
+					// Run a search query against the DBMS to get the attribute values on the specific object identifiers
+					SimSearchJdbcQuery lookupSearch = new SimSearchJdbcQuery(jdbcConn, id.getOperation(), id.getDatasetName(), null, colKeyName, col, "", topk, 0, null, null, lookups, id.getHashKey(), log);
+					lookupSearch.appendValues(setResultId);   // Append the retrieved values to the lookup on-the-fly
+				}
+				else if (dataSource.getHttpConn() != null) {  // Initialize a new HTTP connection to the specified REST API
+					HttpRestConnector httpConn = dataSource.getHttpConn();
+					if (httpConn.isSimSearchInstance()) {
+						String msg = "SimSearch API does not support random access to the data. No values can be collected for attribute " + col + ".";
+						log.writeln(msg);
+						if ((params.output.format != null) && (params.output.format.equals("console")))
+							System.out.println("NOTICE: "+ msg);
+						continue;
+					}
+					httpConn.openConnection();
+					openHttpConnections.add(httpConn);	
+					
+					// Run a search query against the REST API to get the attribute values on the specific object identifiers
+					ElasticSearchRestQuery lookupSearch = new ElasticSearchRestQuery(httpConn, id.getOperation(), null, colKeyName, col, "", topk, 0, null, null, lookups, id.getHashKey(), log);
+					lookupSearch.appendValues(setResultId);   // Append the retrieved values to the lookup on-the-fly		
+				}
+			}
+		}
+	
 		// Format response
 		SearchResponseFormat responseFormat = new SearchResponseFormat();
-		responses = responseFormat.proc(results, weights, datasetIdentifiers, datasets, lookups, similarities, normalizations, null, topk, this.isCollectQueryStats(), notification, outCSVWriter);
-
-		// Close output writer to CSV (if applicable)
-		if (outCSVWriter.isSet())
-			outCSVWriter.close();
-		
-		duration = System.nanoTime() - duration;
-		double execTime = duration / 1000000000.0;
+		responses = responseFormat.proc(results, extraColumns, weights, datasetIdentifiers, datasets, lookups, similarities, normalizations, null, topk, this.isCollectQueryStats(), notification, execTime, outWriter);
 		log.writeln("SimSearch [" + rankingMethod + "] issued " + responses[0].getRankedResults().length + " results. Processing time: " + execTime + " sec.");
 
+		// Close output writer to CSV (if applicable)
+		if (outWriter.isSet())
+			outWriter.close();
+		
 		// Execution cost for experimental results; the same time cost concerns all weight combinations
 		for (SearchResponse response: responses) { 
 			response.setTimeInSeconds(execTime);	

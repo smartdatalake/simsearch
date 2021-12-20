@@ -81,7 +81,7 @@ def changeDataType(col):
                     col = pd.to_datetime(col.dropna().unique())
                 except:
                     try:
-                        pd.to_timedelta(col.dropna().unique())
+                        col = pd.to_timedelta(col.dropna().unique())
                     except:
                         try:
                             # try POINT locations in WKT representation
@@ -90,9 +90,9 @@ def changeDataType(col):
                                 isWKT = True
                             else:   
                                 # try array of strings (e.g., keywords)
-                                col = col.str[1:-1].str.split(',')
+                                col = col.str[1:-1]
                         except:    # Return original column intact
-                            return col
+                            return col, isWKT
 
     return col, isWKT
 
@@ -115,8 +115,14 @@ def flatten(results):
     dfAttrFlat.columns = [f'{j}_{i}' for i, j in dfAttrFlat.columns]
     dfAttrFlat.reset_index()
 
+    dfExtraAttr = pd.DataFrame(results)[['id','extraAttributes']]
+    dfExtraAttrFlat = dfExtraAttr.join(pd.DataFrame(dfExtraAttr.pop('extraAttributes').values.tolist()))
+    dfExtraAttrFlat.set_index('id', inplace=True)
+
+    dfAttrFlat = dfAttrFlat.merge(dfExtraAttrFlat,on='id')
+    
     # Rest of the properties in the results
-    dfRest = pd.json_normalize(results).loc[:, ['id','name','score','rank','exact']]
+    dfRest = pd.json_normalize(results).loc[:, ['id','score','rank','exact']]
 
     # Merge with the flattened attribute properties
     # This provides all infomation about this batch of top-k results
@@ -124,7 +130,10 @@ def flatten(results):
 
     ## Attribute names
     cols = dfFinal.columns.tolist()
-   
+    
+    if not 'name' in cols:
+        dfFinal['name'] = ''
+    
     # Create a copy for conversion to geodataframe
     pois = dfFinal.copy() 
     value_cols = [col for col in pois.columns if '_value' in col]
