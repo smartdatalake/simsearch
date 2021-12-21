@@ -115,14 +115,15 @@ public class SearchHandler {
 	/**
 	 * Finds the internal identifier used for the data of a given attribute.
 	 * @param column   The name of the attribute.
+	 * @param includeNameAttrs  A boolean indicating whether to also accept data sources representing names (titles) of the indexed entities.
 	 * @return  The dataset identifier that can be queried.
 	 */
-	private DatasetIdentifier findIdentifier(String column) {
+	private DatasetIdentifier findIdentifier(String column, boolean includeNameAttrs) {
 		
 		for (Entry<String, DatasetIdentifier> entry : datasetIdentifiers.entrySet()) {
 			// TODO: Represent adequately composite attributes as arrays with the names of their constituent columns
             // Only considering operations involved in rank aggregation, i.e., excluding attributes supported in pivot-based similarity search
-			if (entry.getValue().getValueAttribute().equals(column) && (entry.getValue().isQueryable()) && (entry.getValue().getOperation() != Constants.PIVOT_BASED)) {
+			if (entry.getValue().getValueAttribute().equals(column) && (entry.getValue().isQueryable() || includeNameAttrs) && (entry.getValue().getOperation() != Constants.PIVOT_BASED)) {
             	return entry.getValue();
             }
         }
@@ -209,7 +210,10 @@ public class SearchHandler {
 		String[] extraColumns = null;
 		if ((params.output != null) && (params.output.extra_columns != null))
 			extraColumns = params.output.extra_columns;
-	
+		
+		// Check if results will be printed to the standard output
+		boolean consoleOutput = ((params.output != null) && (params.output.format != null) && (params.output.format.equals("console")));
+		
 		int topk = 0;   // top-k value for ranked aggregated results
 		    
 		SearchSpecs[] queries = params.queries; 			// Array of specified queries
@@ -232,7 +236,7 @@ public class SearchHandler {
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
 			String msg = "Please specify a positive integer value for k. Search request aborted.";
-			if ((params.output.format != null) && (params.output.format.equals("console")))
+			if (consoleOutput)
 				System.out.println("NOTICE: "+ msg);
 			log.writeln("Search request aborted due to illegal specification of parameters.");
 			response.setNotification(msg);
@@ -255,7 +259,7 @@ public class SearchHandler {
 				SearchResponse response = new SearchResponse();
 				String msg = "Request aborted because no more than top-" + Constants.K_MAX + " results can be returned per query.";
 				log.writeln(msg);
-				if ((params.output.format != null) && (params.output.format.equals("console")))
+				if (consoleOutput)
 					System.out.println("NOTICE: "+ msg);
 				response.setNotification("Please specify a positive integer value up to " + Constants.K_MAX + " for k and submit your request again.");
 				responses[0] = response;
@@ -270,10 +274,10 @@ public class SearchHandler {
 	        	// Search column; Multiple attributes (e.g., lon, lat) will be combined into a virtual column [lon, lat] for searching
 				String colValueName = queryConfig.column.toString();
 				//DatasetIdentifier to be used for all constructs built for this attribute
-				DatasetIdentifier id = findIdentifier(colValueName);				
+				DatasetIdentifier id = findIdentifier(colValueName, false); // Do not include attributes for entity names	
 				if (id == null) {
 					String msg = "No dataset with attribute " + colValueName + " is available for search.";
-					if ((params.output.format != null) && (params.output.format.equals("console")))
+					if (consoleOutput)
 						System.out.println("NOTICE: "+ msg);
 					notification.concat(msg);
 					log.writeln(msg);
@@ -299,7 +303,7 @@ public class SearchHandler {
 						SearchResponse response = new SearchResponse();
 						String msg = "Request aborted because random access is not supported against the SimSearch REST API. Please specify another ranking method.";
 						log.writeln(msg);
-						if ((params.output.format != null) && (params.output.format.equals("console")))
+						if (consoleOutput)
 							System.out.println("NOTICE: "+ msg);
 						response.setNotification("SimSearch REST API does not allow random access to the data. Please specify another ranking method, either partial_random_access or no_random_access. This request will be aborted.");
 						responses[0] = response;
@@ -338,7 +342,7 @@ public class SearchHandler {
 					SearchResponse response = new SearchResponse();
 					String msg = "Request aborted because at least one weight value for attribute " + colValueName + " is invalid.";
 					log.writeln(msg);
-					if ((params.output.format != null) && (params.output.format.equals("console")))
+					if (consoleOutput)
 						System.out.println("NOTICE: "+ msg);
 					response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
 					responses[0] = response;
@@ -581,7 +585,7 @@ public class SearchHandler {
 		        	if (id.getDatatype() != valParser.getDataType()) {
 		        		String msg = "Query value " + String.valueOf(queryConfig.value) + " is not of type " + id.getDatatype() + " as the attribute data.";
 		        		log.writeln(msg);
-						if ((params.output.format != null) && (params.output.format.equals("console")))
+						if (consoleOutput)
 							System.out.println("NOTICE: "+ msg);
 		        		notification.concat(msg);
 		        	}
@@ -708,7 +712,7 @@ public class SearchHandler {
 			if (unusedFilter) {
 				String msg = "Unsupported boolean filters specified in this query over ingested data will be ignored.";
 				log.writeln(msg);
-				if ((params.output.format != null) && (params.output.format.equals("console")))
+				if (consoleOutput)
 					System.out.println("NOTICE: " + msg);
 			}
 		}
@@ -740,7 +744,7 @@ public class SearchHandler {
 				SearchResponse response = new SearchResponse();
 				String msg = "No ranking method specified or the one specified is not applicable on the available data sources!";
 				log.writeln(msg);
-				if ((params.output.format != null) && (params.output.format.equals("console")))
+				if (consoleOutput)
 					System.out.println("NOTICE: "+ msg);
 				response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
 				responses[0] = response;
@@ -782,10 +786,10 @@ public class SearchHandler {
 			// For each extra attribute, check whether an in-situ query must be submitted to retrieve values for the result identifiers 
 			for (String col: extraColumns) {
 				//DatasetIdentifier to be used for all constructs built for this attribute
-				DatasetIdentifier id = findIdentifier(col);				
+				DatasetIdentifier id = findIdentifier(col, true);  // Include data sources for attribute names		
 				if (id == null) {
 					String msg = "No dataset with attribute " + col + " is available for search.";
-					if ((params.output.format != null) && (params.output.format.equals("console")))
+					if (consoleOutput)
 						System.out.println("NOTICE: "+ msg);
 					notification.concat(msg);
 					log.writeln(msg);
@@ -819,7 +823,7 @@ public class SearchHandler {
 					if (httpConn.isSimSearchInstance()) {
 						String msg = "SimSearch API does not support random access to the data. No values can be collected for attribute " + col + ".";
 						log.writeln(msg);
-						if ((params.output.format != null) && (params.output.format.equals("console")))
+						if (consoleOutput)
 							System.out.println("NOTICE: "+ msg);
 						continue;
 					}

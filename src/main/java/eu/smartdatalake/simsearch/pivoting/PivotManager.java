@@ -537,6 +537,9 @@ public class PivotManager {
 		if ((params.output != null) && (params.output.extra_columns != null))
 			extraColumns = params.output.extra_columns;
 		
+		// Check if results will be printed to the standard output
+		boolean consoleOutput = ((params.output != null) && (params.output.format != null) && (params.output.format.equals("console")));
+		
 		// Construct for validating weights
 		Validator weightValidator = new Validator();
 				
@@ -573,7 +576,7 @@ public class PivotManager {
 					SearchResponse response = new SearchResponse();
 					String msg = "Request aborted because at least one weight value for attribute " + String.valueOf(queryConfig.column) + " is invalid.";
 					log.writeln(msg);
-					if ((params.output.format != null) && (params.output.format.equals("console")))
+					if (consoleOutput)
 						System.out.println("NOTICE: "+ msg);
 					response.setNotification(msg + " Weight values must be real numbers strictly between 0 and 1.");
 					responses[0] = response;
@@ -614,7 +617,7 @@ public class PivotManager {
 			SearchResponse response = new SearchResponse();
 			String msg = "Request aborted because no more than top-" + Constants.K_MAX + " results can be returned per query.";
 			log.writeln(msg);
-			if ((params.output.format != null) && (params.output.format.equals("console")))
+			if (consoleOutput)
 				System.out.println("NOTICE: "+ msg);
 			response.setNotification("Please specify a positive integer value up to " + Constants.K_MAX + " for k and submit your request again.");
 			responses[0] = response;
@@ -635,7 +638,7 @@ public class PivotManager {
 			responses = new SearchResponse[1];
 			SearchResponse response = new SearchResponse();
 			String msg = "Query value is missing in at least one attribute. Please check your query specification.";
-			if ((params.output.format != null) && (params.output.format.equals("console")))
+			if (consoleOutput)
 				System.out.println("NOTICE: "+ msg);
 			log.writeln(msg);
 			response.setNotification(msg.concat(notification));
