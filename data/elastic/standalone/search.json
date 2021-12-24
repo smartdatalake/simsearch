@@ -1,0 +1,23 @@
+{
+	"algorithm":"partial_random_access", 
+	"k":"20",
+	"queries":[
+				{
+					"filter":"[{\"match\":{\"legalStatus\":\"Limited company\"}}]",
+					"column":"revenue",
+					"value":"200000",
+					"weights":["0.9","0.7"]
+				}, 
+				{
+					"column":"location",
+					"value":"POINT(11.256 43.774)",
+					"weights":["1.0","0.7"]
+				}, 
+				{
+					"filter":"[{\"match\":{\"legalStatus\":\"Limited company\"}}]",
+					"column":"employees",
+					"value":"5",
+					"weights":["0.6","0.5"]
+				}
+			]
+}

@@ -7,6 +7,7 @@ import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
+import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.NotExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.Between;
@@ -16,8 +17,9 @@ import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.select.*;
-
+import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
+import eu.smartdatalake.simsearch.manager.AttributeInfo;
 import eu.smartdatalake.simsearch.request.SearchOutput;
 import eu.smartdatalake.simsearch.request.SearchRequest;
 import eu.smartdatalake.simsearch.request.SearchSpecs;
@@ -27,11 +29,16 @@ import eu.smartdatalake.simsearch.request.SearchSpecs;
  */
 public class SqlParser {
 
-	/** 
+	Assistant myAssistant;
+	AttributeInfo[] queryableAttrs;   // TODO: Use attribute information for validating query conditions.
+	
+	/**
 	 * Constructor
+	 * @param attrs  Information about the queryable attributes.
 	 */
-	public SqlParser() {
-		
+	public SqlParser(AttributeInfo[] attrs) {
+		myAssistant = new Assistant();
+		queryableAttrs = attrs;
 	}
 	
 	
@@ -65,12 +72,12 @@ public class SqlParser {
             }
           
             req.output = new SearchOutput();
-            req.output.format = "console";  // Default output for SQL queries
+            req.output.format = "txt";  // Default output for SQL queries
             if (selectCols != null)
             	req.output.extra_columns = extraColumns.toArray(new String[0]);
             
             // Identify if weights have been assigned to each attribute involved in the query
-            List<Expression> weightClause = ((PlainSelect) ((Select) select).getSelectBody()).getGroupByColumnReferences();
+            GroupByElement weightClause = ((PlainSelect) ((Select) select).getSelectBody()).getGroupBy();
             
             // Specify the top-k value
             if (((PlainSelect) ((Select) select).getSelectBody()).getLimit() != null) 
@@ -89,7 +96,8 @@ public class SqlParser {
             Expression whereClause = ((PlainSelect) ((Select) select).getSelectBody()).getWhere();
             if (whereClause != null) {
             	List<String> extraFilters = new ArrayList<String>();  // Hold extra criteria for filtering in-situ data sources prior to SimSearch
-	            Expression expr = CCJSqlParserUtil.parseCondExpression(whereClause.toString());
+            	List<String> jsonFilters = new ArrayList<String>();
+            	Expression expr = CCJSqlParserUtil.parseCondExpression(whereClause.toString());
 	            ArrayList<SearchSpecs> listConditions = new ArrayList<SearchSpecs>();
 	            if (expr != null) {
 	            	// Examine condition(s) and specify the necessary similarity search criteria
@@ -112,6 +120,15 @@ public class SqlParser {
 		                	extraFilters.add(expr.toString()); 
 		                }
 		                @Override
+		                public void visit(Function expr) {
+		                	// Specifically handle JSON filters against ElasticSearch
+		                	if (expr.getName().equalsIgnoreCase("jsonfilter")) {
+		                		String json = expr.getParameters().toString().replaceAll("\'","");   // Expunge single quotes
+		                		if (myAssistant.isValidJSON(json))
+		                			jsonFilters.add(json); 
+		                	}
+		                }
+		                @Override
 		                protected void visitBinaryExpression(BinaryExpression expr) {
 		                    if (expr instanceof LikeExpression) {
 		                    	if (expr.getRightExpression().toString().contains("%"))  // Original LIKE condition kept as filter
@@ -122,13 +139,16 @@ public class SqlParser {
 			                    	specs.column = expr.getLeftExpression().toString().replaceAll("\'","");
 			                    	specs.value =  expr.getRightExpression().toString().replaceAll("\'","");
 			                    	// Associate the corresponding weight (if specified in the query)
-			                    	if ((weightClause != null) && (weightClause.size() > listConditions.size())) {
-			                    		try {
-			                    			specs.weights = new Double[1];
-			                    			specs.weights[0] = Double.parseDouble(weightClause.get(listConditions.size()).toString());
-			                    		} catch(Exception e) {
-			                    			System.out.println("NOTICE: Weight values must be real numbers strictly between 0 and 1. Query aborted.");
-			                    		}
+			                    	if (weightClause != null) {
+			                            List<Expression> weightValues = weightClause.getGroupByExpressionList().getExpressions();
+			                            if ((weightValues.size() > listConditions.size())) {
+				                    		try {
+				                    			specs.weights = new Double[1];
+				                    			specs.weights[0] = Double.parseDouble(weightValues.get(listConditions.size()).toString());
+				                    		} catch(Exception e) {
+				                    			System.out.println("NOTICE: Weight values must be real numbers strictly between 0 and 1. Query aborted.");
+				                    		}
+			                            }
 			                    	}
 			                    	listConditions.add(specs);
 		                    	}
@@ -145,9 +165,17 @@ public class SqlParser {
 	            if (listConditions.isEmpty()) 
 	            	System.out.println("Error in SQL statement. SELECT queries must include at least one condition in the WHERE clause involving an existing attribute. Syntax: \n" + Constants.SQL_SELECT_PATTERN);
 	            
-	            // Apply any extra filters in the search specifications
+	            // Apply any extra SQL filters in the search specifications against a DBMS
 	            if (extraFilters.size() > 0) {
 	            	String strFilter = "(" + String.join(") AND (", extraFilters) + ")";
+	            	for (SearchSpecs cond: listConditions) {
+	            		cond.filter = strFilter;  // Apply filter in each data source
+	            	}
+	            }
+	            
+	            // Apply any extra JSON filters in the search specifications against ElasticSearch
+	            if (jsonFilters.size() > 0) {
+	            	String strFilter = String.join(", ", jsonFilters).replaceAll("\'","");   // Expunge single quotes
 	            	for (SearchSpecs cond: listConditions) {
 	            		cond.filter = strFilter;  // Apply filter in each data source
 	            	}
@@ -183,5 +211,5 @@ public class SqlParser {
 			selectSQL = selectSQL.substring(0, i) + replaceClause + selectSQL.substring(i+origClause.length());	
 		return selectSQL;
 	}
-	
+
 }

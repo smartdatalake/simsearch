@@ -19,6 +19,8 @@ import java.util.stream.IntStream;
 import org.apache.lucene.analysis.ngram.NGramTokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.json.simple.JSONArray;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import eu.smartdatalake.simsearch.manager.DataType.Type;
 import eu.smartdatalake.simsearch.manager.ingested.DataFileReader;
@@ -398,4 +400,20 @@ public class Assistant {
 		else
 			return formatAttrValue(targetData.get(randomKey));
 	}
+	
+	/**
+	 * Checks whether the given string is a valid JSON.
+	 * @param str  A string representation of a JSON object.
+	 * @return  A boolean value: True, if this JSON is valid; otherwise, False.
+	 */
+	public boolean isValidJSON(String str) {
+		try {
+			JSONParser parser = new JSONParser();
+			parser.parse(str);
+	    } catch (ParseException e) {
+			return false;
+		}
+		return true;
+	}
+	
 }

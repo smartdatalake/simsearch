@@ -5,6 +5,10 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
 import eu.smartdatalake.simsearch.request.SearchOutput;
@@ -16,9 +20,10 @@ public class OutputWriter {
 
 	Assistant myAssistant;
 	PrintStream outStream = null;
-	String outColumnDelimiter = Constants.OUTPUT_COLUMN_SEPARATOR;	// Default delimiter for values in the output CSV file
+	String outColumnDelimiter = null;
 	boolean outHeader = true;
 	String outQuote = null;		
+	public boolean outJsonFile = false;	// Indicates whether the output will be written to a JSON file
 	boolean outStandard = false;	// Indicates whether output will be written to standard output (console)
 
 	/**
@@ -38,6 +43,9 @@ public class OutputWriter {
 						if (outColumnDelimiter == null || outColumnDelimiter.equals(""))
 							outColumnDelimiter = " ";
 					}
+					else   // Default delimiter
+						outColumnDelimiter = Constants.COLUMN_SEPARATOR;
+					
 					if (out.header != null)
 						outHeader = out.header;
 					
@@ -48,16 +56,20 @@ public class OutputWriter {
 					}
 					
 					// output file
-					String outputFile = out.file;
 					try {
-						outStream = new PrintStream(outputFile);    // An output stream is only created in case of CSV format
+						outStream = new PrintStream(out.file);
 					} catch (FileNotFoundException e) {
 						e.printStackTrace();
 					}
 				}
-				else if (outFormat.toLowerCase().equals("console")) { // Output written to console
+				else { 	
 					try {
-						outStandard = true;
+						if (out.file != null)
+							outStream = new PrintStream(out.file);	// An output stream for TXT or JSON files
+						if (outFormat.toLowerCase().equals("json"))
+							outJsonFile = true;		// Output will be written to a JSON file
+						else if (outFormat.toLowerCase().equals("txt"))
+							outStandard = true;		// Output in tabular format to standard output (console)
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
@@ -115,7 +127,7 @@ public class OutputWriter {
 	}
 	
 	/**
-	 * Prints the search results into the standard output (console).
+	 * Prints the search results into a TXT file or to the standard output (console).
 	 * @param weights  The weights applied to the specified batch of results. Assuming only ONE weight value per attribute.
 	 * @param results  Output results as received from the rank aggregation process (for a given combination of weights).
 	 * @param responseTime  Time (in seconds) taken to provide the response in the backend.
@@ -123,7 +135,26 @@ public class OutputWriter {
 	public void printResults(Map<String, Double> weights, IResult[] results, double responseTime) {
 		
 		SearchResponseTable tab = new SearchResponseTable();
-		tab.print(weights, results, responseTime);
+		String txtResult = tab.print(weights, results, responseTime);
+		if (this.isSet())
+			outStream.println(txtResult);   // Write tabular results to TXT file
+		else
+			System.out.println(txtResult);	// Issue tabular results to console
+	}
+	
+	/**
+	 * Writes the response to a search request into a JSON file.
+	 * @param response   A JSON response to a SimSearch request.
+	 */
+	public void writeJsonResults(Object response) {
+		
+		try {
+			ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+			String jsonResult = ow.writeValueAsString(response);
+			outStream.println(jsonResult);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}	
 	}
 	
 }

@@ -27,9 +27,6 @@ import eu.smartdatalake.simsearch.service.SimSearchServiceLauncher;
 public class Runner {	
 	
 	public static final String ANSI_RESET = "\u001B[0m";
-	public static final String ANSI_BLACK = "\u001B[30m";
-	public static final String ANSI_BLUE = "\u001B[34m";
-	public static final String BLUE_BRIGHT = "\033[0;94m";
 	public static final String GREEN_BRIGHT = "\033[0;92m";
 	public static final String RED_BRIGHT = "\033[0;91m";
 	
@@ -157,7 +154,7 @@ public class Runner {
 						}
 						else {	// Parse the submitted SQL query
 							if (q.toLowerCase().startsWith("select")) {
-								SqlParser sqlparser = new SqlParser();
+								SqlParser sqlparser = new SqlParser(myCoordinator.listDataSources());
 								myCoordinator.search(sqlparser.parseSelect(q));
 							}
 							else if (q.toLowerCase().startsWith("set")) {   // Set global setting for this instance

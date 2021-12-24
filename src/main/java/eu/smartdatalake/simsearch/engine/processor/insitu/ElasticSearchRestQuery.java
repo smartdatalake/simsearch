@@ -3,6 +3,7 @@ package eu.smartdatalake.simsearch.engine.processor.insitu;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.http.HttpEntity;
 import org.apache.http.ParseException;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -52,6 +54,7 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 	URI uri = null;
     String query = null;			// Query to be composed for top-k search
 	
+    String keyColumnName = null;
 	String valColumnName = null;
 	ISimilarity simMeasure;
 	RankedList resultsQueue;
@@ -67,6 +70,8 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 	// Parsers for values of complex data types
 	DateTimeParser dateParser;
 	WKTReader wktReader;
+	List<String> attrCoords = Arrays.asList(new String[]{"lon", "lat"});   // Special handling for JSON with coordinates
+	
 	
 	// Compose the query template for value retrieval 
 	public String queryValueRetrievalTemplate = null;	
@@ -96,6 +101,7 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 		this.hashKey = hashKey;
 		this.operation = operation;
 		this.valColumnName = valColumnName;
+		this.keyColumnName = keyColumnName;
 		this.simMeasure = simMeasure;
 		this.resultsQueue = resultsQueue;
 		this.datasets = datasets;
@@ -180,8 +186,6 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 				if (entity != null) {
 					
 					JSONObject items;
-			        Object val = null;
-			        String id = null;
 			        IDistance distMeasure = simMeasure.getDistanceMeasure();  
 			        
 					// Get results as a string...
@@ -197,21 +201,16 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 
 						while (iterator.hasNext()) {
 							JSONObject item = (JSONObject) iterator.next();
-							if (item instanceof JSONObject) {
-								// Only attribute values are considered
-								val = ((JSONObject)item.get("_source")).get(valColumnName);
-								if (val == null)
-									continue;
-			            	
-								id = String.valueOf(item.get("_id"));
-								val = formatValue(id, val);
-		            	
+							if (item instanceof JSONObject) {						
 						    	// Casting the attribute value to the respective data type used by the look-up (hash) table
-						    	this.datasets.get(this.hashKey).put((K)id, (V)val);
+								ImmutablePair<String, Object> res = formatResult(item);
+								if (res == null)
+									continue;
+								this.datasets.get(this.hashKey).put((K)res.getKey(), (V)res.getValue());
 
 						    	// Initially keep all results sorted by ascending (original) distance
-				            	score = distMeasure.calc(val);   // CAUTION! scores from ElasticSearch are ignored; recomputed according to the relevant measure
-				            	resQueue.put(score, (new PartialResult(id, val, score)));
+				            	score = distMeasure.calc(res.getValue());   // CAUTION! scores from ElasticSearch are ignored; recomputed according to the relevant measure
+				            	resQueue.put(score, (new PartialResult(res.getKey(), res.getValue(), score)));
 				            	numMatches++;  
 				            	
 				            	// The top-k distance will become the scale factor for scoring
@@ -251,12 +250,22 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
     
 
     /**
-     * Formats the given value of an entity according to its data type. 
-     * @param id  The object identifier of the entity.
-     * @param val  The attribute value of the entity
-     * @return  The formatted value.
+     * Formats the given result of an entity according to the data type of the queried attribute. 
+     * @param item  A JSON object representing the value of an entity at the queried attribute.
+     * @return	A (key, value) pair with the entity identifier and the attribute value formatted according to its data type.
      */
-    private Object formatValue(String id, Object val) {
+     private ImmutablePair<String, Object> formatResult(JSONObject item) {
+    	 
+    	JSONObject flattenedItem = null;
+    	flattenedItem = flatten(((JSONObject)item.get("_source")), flattenedItem, null);
+			
+		// Only attribute values are considered
+		Object val = flattenedItem.get(valColumnName);
+		if (val == null)
+			return null;
+		
+		// Identifier
+		String id = String.valueOf(flattenedItem.get(keyColumnName));
 
     	try {
 			// Depending on the operation, cast resulting attribute value into the suitable data type
@@ -287,11 +296,10 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 			e.printStackTrace(); 
 		}
     	
-//    	System.out.println(id + " : "+ String.valueOf(val));
-    	return val;
-	
+    	return new ImmutablePair<>(id, val);	
     }
     
+     
 	/**
 	 * Connects to a REST API to collect attribute values regarding specific object identifiers. These values are appended to the in-memory lookup maintained for this attribute.
 	 * @param identifiers  The set of object identifiers (acting as the primary key in the respective database table).
@@ -317,8 +325,6 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 				if (entity != null) {
 					
 					JSONObject items;
-			        Object val = null;
-			        String id = null;
 			        
 					// Get results as a string...
 					String result = EntityUtils.toString(entity);	
@@ -334,16 +340,11 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 						while (iterator.hasNext()) {
 							JSONObject item = (JSONObject) iterator.next();
 							if (item instanceof JSONObject) {
-								// Only attribute values are considered
-								val = ((JSONObject)item.get("_source")).get(valColumnName);
-								if (val == null)
-									continue;
-			            	
-								id = String.valueOf(item.get("_id"));
-								val = formatValue(id, val);
-		            	
 						    	// Casting the attribute value to the respective data type used by the look-up (hash) table
-						    	this.datasets.get(this.hashKey).put((K)id, (V)val);
+								ImmutablePair<String, Object> res = formatResult(item);
+								if (res == null)
+									continue;
+								this.datasets.get(this.hashKey).put((K)res.getKey(), (V)res.getValue());
 
 				            	numMatches++;
 							}
@@ -375,14 +376,58 @@ public class ElasticSearchRestQuery<K extends Comparable<? super K>, V> implemen
 	      running.set(false);
 	}
 
+	
  	/**
  	 * Progressively provides the next query result.
  	 * NOT applicable with this type of search, as results are issued directly to the queue.
  	 */
 	@Override
 	public List<V> getNextResult() {
-
 		return null;
+	}
+	
+
+	/**
+	 * 
+	 * @param object  The nested JSON object to be flattened.
+	 * @param flattened  Container of a JSON object during flattening.
+	 * @param prefix  The prefix to append in each key when flattening at the current level.
+	 * @return  The resulting flattened JSON object with composite keys at a single level.
+	 */
+	private JSONObject flatten(JSONObject object, JSONObject flattened, String prefix) {
+	    if (flattened == null) {  // Top level
+	        flattened = new JSONObject();
+	    }
+	    for (Object key: object.keySet()) {
+	    	String strKey = ((prefix != null) ? (prefix + "." + key.toString()) : key.toString());
+	        try {
+	            if (object.get(key) instanceof JSONObject) {   // 
+	            	JSONObject json = (JSONObject)object.get(key);
+	            	if (json.keySet().containsAll(attrCoords)) // JSON contains coordinates
+	            		flattened.put(strKey, json.get("lon").toString() + "," + json.get("lat").toString());
+	            	else		// Go one level down and continue flattening
+	            		flatten(json, flattened, strKey);
+	            } 
+	            else if (object.get(key) instanceof JSONArray) {  // Flatten each item in JSON array
+	            	JSONArray jsonArray = (JSONArray)object.get(key);
+	            	for (int i = 0; i < jsonArray.size(); i++) {
+	            		if (jsonArray.get(i) instanceof JSONObject) {
+	            			flatten((JSONObject)jsonArray.get(i), flattened, strKey);
+	            		}
+	    			}
+	            } 
+	            else {  // Bottom level, extract values
+	            	if (flattened.get(strKey) != null) // Key exists, so concatenate this value to existing ones
+	            		flattened.put(strKey, flattened.get(strKey).toString() + "," + object.get(key).toString());
+	            	else  	// New key
+	            		flattened.put(strKey, object.get(key));
+	            }
+	        } catch(Exception e){
+	            System.out.println(e);
+	        }
+	    }
+	    
+	    return flattened;
 	}
 	
 }

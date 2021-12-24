@@ -7,7 +7,7 @@ import io.swagger.annotations.ApiModelProperty;
  */
 public class SearchOutput {
 
-	@ApiModelProperty(required = false, allowableValues = "json, csv, console", value = "The output format for search results; specify JSON (default), CSV, or console (for standard output).")
+	@ApiModelProperty(required = false, allowableValues = "json, csv, txt", value = "The output format for search results; specify JSON (default), CSV, or tabular text (also issued in standard output).")
 	public String format;
 	
 	@ApiModelProperty(required = false, value = "Delimiter character between columns in the output CSV file")

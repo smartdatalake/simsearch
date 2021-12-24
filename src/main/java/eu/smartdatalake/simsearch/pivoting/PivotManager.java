@@ -529,7 +529,7 @@ public class PivotManager {
 		SearchResponse[] responses;
 		String notification = "";  // Any extra notification(s) to the final response
 
-		// Specifications for writing results into an output CSV file or to the standard output (if applicable)
+		// Specifications for writing results into an output file or to the standard output (if applicable)
 		OutputWriter outWriter = new OutputWriter(params.output);
 		
 		// Extra columns (not involved in similarity criteria) to report in the output
@@ -538,7 +538,7 @@ public class PivotManager {
 			extraColumns = params.output.extra_columns;
 		
 		// Check if results will be printed to the standard output
-		boolean consoleOutput = ((params.output != null) && (params.output.format != null) && (params.output.format.equals("console")));
+		boolean consoleOutput = ((params.output != null) && (params.output.file != null) && (params.output.format != null) && (params.output.format.equals("txt")));
 		
 		// Construct for validating weights
 		Validator weightValidator = new Validator();
@@ -729,7 +729,11 @@ public class PivotManager {
 		responses = responseFormat.proc(allResults, extraColumns, attrWeights, datasetIdentifiers, datasets, datasets, null, null, metricSimilarities, topk, this.isCollectQueryStats(), notification, execTime, outWriter);
 		log.writeln("SimSearch [pivot-based] issued " + responses[0].getRankedResults().length + " results. Processing time: " + execTime + " sec.");
 
-		// Close output writer to CSV (if applicable)
+		// Write response to JSON file (if applicable)
+		if (outWriter.outJsonFile)
+			outWriter.writeJsonResults(responses);
+		
+		// Close writer to output file (if applicable)
 		if (outWriter.isSet())
 			outWriter.close();
         

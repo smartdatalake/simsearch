@@ -8,12 +8,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.postgis.PGgeometry;
-import org.postgresql.util.PGobject;
 
 import eu.smartdatalake.simsearch.Assistant;
 import eu.smartdatalake.simsearch.Constants;
@@ -212,7 +208,7 @@ public class SearchHandler {
 			extraColumns = params.output.extra_columns;
 		
 		// Check if results will be printed to the standard output
-		boolean consoleOutput = ((params.output != null) && (params.output.format != null) && (params.output.format.equals("console")));
+		boolean consoleOutput = ((params.output != null) && (params.output.file != null) && (params.output.format != null) && (params.output.format.equals("txt")));
 		
 		int topk = 0;   // top-k value for ranked aggregated results
 		    
@@ -842,14 +838,18 @@ public class SearchHandler {
 		responses = responseFormat.proc(results, extraColumns, weights, datasetIdentifiers, datasets, lookups, similarities, normalizations, null, topk, this.isCollectQueryStats(), notification, execTime, outWriter);
 		log.writeln("SimSearch [" + rankingMethod + "] issued " + responses[0].getRankedResults().length + " results. Processing time: " + execTime + " sec.");
 
-		// Close output writer to CSV (if applicable)
-		if (outWriter.isSet())
-			outWriter.close();
-		
 		// Execution cost for experimental results; the same time cost concerns all weight combinations
 		for (SearchResponse response: responses) { 
 			response.setTimeInSeconds(execTime);	
 		}
+		
+		// Write response to JSON file (if applicable)
+		if (outWriter.outJsonFile)
+			outWriter.writeJsonResults(responses);
+			
+		// Close writer to output file (if applicable)
+		if (outWriter.isSet())
+			outWriter.close();
 		
 		// Close any JDBC connections
 		for (JdbcConnector jdbcConn: openJdbcConnections)

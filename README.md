@@ -21,10 +21,10 @@ Attribute data values may come from diverse data sources, and each one can be ei
 
 With SimSearch, users can request the top-k results across all examined attributes and get each result ranked by an aggregate similarity score. This library builds specialized indices for each specific attribute type. It supports two alternative methods for similarity search:
 
-- *Top-k rank aggregation*: Under this [paradigm](https://dl.acm.org/doi/10.1145/1391729.1391730), a ranked list of candidate entities is retrieved separately for each attribute based on individual similarity queries at the respective data sources or internal indices. Then, these individual ranked lists are combined to yield the final top-k results and their aggregate scores. 
-- *Top-k pivot-based search*: Taking advantage of a [multi-metric indexing mechanism](https://doi.org/10.1109/ICDE.2016.7498318), this method chooses a small number of reference values (a.k.a. pivots) per attribute and can significantly speed up query execution. However, this is feasible only when all involved attributes are ingested and indexed internally using a modified and extended R-tree implementation originally published [here](https://github.com/davidmoten/rtree-multi).
+- *Top-k rank aggregation*: Under this [paradigm](https://dl.acm.org/doi/10.1145/1391729.1391730), a ranked list of candidate entities is retrieved separately for each attribute based on individual similarity queries against the respective data sources or internal indices. Then, these individual ranked lists are combined to yield the final top-k results and their aggregate scores. 
+- *Top-k pivot-based search*: Taking advantage of a [multi-metric indexing mechanism](https://doi.org/10.1109/ICDE.2016.7498318), this method chooses a small number of reference values (a.k.a. pivots) per attribute and can significantly speed up query execution. However, this is feasible only when all involved attributes are ingested and indexed in memory using a modified and extended R-tree implementation originally published [here](https://github.com/davidmoten/rtree-multi).
 
-SimSearch can be deployed either as a standalone Java application or as a RESTful web service, as detailed next.
+SimSearch can be deployed either as a [standalone Java application](#standalone-execution) or as a [RESTful web service](#launching-simsearch-as-web-service).
 
 
 ## Documentation
@@ -50,18 +50,18 @@ $ mvn clean package spring-boot:repackage
 
 ## Standalone execution
 
-To invoke SimSearch in standalone mode as a Java application, run the executable:
+To invoke SimSearch locally in standalone mode as a Java application, run the executable:
 ```sh
 $ java -jar target/simsearch-0.5-SNAPSHOT.jar
 ```
 
 Next, choose a number corresponding to a functionality you want to apply:
 
-(1): MOUNT SOURCES -> Specifies the queryable attributes and (if necessary) builds suitable indices on their values. This mount operation must be applied before any queries are submitted. The user must provide the path to a JSON file containing the specification of data sources and their attributes to be made queryable in SimSearch. Example configuration for enabling SimSearch using rank aggregation is available in `sources.json.example` file or [`data/gdelt/standalone/sources.json`](data/gdelt/standalone/sources.json), which must specify a suitable *metric* distance per attribute. Example configuration for *pivot-based* SimSearch is available in [`data/gdelt/standalone/sources_pivot.json`](data/gdelt/standalone/sources_pivot.json). Note that if set-valued textual attributes (e.g., containing sets of keywords) are involved in SimSearch, they must be transformed into word embeddings using a dictionary of terms that must be also specified in the configuration. For instance, this [`dictionary`](data/gdelt/lda_dictionary.csv) has been constructed with [`Latent Dirichlet Allocation (LDA)`](https://web.stanford.edu/class/linguist289/lda.pdf) over the terms used in the *organizations* attribute of the [`sample dataset`](data/gdelt/sample.csv).    
+(1): MOUNT SOURCES -> Specifies the queryable attributes and (if necessary) builds suitable in-memory indices on their values. This mount operation must be applied before any queries are submitted. The user must provide the path to a JSON file containing the specification of data sources and their attributes to be made queryable in SimSearch. Example configuration for enabling SimSearch using rank aggregation is available in `sources.json.example` file or [`data/gdelt/standalone/sources.json`](data/gdelt/standalone/sources.json), which must specify a suitable *metric* distance per attribute. Example configuration for *pivot-based* SimSearch is available in [`data/gdelt/standalone/sources_pivot.json`](data/gdelt/standalone/sources_pivot.json). Note that if set-valued textual attributes (e.g., containing sets of keywords) are involved in SimSearch, they must be transformed into word embeddings using a dictionary of terms that must be also specified in the configuration. For instance, this [`dictionary`](data/gdelt/lda_dictionary.csv) has been constructed with [`Latent Dirichlet Allocation (LDA)`](https://web.stanford.edu/class/linguist289/lda.pdf) over the terms used in the *organizations* attribute of the [`sample dataset`](data/gdelt/sample.csv).    
 
 (2): DELETE SOURCES -> Disables attributes from querying; attributes may be enabled again using functionality (1). This operation is removes the specified attribute(s) when rank aggregation is used. *CAUTION!* For pivot-based SimSearch, this operation drops the centralized index built on all attributes; in this case, the index must be rebuilt from scratch using functionality (1) and involving the desired attributes. 
 
-(3): CATALOG -> Returns a list of the currently queryable attributes and the operation (categorical, numerical, spatial, or pivot-based) supported for each one.
+(3): CATALOG -> Returns a list of the currently queryable attributes and the operation (categorical, numerical, spatial, temporal, textual, or pivot-based) supported for each one.
 
 (4): SEARCH -> Allows specification of a top-k similarity search query. The user must also specify the path to a JSON file containing the query specification (as in [`search.json.example`](search.json.example) file or [`data/gdelt/standalone/search.json`](data/gdelt/standalone/search.json) for a search request using rank aggregation). Configuration for search requests using pivot-based SimSearch must specifically define *pivot_based* as the algorithm to be used, as in this [`example`](data/gdelt/standalone/search_pivot.json) of a *pivot-based search request*. In all cases, once evaluation is complete, results will be available in JSON format (as in [`data/gdelt/standalone/search_results.json`](data/gdelt/standalone/search_results.json)).
 

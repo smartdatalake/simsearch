@@ -1,0 +1,24 @@
+{
+	"algorithm":"partial_random_access", 
+	"k":"20",
+	"queries":[
+				{
+					"filter": "[{\"match\":{\"legalStatus\":\"Limited company\"}}]",
+					"column":"keywords",
+					"value":["Computer+science","Electronics","Software","E-commerce"],
+					"weights":["0.4","0.9"]
+				},
+				{
+					"filter": "[{\"match\":{\"legalStatus\":\"Limited company\"}}]",
+					"column":"revenue",
+					"value":"100000",
+					"weights":["1.0","0.4"]
+				},
+				{
+					"filter": "[{\"match\":{\"legalStatus\":\"Limited company\"}}]",
+					"column":"location",
+					"value":"POINT (12.4534 41.9029)",
+					"weights":["0.9","0.7"]
+				}
+			]
+}

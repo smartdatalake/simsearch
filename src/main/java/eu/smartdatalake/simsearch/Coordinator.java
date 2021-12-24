@@ -176,7 +176,7 @@ public class Coordinator {
 	
 	
 	/**
-	 * Identifies whether a data source (to a directory of a JDBC connection to a database) of an attribute is already defined.
+	 * Identifies whether a data source (to a directory or a JDBC connection to a database or a REST API) for an attribute is already defined.
 	 * @param key  A unique identifier of the data source, usually specified by the administrator.
 	 * @return  An instance of a DataSource object representing the details of the connection.
 	 */
@@ -192,7 +192,7 @@ public class Coordinator {
 	
 	
 	/**
-	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) of the attributes to be used in searching.
+	 * Mounting stage: Determining the data sources (CSV files, JDBC or REST API connections) of the attributes to be used in searching.
 	 * This method accepts a file with the configuration settings.
 	 * @param jsonFile  Path to the JSON configuration file of the data sources, attributes and operations to be used in subsequent search requests.
 	 * @return  Notification regarding any issues occurred during mounting of the specified attribute data sources.
@@ -205,7 +205,7 @@ public class Coordinator {
 	
 	
 	/**
-	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) of the attributes to be used in searching.
+	 * Mounting stage: Determining the data sources (CSV files, JDBC or REST API connections) of the attributes to be used in searching.
 	 * This method accepts a configuration formatted as a JSON object.
 	 * @param mountConfig  JSON configuration file of the data sources, attributes and operations to be used in subsequent search requests.
 	 * @return  Notification regarding any issues occurred during mounting of the specified attribute data sources.
@@ -216,10 +216,12 @@ public class Coordinator {
 		ObjectMapper mapper = new ObjectMapper();	
 		try {
 			params = mapper.readValue(mountConfig.toJSONString(), MountRequest.class);
-		} catch (JsonMappingException e) {
-			e.printStackTrace();
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			Response response = new Response();
+			String msg = "Mount request discarded due to illegal specification of data sources or parameters. ";
+			log.writeln(msg);
+			response.setNotification(msg + e.getMessage() + " Please check your query specifications.");
+			return response;
 		}
 		
 		return mount(params);
@@ -227,7 +229,7 @@ public class Coordinator {
 	
 	
 	/**
-	 * Mounting stage: Determining the data sources (CSV files or JDBC connections) of the attributes to be used in searching.
+	 * Mounting stage: Determining the data sources (CSV files, JDBC or REST API connections) of the attributes to be used in searching.
 	 * This method accepts a configuration formatted as a JSON object.
 	 * @param params  Parameters specifying the data sources, attributes and operations to be used in subsequent search requests.
 	 * @return  Notification regarding any issues occurred during mounting of the specified attribute data sources.

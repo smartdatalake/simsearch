@@ -1,5 +1,6 @@
 package eu.smartdatalake.simsearch.engine;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,30 +11,38 @@ import eu.smartdatalake.simsearch.engine.processor.RankedResult;
 import eu.smartdatalake.simsearch.engine.processor.ResultFacet;
 
 /**
- * Auxiliary class to formulate search response in a tabular format for printing in the standard output (console).
+ * Auxiliary class to formulate search response in a tabular format for printing in a text file or to the standard output (console).
  */
 public class SearchResponseTable {
 
+	String newline;
+	
 	/**
 	 * Constructor
 	 */
 	public SearchResponseTable() {
 		
+		newline = System.getProperty("line.separator");   // Use system-dependent line separator
 	}
 
 
 	/**
-	 * Prints the search results into the standard output (console); long attribute values are wrapped into multiple lines.
+	 * Presents the search results in a tabular format for printing to a text file or to the standard output (console).
+	 * CAUTION! Long attribute values are wrapped into multiple lines.
 	 * @param weights  The weights applied to the specified batch of results. Assuming only ONE weight value per attribute.
 	 * @param results  Output results as received from the rank aggregation process (for a given combination of weights).
 	 * @param responseTime  Time (in seconds) taken to provide the response by the processing engine.
+	 * @return  A string that contains all results in tabular format (a header with column names, and one line per row).
 	 */
-	public void print(Map<String, Double> weights, IResult[] results, double responseTime) {
+	public String print(Map<String, Double> weights, IResult[] results, double responseTime) {
 		
-		System.out.println();
+		StringBuilder txtResult = new StringBuilder();
+		DecimalFormat df = new DecimalFormat("0.0#####");
+		txtResult.append(newline);
+
 		if (results.length == 0) {
-			System.out.println("Query timed out with no results.");
-			return;
+			txtResult.append("Query timed out with no results.");
+			return txtResult.toString();
 		}
 		
 		// Mandatory rank-related columns to appear in all results
@@ -43,7 +52,7 @@ public class SearchResponseTable {
 		// Length of the various columns
 		Map<String, Integer> columnLengths = new HashMap<>();
 		columnLengths.put("rank", 4);  		// fixed length for rank
-		columnLengths.put("score", 10);  	// fixed length for score
+		columnLengths.put("score", 8);  	// fixed length for score  //df.getMaximumIntegerDigits() + df.getMaximumFractionDigits() + 1
 		columnLengths.put("id", 2);  		// initial length for entity id
 	
 		// Initial length for attribute values
@@ -51,7 +60,7 @@ public class SearchResponseTable {
 			if (!columnNames.contains(col.getName()))
 				columnNames.add(col.getName());  
 			// Initial length for each attribute based on its name and weight
-			columnLengths.put(col.getName(), col.getName().length() + weights.get(col.getName()).toString().length() + 2);  
+			columnLengths.put(col.getName(), col.getName().length() + df.format(weights.get(col.getName())).length() + 2);  
 		}
 
 		// Initial length for extra attribute values
@@ -68,8 +77,8 @@ public class SearchResponseTable {
 		// Also determine lengths of attribute values
 		for (IResult res: results) {
 			String[] row = new String[columnLengths.size()];
-			row[0] = "" + res.getRank();  						// rank
-			row[1] = String.format("%10.8f", res.getScore());	// score
+			row[0] = "" + res.getRank();  			// rank
+			row[1] = df.format(res.getScore());		// score
 			// entity identifier
 			row[2] = res.getId();								
 			if (columnLengths.get("id") < res.getId().length()) {
@@ -146,25 +155,28 @@ public class SearchResponseTable {
 				line += "-";
 			line += "-+";
 	    }
-		formatString.append("|\n");
+		line += newline;
+		formatString.append("|" + newline);
 
 		// Next to attribute name, also mention the applied weight
 		for (ResultFacet col:results[0].getAttributes()) {
-			columnNames.set(columnNames.indexOf(col.getName()), col.getName() + "[" + weights.get(col.getName()).toString() +"]");
+			columnNames.set(columnNames.indexOf(col.getName()), col.getName() + "[" +  df.format(weights.get(col.getName())) +"]");
 		}
 		
 		// Print the formatted data
 		// HEADER
-		System.out.println(line);
-		System.out.printf(formatString.toString(), columnNames.toArray());  
-		System.out.println(line);
+		txtResult.append(line);
+		txtResult.append(String.format(formatString.toString(), columnNames.toArray())); 
+		txtResult.append(line);
 		// ROWS
-		for (String[] row: listWrappedRows) {    
-			System.out.printf(formatString.toString(), row); 
+		for (String[] row: listWrappedRows) {   
+			txtResult.append(String.format(formatString.toString(), row));
 		}
-		System.out.println(line);
-		System.out.println(listRows.size() + " rows selected in " + responseTime + " sec.");
-		System.out.println();
+		//STATISTICS
+		txtResult.append(line);
+		txtResult.append(listRows.size() + " rows selected in " + responseTime + " sec." + newline);
+		
+		return txtResult.toString();
 	}
 
 	/**

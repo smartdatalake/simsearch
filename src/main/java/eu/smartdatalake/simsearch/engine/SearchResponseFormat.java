@@ -180,12 +180,15 @@ public class SearchResponseFormat {
 			
 			responses[w] = response;	
 			
-			// Print results to a CSV file or to standard output (if applicable)
-			if (outWriter.isStandardOutput()) {   	// Standard output	
+			// Print results to a CSV file, a TXT file or to standard output (if applicable)
+			if (outWriter.isStandardOutput()) {   	// Tabular format to standard output	
 				outWriter.printResults(repWeights, results[w], execTime);	
 			}
-			else if (outWriter.isSet()) {  			// CSV file
-				outWriter.writeResults(repWeights.values().toArray(new Double[0]), results[w]);
+			else if (outWriter.isSet()) {  			
+				if (outWriter.outColumnDelimiter != null) 	// CSV file
+					outWriter.writeResults(repWeights.values().toArray(new Double[0]), results[w]);
+				else if (!outWriter.outJsonFile)			// Tabular format to TXT file
+					outWriter.printResults(repWeights, results[w], execTime);
 			}	    
 		}
 				

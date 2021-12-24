@@ -19,12 +19,12 @@ public class Constants {
 	public final static int KEY_COLUMN = 0;         // By default, the 1st column in the input CSV specifies the keys
 	public final static int SEARCH_COLUMN = 1;		// By default, the 2nd column in the input CSV specifies the values to search against
 	
-	public static final String OUTPUT_FORMAT = "JSON";
+	public static final String OUTPUT_FORMAT = "JSON";	// Default output format
 	
 	public final static String OUTPUT_COLUMN_SEPARATOR = ";";   // Only in case of CSV output files
 	public final static String OUTPUT_QUOTE = "\"";   			// Only in case of CSV output files
 	
-	//FIXME: Specific types of distance measures apply to each attribute involved in similarity search
+	// Specific types of similarity search queries, each involving a distance measure pertinent to the attribute type
 	public final static int CATEGORICAL_TOPK = 0;   // categorical (set-valued) top-k similarity search
 	public final static int SPATIAL_KNN = 1;   		// k-NN spatial similarity search
 	public final static int NUMERICAL_TOPK = 2;  	// numerical top-k similarity search
@@ -41,10 +41,10 @@ public class Constants {
 	
 	public final static int K_MAX = 50;		// Maximum allowable value for top-k most similar results to return per query
 	
-	public final static int INFLATION_FACTOR = 1000;     // Multiply the top-k with this value to specify the number of partial results to made available from each facet
+	public final static int INFLATION_FACTOR = 1000;     // Multiply the top-k with this value to specify the number of candidate results to made available from each attribute
 	
 	public final static List<String> RANKING_METHODS = Arrays.asList("threshold", "partial_random_access", "no_random_access", "pivot_based");
-	public final static String DEFAULT_METHOD = "threshold";	// By default, apply the threshold algorithm in rank aggregation
+	public final static String DEFAULT_METHOD = "threshold";	// By default, apply the threshold-based algorithm in rank aggregation
 
 	public static final String INCORRECT_DBMS = "Incorrect or no value set for the DBMS where input data is stored. Please specify a correct value in the configuration settings.";
 	  
@@ -56,7 +56,7 @@ public class Constants {
 	
 	public static final int NUM_SAMPLES = 500;  	// Number of sample points used for estimating pruning potential per metric to be used in RR*-tree construction
 	
-	// Pattern for SQL-like SELECT queries
+	// Syntax pattern for SQL-like SELECT queries
 	public static final String SQL_SELECT_PATTERN = "SELECT * \r\n" + 
 			"    [ FROM running_instance ]\r\n" + 
 			"      WHERE attr_name1 ~= 'attr_value1' [ AND ...] \r\n" + 
