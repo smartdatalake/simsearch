@@ -94,9 +94,9 @@ Thus, users are able to issue requests to an instance of the SimSearch service v
 
 In case all data is available in *ElasticSearch*, these [`example scripts`](data/elastic/) demonstrate how to specify a SimSearch instance against various types of ES-indexed atributes and interact with it with top-k similarity search queries. 
 
-## SimSearch service API support for OpenAPI 3.1
+## SimSearch REST API support for OpenAPI 3.1
 
-Starting from version version 0.5.1, SimSearch's REST API also supports [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) specification. In order to support for OpenAPI 3.1 specification, deploy SimSearch as a web service application at a specific port (e.g., 8090) as follows:
+Starting from version 0.5.1, SimSearch's REST API also supports [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) specification. In order to support for OpenAPI 3.1 specification, deploy SimSearch as a web service application at a specific port (e.g., 8090) as follows:
 
 ```sh
 $ java -Dserver.port=8090 -Dspringdoc.api-docs.version=openapi_3_1 -jar target/simsearch-0.5.1-SNAPSHOT.jar --service
