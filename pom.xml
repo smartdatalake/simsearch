@@ -12,7 +12,7 @@
 	
 	<groupId>eu.smartdatalake</groupId>
 	<artifactId>simsearch</artifactId>
-	<version>0.5-SNAPSHOT</version>
+	<version>0.5.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>simsearch</name>
@@ -31,7 +31,7 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 			<version>2.3.1.RELEASE</version>
 		</dependency>
-        <dependency>
+		<dependency>
 			<groupId>io.springfox</groupId>
 			<artifactId>springfox-swagger2</artifactId>
 			<version>2.9.2</version>
@@ -40,6 +40,11 @@
 			<groupId>io.springfox</groupId>
 			<artifactId>springfox-swagger-ui</artifactId>
 			<version>2.9.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-ui</artifactId>
+			<version>1.7.0</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
